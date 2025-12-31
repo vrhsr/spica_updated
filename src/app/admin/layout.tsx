@@ -44,6 +44,10 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useAuth } from '@/firebase';
 import { PasswordResetDialog } from './PasswordResetDialog';
 import { cn } from '@/lib/utils';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { Badge } from '@/components/ui/badge';
 
 const navItems = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -54,6 +58,11 @@ const navItems = [
   { href: '/admin/presentations', icon: Presentation, label: 'Presentations' },
   { href: '/admin/requests', icon: Mail, label: 'Change Requests' },
 ];
+
+type Request = {
+  status: 'pending' | 'approved' | 'rejected';
+  repId: string;
+};
 
 export default function AdminLayout({
   children,
@@ -66,6 +75,15 @@ export default function AdminLayout({
   const { user, isUserLoading } = useUser();
   const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
   const adminAvatar = PlaceHolderImages.find((img) => img.id === 'admin-avatar');
+
+  // Fetch pending requests count for badge
+  const firestore = useFirestore();
+  const requestsCollection = useMemoFirebase(
+    () => (firestore && user?.uid ? collection(firestore, 'requests') : null),
+    [firestore, user?.uid]
+  );
+  const { data: requests } = useCollection<Request>(requestsCollection);
+  const pendingCount = requests?.filter((r) => r.status === 'pending').length || 0;
 
   if (isUserLoading || !user) {
     return (
@@ -95,16 +113,26 @@ export default function AdminLayout({
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.label}>
-                <Link href={item.href}>
-                  <SidebarMenuButton isActive={pathname.startsWith(item.href)}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            ))}
+            {navItems.map((item) => {
+              const isRequestsItem = item.href === '/admin/requests';
+              const showBadge = isRequestsItem && pendingCount > 0;
+
+              return (
+                <SidebarMenuItem key={item.label}>
+                  <Link href={item.href}>
+                    <SidebarMenuButton isActive={pathname.startsWith(item.href)}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                      {showBadge && (
+                        <Badge className="ml-auto bg-destructive text-destructive-foreground">
+                          {pendingCount}
+                        </Badge>
+                      )}
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
@@ -156,7 +184,7 @@ export default function AdminLayout({
         </header>
         <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
       </SidebarInset>
-      
+
       <PasswordResetDialog open={isPasswordResetOpen} onOpenChange={setIsPasswordResetOpen} userEmail={user.email || ''} />
 
     </SidebarProvider>

@@ -43,12 +43,12 @@ import useSWR from 'swr';
 
 type City = { id: string; name: string };
 type Doctor = { id: string; name: string; city: string };
-type User = WithId<{ 
-    uid: string;
-    role: 'admin' | 'rep', 
-    displayName: string,
-    creationTime?: string; // This will come from the server action now
-    createdBy?: string;
+type User = WithId<{
+  uid: string;
+  role: 'admin' | 'rep',
+  displayName: string,
+  creationTime?: string; // This will come from the server action now
+  createdBy?: string;
 }>;
 type Request = {
   id: string;
@@ -109,7 +109,7 @@ export default function AdminDashboardPage() {
     isLoadingPresentations ||
     isLoadingCities ||
     isLoadingRequests;
-    
+
   const userMap = useMemo(() => new Map(allUsers?.map(u => [u.uid, u])), [allUsers]);
   const doctorMap = useMemo(() => new Map(doctors?.map(d => [d.id, d.name])), [doctors]);
 
@@ -117,47 +117,47 @@ export default function AdminDashboardPage() {
     if (!presentations && !requests && !allUsers) return [];
 
     const presentationActivities = (presentations || []).map(p => {
-        const actingUser = userMap.get(p.updatedBy);
-        const byText = actingUser 
-            ? `${actingUser.displayName} (${actingUser.role})`
-            : 'Admin';
+      const actingUser = userMap.get(p.updatedBy);
+      const byText = actingUser
+        ? `${actingUser.displayName} (${actingUser.role})`
+        : 'Admin';
 
-        return {
-            type: 'presentation',
-            action: p.error ? 'Generation Failed' : 'Presentation Generated',
-            subject: `for ${doctorMap.get(p.doctorId) || 'Unknown Doctor'}`,
-            by: byText,
-            time: p.updatedAt.toDate(),
-            isError: !!p.error,
-        }
+      return {
+        type: 'presentation',
+        action: p.error ? 'Generation Failed' : 'Presentation Generated',
+        subject: `for ${doctorMap.get(p.doctorId) || 'Unknown Doctor'}`,
+        by: byText,
+        time: p.updatedAt.toDate(),
+        isError: !!p.error,
+      }
     });
 
     const requestActivities = (requests || []).map(r => ({
-        type: 'request',
-        action: `Requested Slide Change`,
-        subject: `for ${doctorMap.get(r.doctorId) || 'Unknown Doctor'}`,
-        by: `Rep: ${userMap.get(r.repId)?.displayName || 'Unknown'}`,
-        time: r.createdAt?.toDate() || new Date(),
-        isError: false,
+      type: 'request',
+      action: `Requested Slide Change`,
+      subject: `for ${doctorMap.get(r.doctorId) || 'Unknown Doctor'}`,
+      by: `Rep: ${userMap.get(r.repId)?.displayName || 'Unknown'}`,
+      time: r.createdAt?.toDate() || new Date(),
+      isError: false,
     }));
-    
-    const userActivities = (allUsers || []).map(u => {
-        const creator = u.createdBy ? userMap.get(u.createdBy) : null;
-        const byText = creator ? `${creator.displayName} (${creator.role})` : 'System';
 
-        return {
-            type: 'user',
-            action: `Created New User`,
-            subject: `${u.displayName} (${u.role})`,
-            by: byText,
-            time: new Date(u.creationTime),
-            isError: false,
-        };
+    const userActivities = (allUsers || []).map(u => {
+      const creator = u.createdBy ? userMap.get(u.createdBy) : null;
+      const byText = creator ? `${creator.displayName} (${creator.role})` : 'System';
+
+      return {
+        type: 'user',
+        action: `Created New User`,
+        subject: `${u.displayName} (${u.role})`,
+        by: byText,
+        time: new Date(u.creationTime),
+        isError: false,
+      };
     });
 
     return [...presentationActivities, ...requestActivities, ...userActivities]
-        .sort((a,b) => b.time.getTime() - a.time.getTime())
-        .slice(0, 5); // Get the top 5 most recent activities
+      .sort((a, b) => b.time.getTime() - a.time.getTime())
+      .slice(0, 5); // Get the top 5 most recent activities
 
   }, [presentations, requests, allUsers, userMap, doctorMap]);
 
@@ -198,7 +198,7 @@ export default function AdminDashboardPage() {
         value: requests?.filter((r) => r.status === 'pending').length || 0,
         icon: Mail,
         variant: 'destructive',
-        href: '/admin/requests' // Assuming there is a requests page
+        href: '/admin/requests?status=pending'
       },
       {
         title: 'Active Cities',
@@ -218,14 +218,14 @@ export default function AdminDashboardPage() {
 
   const doctorStatusByCity = useMemo(() => {
     if (!cities || !presentations) return [];
-    
+
     return cities.map(city => {
-        const cityPresentations = presentations.filter(p => p.city === city.name);
-        const updated = cityPresentations.filter(p => !p.dirty && !p.error).length;
-        const pending = cityPresentations.filter(p => p.dirty).length;
-        const error = cityPresentations.filter(p => !!p.error).length;
-        
-        return { city: city.name, updated, pending, error };
+      const cityPresentations = presentations.filter(p => p.city === city.name);
+      const updated = cityPresentations.filter(p => !p.dirty && !p.error).length;
+      const pending = cityPresentations.filter(p => p.dirty).length;
+      const error = cityPresentations.filter(p => !!p.error).length;
+
+      return { city: city.name, updated, pending, error };
     });
 
   }, [cities, presentations]);
@@ -254,44 +254,44 @@ export default function AdminDashboardPage() {
     return (
       <div className="flex h-64 w-full items-center justify-center">
         <Loader className="h-8 w-8 animate-spin text-primary" />
-         <p className="ml-4 text-muted-foreground">Loading dashboard data...</p>
+        <p className="ml-4 text-muted-foreground">Loading dashboard data...</p>
       </div>
     );
   }
-  
+
   if (!isAdmin) {
     return (
-        <Card className="shadow-sm">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
-                <CardContent className="pt-4">
-                  <p>You do not have the necessary permissions to view this page. This is because your account does not have the 'admin' role. Please contact the system administrator.</p>
-                </CardContent>
-            </CardHeader>
-        </Card>
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
+          <CardContent className="pt-4">
+            <p>You do not have the necessary permissions to view this page. This is because your account does not have the 'admin' role. Please contact the system administrator.</p>
+          </CardContent>
+        </CardHeader>
+      </Card>
     )
   }
 
 
   const renderCard = (stat: (typeof stats)[0]) => {
-     const card = (
-          <Card key={stat.title} className="shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stat.value}</div>
-            </CardContent>
-          </Card>
-     );
-     
-     if (stat.href) {
-         return <Link href={stat.href} className="block">{card}</Link>
-     }
-     return card;
+    const card = (
+      <Card key={stat.title} className="shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {stat.title}
+          </CardTitle>
+          <stat.icon className="h-5 w-5 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold">{stat.value}</div>
+        </CardContent>
+      </Card>
+    );
+
+    if (stat.href) {
+      return <Link href={stat.href} className="block">{card}</Link>
+    }
+    return card;
   }
 
   return (
@@ -319,11 +319,6 @@ export default function AdminDashboardPage() {
               </Button>
             }
           />
-          <Button asChild>
-            <Link href="/admin/slides">
-              <UploadCloud className="mr-2 h-4 w-4" /> Upload Slide
-            </Link>
-          </Button>
         </div>
       </div>
 
@@ -340,27 +335,27 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             {recentActivity.length > 0 ? (
-                 <Table>
-                 <TableBody>
-                   {recentActivity.map((activity, index) => (
-                     <TableRow key={index}>
-                       <TableCell>
-                         <div className={`font-medium ${activity.isError ? 'text-destructive': ''}`}>{activity.action} {activity.subject}</div>
-                         <div className="text-sm text-muted-foreground">
-                           {activity.by}
-                         </div>
-                       </TableCell>
-                       <TableCell className="text-right text-muted-foreground">
-                         {formatDistanceToNow(activity.time, { addSuffix: true })}
-                       </TableCell>
-                     </TableRow>
-                   ))}
-                 </TableBody>
-               </Table>
+              <Table>
+                <TableBody>
+                  {recentActivity.map((activity, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <div className={`font-medium ${activity.isError ? 'text-destructive' : ''}`}>{activity.action} {activity.subject}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {activity.by}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {formatDistanceToNow(activity.time, { addSuffix: true })}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             ) : (
-                <div className="text-center text-muted-foreground py-10">
-                    No recent activity to display.
-                </div>
+              <div className="text-center text-muted-foreground py-10">
+                No recent activity to display.
+              </div>
             )}
           </CardContent>
         </Card>
@@ -404,4 +399,3 @@ export default function AdminDashboardPage() {
   );
 }
 
-    

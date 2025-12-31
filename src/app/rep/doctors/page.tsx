@@ -17,7 +17,12 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader, Search, FileQuestion, Eye, Download } from 'lucide-react';
+import { Loader, Search, FileQuestion, Monitor } from 'lucide-react';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { OfflineBadge } from '@/components/OfflineBadge';
+import { SaveOfflineButton } from '@/components/SaveOfflineButton';
+import { OfflineAwareViewButton } from '@/components/OfflineAwareViewButton';
+import { getPresentationOffline } from '@/lib/offline-storage';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +47,7 @@ type Doctor = {
 };
 
 type UserProfile = {
-    city: string;
+  city: string;
 }
 
 type EnrichedPresentation = Presentation & {
@@ -55,10 +60,10 @@ export default function RepDoctorsPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const userProfileRef = useMemoFirebase(
-      () => (firestore && user?.uid ? doc(firestore, 'users', user.uid) : null),
-      [firestore, user?.uid]
+    () => (firestore && user?.uid ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user?.uid]
   );
-  
+
   const { data: userProfile, isLoading: isLoadingProfile } = useDoc<UserProfile>(userProfileRef);
 
   const repCity = userProfile?.city;
@@ -78,7 +83,7 @@ export default function RepDoctorsPage() {
       where('city', '==', repCity)
     );
   }, [firestore, repCity]);
-  
+
   const { data: presentations, isLoading: isLoadingPresentations, error: presentationsError } = useCollection<Presentation>(presentationsQuery);
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
 
@@ -99,23 +104,23 @@ export default function RepDoctorsPage() {
       .sort((a, b) => b.updatedAt.toDate().getTime() - a.updatedAt.toDate().getTime());
 
     if (searchTerm) {
-        return enriched.filter(p => 
-            p.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+      return enriched.filter(p =>
+        p.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
     return enriched;
 
   }, [presentations, doctorsMap, searchTerm]);
 
   const getStatusBadge = (presentation: EnrichedPresentation) => {
-     if (presentation.error) {
-        return <Badge variant="destructive" title={presentation.error}>Failed</Badge>;
-     }
-     if (presentation.dirty) {
-        return <Badge variant="secondary">Pending Update</Badge>;
+    if (presentation.error) {
+      return <Badge variant="destructive" title={presentation.error}>Failed</Badge>;
+    }
+    if (presentation.dirty) {
+      return <Badge variant="secondary">Pending Update</Badge>;
     }
     if (presentation.pdfUrl) {
-        return <Badge className="bg-green-100 text-green-800">Ready</Badge>;
+      return <Badge className="bg-green-100 text-green-800">Ready</Badge>;
     }
     return <Badge variant="outline">Not Generated</Badge>;
   }
@@ -132,6 +137,7 @@ export default function RepDoctorsPage() {
 
   return (
     <div className="space-y-6">
+      <OfflineIndicator />
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           Doctor Presentations {repCity && <span className="text-primary">({repCity})</span>}
@@ -146,76 +152,84 @@ export default function RepDoctorsPage() {
           />
         </div>
       </div>
-       <Card>
+      <Card>
         <CardHeader>
           <CardTitle>Your Assigned Doctors</CardTitle>
           <CardDescription>View and download presentations.</CardDescription>
         </CardHeader>
         <CardContent>
-           {presentationsError ? (
-                <div className="py-8 text-center text-destructive">
-                    Failed to load presentations. This may be a security rule issue.
-                </div>
-            ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Doctor Name</TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {enrichedPresentations.length > 0 ? (
-                enrichedPresentations.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">
-                      {p.doctorName}
-                    </TableCell>
-                    <TableCell>
-                      {p.updatedAt ? (
-                        <span title={format(p.updatedAt.toDate(), 'PPP p')}>
-                            {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
-                        </span>
-                      ) : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                        {getStatusBadge(p)}
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button asChild variant="outline" size="sm" disabled={!p.pdfUrl}>
-                        <a href={p.pdfUrl} target="_blank" rel="noopener noreferrer">
-                          <Eye className="mr-2 h-4 w-4" /> View
-                        </a>
-                      </Button>
-                      <Button asChild variant="default" size="sm" disabled={!p.pdfUrl}>
-                        <a href={p.pdfUrl} download={`${p.doctorName?.replace(/ /g, '_')}_presentation.pdf`}>
-                          <Download className="mr-2 h-4 w-4" />
-                          Download
-                        </a>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          {presentationsError ? (
+            <div className="py-8 text-center text-destructive">
+              Failed to load presentations. This may be a security rule issue.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="h-48 text-center text-muted-foreground"
-                  >
-                     <div className="flex flex-col items-center justify-center">
-                        <FileQuestion className="h-12 w-12 text-muted-foreground/50"/>
+                  <TableHead>Doctor Name</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {enrichedPresentations.length > 0 ? (
+                  enrichedPresentations.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">
+                        {p.doctorName}
+                      </TableCell>
+                      <TableCell>
+                        {p.updatedAt ? (
+                          <span title={format(p.updatedAt.toDate(), 'PPP p')}>
+                            {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
+                          </span>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2 items-center">
+                          {getStatusBadge(p)}
+                          <OfflineBadge doctorId={p.doctorId} />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <SaveOfflineButton
+                          doctorId={p.doctorId}
+                          pdfUrl={p.pdfUrl || ''}
+                          doctorName={p.doctorName || 'Unknown'}
+                        />
+                        <OfflineAwareViewButton
+                          doctorId={p.doctorId}
+                          doctorName={p.doctorName || 'Unknown'}
+                          pdfUrl={p.pdfUrl}
+                        />
+                        <Button asChild variant="default" size="sm">
+                          <Link href={`/rep/present/${p.doctorId}`}>
+                            <Monitor className="mr-2 h-4 w-4" />
+                            Present
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="h-48 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center justify-center">
+                        <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                         <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
                         <p className="mt-1 text-sm">
-                           No presentations are currently assigned for your city.
+                          No presentations are currently assigned for your city.
                         </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

@@ -64,7 +64,7 @@ export default function RepLoginPage() {
         break;
     }
   };
-  
+
   const handleGoogleLogin = async () => {
     setError(null);
     setIsLoadingGoogle(true);
@@ -99,7 +99,7 @@ export default function RepLoginPage() {
     } catch (err: any) {
       handleAuthError(err);
     } finally {
-        setIsLoadingPassword(false);
+      setIsLoadingPassword(false);
     }
   };
 
@@ -107,7 +107,7 @@ export default function RepLoginPage() {
     <>
       <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200 p-4">
         <div className="w-full max-w-4xl rounded-xl bg-card/50 shadow-2xl backdrop-blur-lg md:grid md:grid-cols-2">
-          
+
           {/* Left Side: Branding */}
           <div className="hidden flex-col justify-center p-12 text-foreground md:flex">
             <Link href="/" className="mb-6 flex items-center gap-3">
@@ -123,22 +123,22 @@ export default function RepLoginPage() {
 
           {/* Right Side: Login Form */}
           <div className="relative flex flex-col justify-center rounded-xl bg-card p-6 sm:p-8">
-             <Button
-                variant="ghost"
-                size="icon"
-                className="absolute left-4 top-4 text-muted-foreground md:hidden"
-                asChild
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute left-4 top-4 text-muted-foreground"
+              asChild
             >
-                <Link href="/">
-                    <ArrowLeft className="h-4 w-4" />
-                    <span className="sr-only">Back</span>
-                </Link>
+              <Link href="/">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Back</span>
+              </Link>
             </Button>
             <div className="text-center">
               <h2 className="font-headline text-2xl font-bold tracking-tight">Representative Login</h2>
               <p className="text-sm text-muted-foreground">Sign in to your portal</p>
             </div>
-            
+
             <form onSubmit={handlePasswordLogin} className="mt-6 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -179,7 +179,7 @@ export default function RepLoginPage() {
                 className="w-full text-base font-bold"
                 disabled={isLoadingPassword || isLoadingGoogle}
               >
-                 {isLoadingPassword && <Loader className="mr-2 h-4 w-4 animate-spin"/>}
+                {isLoadingPassword && <Loader className="mr-2 h-4 w-4 animate-spin" />}
                 Sign In with Email
               </Button>
             </form>
@@ -196,7 +196,7 @@ export default function RepLoginPage() {
               onClick={handleGoogleLogin}
               disabled={isLoadingPassword || isLoadingGoogle}
             >
-              {isLoadingGoogle && <Loader className="mr-2 h-4 w-4 animate-spin"/>}
+              {isLoadingGoogle && <Loader className="mr-2 h-4 w-4 animate-spin" />}
               {!isLoadingGoogle && <Chrome className="mr-2 h-5 w-5" />}
               Sign in with Google
             </Button>

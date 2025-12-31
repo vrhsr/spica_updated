@@ -1,7 +1,8 @@
 
 'use client';
 
-import React, { useMemo, useState, useTransition } from 'react';
+import React, { useMemo, useState, useTransition, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -18,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader, Check, X, FileQuestion, MessageSquareQuote } from 'lucide-react';
+import { Loader, Check, X, FileQuestion, MessageSquareQuote, Eye } from 'lucide-react';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
 import { collection, doc, updateDoc, Timestamp, writeBatch, addDoc } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
@@ -28,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { listAllUsers } from '../users/actions';
 import useSWR from 'swr';
 import { generateAndUpsertPresentation } from '../doctors/actions';
+import { SlidePreviewDialog } from '@/components/SlidePreviewDialog';
 
 type Request = {
   repId: string;
@@ -57,12 +59,25 @@ export default function AdminRequestsPage() {
   const { user: adminUser } = useUser();
   const [isSubmitting, startTransition] = useTransition();
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [previewRequest, setPreviewRequest] = useState<EnrichedRequest | null>(null);
+
+  // Get search params for filtering
+  const searchParams = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+
+  // Set initial filter from URL params
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'pending' || status === 'approved' || status === 'rejected') {
+      setStatusFilter(status);
+    }
+  }, [searchParams]);
 
   // Data fetching
   const { data: allUsers, isLoading: isLoadingUsersSWR } = useSWR('allUsers', listAllUsers);
   const requestsCollection = useMemo(() => firestore ? collection(firestore, 'requests') : null, [firestore]);
   const doctorsCollection = useMemo(() => firestore ? collection(firestore, 'doctors') : null, [firestore]);
-  
+
   const { data: requests, isLoading: isLoadingRequests, forceRefetch: refetchRequests } = useCollection<Request>(requestsCollection);
   const { data: doctors, isLoading: isLoadingDoctors, forceRefetch: refetchDoctors } = useCollection<Doctor>(doctorsCollection);
 
@@ -78,18 +93,24 @@ export default function AdminRequestsPage() {
       .map(req => {
         const isNewDoctorRequest = !!req.doctorName;
         const doctor = req.doctorId ? doctorMap.get(req.doctorId) : null;
-        
+
         return {
-            ...req,
-            doctorNameDisplay: req.doctorName || doctor?.name || 'Unknown Doctor',
-            doctorCityDisplay: req.doctorCity || doctor?.city || 'Unknown City',
-            repName: userMap.get(req.repId)?.displayName || 'Unknown Rep',
-            requestType: isNewDoctorRequest ? 'New Doctor' : 'Slide Change'
+          ...req,
+          doctorNameDisplay: req.doctorName || doctor?.name || 'Unknown Doctor',
+          doctorCityDisplay: req.doctorCity || doctor?.city || 'Unknown City',
+          repName: userMap.get(req.repId)?.displayName || 'Unknown Rep',
+          requestType: (isNewDoctorRequest ? 'New Doctor' : 'Slide Change') as 'New Doctor' | 'Slide Change'
         };
       })
       .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
   }, [requests, userMap, doctorMap]);
-  
+
+  // Apply status filtering
+  const filteredRequests = useMemo(() => {
+    if (statusFilter === 'all') return enrichedRequests;
+    return enrichedRequests.filter(req => req.status === statusFilter);
+  }, [enrichedRequests, statusFilter]);
+
   const handleApproveRequest = (request: EnrichedRequest) => {
     if (!firestore || !adminUser || !request.doctorNameDisplay) return;
 
@@ -99,78 +120,78 @@ export default function AdminRequestsPage() {
         const requestRef = doc(firestore, 'requests', request.id);
 
         if (request.requestType === 'New Doctor') {
-            // Logic for approving a NEW doctor
-            if (!request.doctorName || !request.doctorCity) {
-                throw new Error("New doctor request is missing name or city.");
-            }
-            const doctorsCollection = collection(firestore, 'doctors');
+          // Logic for approving a NEW doctor
+          if (!request.doctorName || !request.doctorCity) {
+            throw new Error("New doctor request is missing name or city.");
+          }
+          const doctorsCollection = collection(firestore, 'doctors');
 
-            // 1. Create the new doctor doc
-            const newDoctorData = {
-                name: request.doctorName,
-                city: request.doctorCity,
-                selectedSlides: request.selectedSlides,
-            };
-            const newDoctorRef = await addDoc(doctorsCollection, newDoctorData);
+          // 1. Create the new doctor doc
+          const newDoctorData = {
+            name: request.doctorName,
+            city: request.doctorCity,
+            selectedSlides: request.selectedSlides,
+          };
+          const newDoctorRef = await addDoc(doctorsCollection, newDoctorData);
 
-            // 2. Mark the request as 'approved'
-            await updateDoc(requestRef, { status: 'approved' });
+          // 2. Mark the request as 'approved'
+          await updateDoc(requestRef, { status: 'approved' });
 
-            // 3. Trigger presentation generation
-            const result = await generateAndUpsertPresentation({
-                doctorId: newDoctorRef.id,
-                doctorName: request.doctorName,
-                city: request.doctorCity,
-                selectedSlides: request.selectedSlides,
-                adminUid: adminUser.uid,
-            });
+          // 3. Trigger presentation generation
+          const result = await generateAndUpsertPresentation({
+            doctorId: newDoctorRef.id,
+            doctorName: request.doctorName,
+            city: request.doctorCity,
+            selectedSlides: request.selectedSlides,
+            adminUid: adminUser.uid,
+          });
 
-             if (result.error) {
-                throw new Error(`Doctor created, but presentation generation failed: ${result.error}`);
-            }
+          if (result.error) {
+            throw new Error(`Doctor created, but presentation generation failed: ${result.error}`);
+          }
 
-            toast({
-                title: "New Doctor Approved",
-                description: `${request.doctorName} has been added and their presentation is ready.`
-            });
+          toast({
+            title: "New Doctor Approved",
+            description: `${request.doctorName} has been added and their presentation is ready.`
+          });
 
         } else {
-            // Logic for approving a SLIDE CHANGE
-            const batch = writeBatch(firestore);
-            
-            // 1. Update the doctor's document with the new slides
-            const doctorRef = doc(firestore, 'doctors', request.doctorId!);
-            batch.update(doctorRef, { selectedSlides: request.selectedSlides });
-            
-            // 2. Mark the request as 'approved'
-            batch.update(requestRef, { status: 'approved' });
+          // Logic for approving a SLIDE CHANGE
+          const batch = writeBatch(firestore);
 
-            // Commit the batch write
-            await batch.commit();
+          // 1. Update the doctor's document with the new slides
+          const doctorRef = doc(firestore, 'doctors', request.doctorId!);
+          batch.update(doctorRef, { selectedSlides: request.selectedSlides });
 
-            // 3. Trigger the presentation generation as a separate step after commit
-            const result = await generateAndUpsertPresentation({
+          // 2. Mark the request as 'approved'
+          batch.update(requestRef, { status: 'approved' });
+
+          // Commit the batch write
+          await batch.commit();
+
+          // 3. Trigger the presentation generation as a separate step after commit
+          const result = await generateAndUpsertPresentation({
             doctorId: request.doctorId!,
             doctorName: request.doctorNameDisplay,
             city: request.doctorCityDisplay,
             selectedSlides: request.selectedSlides,
             adminUid: adminUser.uid,
-            });
+          });
 
-            if (result.error) {
+          if (result.error) {
             throw new Error(`Presentation generation failed: ${result.error}`);
-            }
+          }
 
-            toast({
+          toast({
             title: "Request Approved & PPT Regenerated",
             description: `The slide changes for ${request.doctorNameDisplay} have been applied.`,
-            });
+          });
         }
-        
+
         refetchRequests(); // Refresh requests list
         refetchDoctors(); // Refresh doctors list 
 
-      } catch(err: any) {
+      } catch (err: any) {
         console.error("Error approving request:", err);
         toast({
           variant: "destructive",
@@ -188,27 +209,27 @@ export default function AdminRequestsPage() {
     setSubmittingId(requestId);
     startTransition(async () => {
       try {
-          const requestRef = doc(firestore, 'requests', requestId);
-          await updateDoc(requestRef, { status: 'rejected' });
-          
-          toast({
-              title: "Request Rejected",
-              description: "The change request has been marked as rejected.",
-          });
-          refetchRequests();
-      } catch(err) {
-          console.error("Error rejecting request:", err);
-          toast({
-              variant: "destructive",
-              title: "Update Failed",
-              description: "Could not reject the request. Check console for details.",
-          });
+        const requestRef = doc(firestore, 'requests', requestId);
+        await updateDoc(requestRef, { status: 'rejected' });
+
+        toast({
+          title: "Request Rejected",
+          description: "The change request has been marked as rejected.",
+        });
+        refetchRequests();
+      } catch (err) {
+        console.error("Error rejecting request:", err);
+        toast({
+          variant: "destructive",
+          title: "Update Failed",
+          description: "Could not reject the request. Check console for details.",
+        });
       } finally {
-          setSubmittingId(null);
+        setSubmittingId(null);
       }
     });
   }
-  
+
   const getStatusBadge = (status: Request['status']) => {
     switch (status) {
       case 'pending':
@@ -231,10 +252,44 @@ export default function AdminRequestsPage() {
       </div>
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Review Requests</CardTitle>
-          <CardDescription>
-            Approve or reject requests from representatives. Approving a request will automatically update slides and regenerate the presentation.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Review Requests</CardTitle>
+              <CardDescription>
+                Approve or reject requests from representatives. Approving a request will automatically update slides and regenerate the presentation.
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={statusFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('all')}
+              >
+                All
+              </Button>
+              <Button
+                variant={statusFilter === 'pending' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('pending')}
+              >
+                Pending
+              </Button>
+              <Button
+                variant={statusFilter === 'approved' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('approved')}
+              >
+                Approved
+              </Button>
+              <Button
+                variant={statusFilter === 'rejected' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('rejected')}
+              >
+                Rejected
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -257,51 +312,60 @@ export default function AdminRequestsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {enrichedRequests.length > 0 ? (
-                  enrichedRequests.map(req => (
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map(req => (
                     <TableRow key={req.id}>
-                       <TableCell className="font-medium">
-                            <Badge variant={req.requestType === 'New Doctor' ? 'secondary' : 'outline'}>
-                                {req.requestType}
-                            </Badge>
-                       </TableCell>
+                      <TableCell className="font-medium">
+                        <Badge variant={req.requestType === 'New Doctor' ? 'secondary' : 'outline'}>
+                          {req.requestType}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="font-medium">{req.doctorNameDisplay}</TableCell>
-                       <TableCell className="text-muted-foreground">{req.doctorCityDisplay}</TableCell>
+                      <TableCell className="text-muted-foreground">{req.doctorCityDisplay}</TableCell>
                       <TableCell className="text-muted-foreground">{req.repName}</TableCell>
                       <TableCell className="max-w-xs text-muted-foreground">
                         <p className="truncate text-xs" title={req.selectedSlides.join(', ')}>
-                            {req.selectedSlides.join(', ')}
+                          {req.selectedSlides.join(', ')}
                         </p>
                       </TableCell>
-                       <TableCell className="text-muted-foreground">
+                      <TableCell className="text-muted-foreground">
                         <span title={format(req.createdAt.toDate(), 'PPP p')}>
-                            {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
+                          {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
                         </span>
-                       </TableCell>
+                      </TableCell>
                       <TableCell>{getStatusBadge(req.status)}</TableCell>
                       <TableCell className="text-right">
                         {req.status === 'pending' ? (
                           <div className="flex justify-end gap-2">
-                            <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleRejectRequest(req.id)}
-                                disabled={isSubmitting}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setPreviewRequest(req)}
+                              disabled={isSubmitting}
                             >
-                                {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />}
-                                Reject
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Slides
                             </Button>
-                            <Button 
-                                size="sm"
-                                onClick={() => handleApproveRequest(req)}
-                                disabled={isSubmitting}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRejectRequest(req.id)}
+                              disabled={isSubmitting}
                             >
-                                {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />}
-                                Approve
+                              {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                              Reject
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleApproveRequest(req)}
+                              disabled={isSubmitting}
+                            >
+                              {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                              Approve
                             </Button>
                           </div>
                         ) : (
-                            <span className="text-xs text-muted-foreground italic">No actions</span>
+                          <span className="text-xs text-muted-foreground italic">No actions</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -322,6 +386,12 @@ export default function AdminRequestsPage() {
           )}
         </CardContent>
       </Card>
+      <SlidePreviewDialog
+        open={!!previewRequest}
+        onOpenChange={(open) => !open && setPreviewRequest(null)}
+        slideNumbers={previewRequest?.selectedSlides || []}
+        doctorName={previewRequest?.doctorNameDisplay}
+      />
     </div>
   );
 }

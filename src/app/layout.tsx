@@ -28,6 +28,10 @@ export default function RootLayout({
       className={cn(inter.variable, lora.variable)}
       style={{ colorScheme: 'light' }}
     >
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#2563eb" />
+      </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <FirebaseClientProvider>
           {children}
