@@ -1,0 +1,199 @@
+
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Stethoscope, ArrowLeft, Chrome } from 'lucide-react';
+import React, { useState } from 'react';
+import { useAuth } from '@/firebase';
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from 'firebase/auth';
+import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
+import { Separator } from '@/components/ui/separator';
+
+export default function AdminLoginPage() {
+  const router = useRouter();
+  const auth = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+  const [isLoadingPassword, setIsLoadingPassword] = useState(false);
+
+  const handleAuthError = (err: any) => {
+    console.error(err);
+    switch (err.code) {
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        setError('Invalid email or password. Please double-check your credentials.');
+        break;
+      case 'auth/invalid-email':
+        setError('Please enter a valid email address.');
+        break;
+      case 'auth/too-many-requests':
+        setError('Access to this account has been temporarily disabled due to many failed login attempts. You can try again later.');
+        break;
+      case 'auth/configuration-not-found':
+      case 'auth/operation-not-allowed':
+         setError('This sign-in method is not enabled for this project. Please enable it in the Firebase Authentication console.');
+         break;
+      case 'auth/popup-closed-by-user':
+        setError('Sign-in process was cancelled.');
+        break;
+      default:
+        setError('An unexpected error occurred. Please try again.');
+        break;
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoadingPassword(true);
+
+    if (!auth) {
+      setError('Authentication service is not available.');
+      setIsLoadingPassword(false);
+      return;
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/admin/dashboard');
+    } catch (err: any) {
+      handleAuthError(err);
+    } finally {
+      setIsLoadingPassword(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setIsLoadingGoogle(true);
+    if (!auth) {
+      setError('Authentication service is not available.');
+      setIsLoadingGoogle(false);
+      return;
+    }
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      router.push('/admin/dashboard');
+    } catch (err: any) {
+      handleAuthError(err);
+    } finally {
+      setIsLoadingGoogle(false);
+    }
+  };
+
+  return (
+    <>
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200">
+      <Card className="relative w-full max-w-md shadow-2xl">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute left-4 top-4 text-muted-foreground"
+          asChild
+        >
+          <Link href="/">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Back</span>
+          </Link>
+        </Button>
+        <CardHeader className="pt-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Stethoscope className="h-8 w-8" />
+          </div>
+          <CardTitle className="font-headline text-3xl">Admin Login</CardTitle>
+          <CardDescription>
+            Access the SPICASG management dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="admin@example.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoadingPassword || isLoadingGoogle}
+              />
+            </div>
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <Button 
+                        type="button"
+                        variant="link" 
+                        className="p-0 h-auto text-xs text-muted-foreground"
+                        onClick={() => setIsForgotPasswordOpen(true)}
+                    >
+                        Forgot Password?
+                    </Button>
+                </div>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoadingPassword || isLoadingGoogle}
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-primary py-6 text-base font-bold text-primary-foreground hover:bg-primary/90"
+              disabled={isLoadingPassword || isLoadingGoogle}
+            >
+              Login
+            </Button>
+          </form>
+
+          <div className="my-4 flex items-center">
+            <Separator />
+            <span className="mx-4 shrink-0 text-xs text-muted-foreground">OR</span>
+            <Separator />
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleGoogleLogin}
+            disabled={isLoadingPassword || isLoadingGoogle}
+          >
+            {isLoadingGoogle && <Chrome className="mr-2 h-5 w-5 animate-spin" />}
+            {!isLoadingGoogle && <Chrome className="mr-2 h-5 w-5" />}
+            Sign in with Google
+          </Button>
+
+           {error && (
+            <p className="mt-4 text-center text-sm text-destructive">{error}</p>
+          )}
+
+        </CardContent>
+      </Card>
+    </div>
+    <ForgotPasswordDialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen} />
+    </>
+  );
+}

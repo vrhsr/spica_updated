@@ -1,0 +1,211 @@
+
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the system, either an admin or a representative.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "The user's phone number, used for OTP login for representatives."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for login for admins.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role: 'admin' or 'rep'.",
+          "enum": ["admin", "rep"]
+        },
+        "city": {
+          "type": "string",
+          "description": "The ID of the city this user is assigned to."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether the user account is active."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the admin who created this user."
+        }
+      },
+      "required": ["name", "role", "city", "active"]
+    },
+    "City": {
+      "title": "City",
+      "type": "object",
+      "description": "Represents a city for which presentations are available.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the city."
+        }
+      },
+      "required": ["name"]
+    },
+    "Slide": {
+      "title": "Slide",
+      "type": "object",
+      "description": "Represents a single, reusable slide template in the global library.",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "URL of the slide image in Firebase Storage.",
+          "format": "uri"
+        },
+        "number": {
+          "type": "number",
+          "description": "The unique number identifying the slide."
+        },
+        "medicineName": {
+          "type": "string",
+          "description": "The name of the medicine featured on the slide."
+        },
+        "storagePath": {
+            "type": "string",
+            "description": "The path to the image file in Firebase Storage."
+        }
+      },
+      "required": ["url", "number", "medicineName", "storagePath"]
+    },
+    "Doctor": {
+      "title": "Doctor",
+      "type": "object" ,
+      "description": "Represents a doctor, associated with a city and a set of selected slides for their presentation.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the doctor."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city where the doctor is located."
+        },
+        "selectedSlides": {
+          "type": "array",
+          "description": "Array of slide numbers selected by an admin for this doctor's presentation.",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": ["name", "city"]
+    },
+    "Presentation": {
+      "title": "Presentation",
+      "type": "object",
+      "description": "Represents a generated PDF file for a specific doctor.",
+      "properties": {
+        "doctorId": {
+          "type": "string",
+          "description": "Reference to the Doctor this presentation is for."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city associated with this presentation, for easier querying."
+        },
+        "pdfUrl": {
+          "type": "string",
+          "description": "The download URL for the generated .pdf file in Firebase Storage.",
+          "format": "uri"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last generation.",
+          "format": "date-time"
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "The UID of the admin who last triggered the update."
+        },
+        "dirty": {
+          "type": "boolean",
+          "description": "Flag to trigger regeneration. Set to true when a change is made."
+        }
+      },
+      "required": ["doctorId", "city", "updatedAt", "updatedBy", "dirty"]
+    },
+    "Request": {
+      "title": "Request",
+      "type": "object",
+      "description": "Represents a request from a representative to update doctor or slide information.",
+      "properties": {
+        "repId": {
+          "type": "string",
+          "description": "The UID of the representative making the request."
+        },
+        "doctorId": {
+          "type": "string",
+          "description": "The ID of an existing doctor for whom the update is requested."
+        },
+        "doctorName": {
+          "type": "string",
+          "description": "The name of a proposed new doctor."
+        },
+        "doctorCity": {
+          "type": "string",
+          "description": "The city of a proposed new doctor."
+        },
+        "selectedSlides": {
+          "type": "array",
+          "description": "Array of slide numbers proposed by the representative.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the request.",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the request was created."
+        }
+      },
+      "required": ["repId", "selectedSlides", "status", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "phone",
+      "google.com"
+    ]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profile data, including their role and assigned city."
+    },
+    "/cities/{cityId}": {
+      "schema": { "$ref": "#/entities/City" },
+      "description": "Stores the list of active cities."
+    },
+    "/slides/{slideId}": {
+      "schema": { "$ref": "#/entities/Slide" },
+      "description": "Global library of master slide templates."
+    },
+    "/doctors/{doctorId}": {
+      "schema": { "$ref": "#/entities/Doctor" },
+      "description": "Stores doctor information and their assigned slide numbers."
+    },
+    "/presentations/{presentationId}": {
+      "schema": { "$ref": "#/entities/Presentation" },
+      "description": "Stores metadata and links for generated PDF files."
+    },
+    "/requests/{requestId}": {
+      "schema": { "$ref": "#/entities/Request" },
+      "description": "Stores change requests submitted by representatives."
+    }
+  }
+}

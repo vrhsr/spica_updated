@@ -1,0 +1,92 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions to be used in the rules
+    function isAdmin() {
+      // Check for the 'admin' role in the user's custom auth token.
+      return request.auth.token.role == "admin";
+    }
+
+    function isRep() {
+      // Check for the 'rep' role in the user's custom auth token.
+      return request.auth.token.role == "rep";
+    }
+
+    function isOwner(userId) {
+      // Check if the requesting user's UID matches the document's UID.
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isRepInCity(city) {
+      // Check if the user is a rep and their assigned city matches the document's city.
+      return isRep() && request.auth.token.city == city;
+    }
+
+    // USERS COLLECTION RULES
+    match /users/{userId} {
+
+      // Owners and admins can read a user document (get)
+      allow get: if isAdmin() || isOwner(userId);
+
+      // Owners can update their own profile (except restricted fields)
+      allow update: if isOwner(userId) && !('role' in request.resource.data.diff());
+      // Admins can update anything
+      allow write: if isAdmin();
+
+      // Admins can list all users. Reps CANNOT list users.
+      allow list: if isAdmin();
+    }
+
+    // Rules for the 'cities' collection
+    match /cities/{cityId} {
+      // Any authenticated user can read the list of cities.
+      allow get, list: if request.auth != null;
+      // Only admins can create, update, or delete cities.
+      allow write: if isAdmin();
+    }
+    
+    // Rules for the 'slides' collection
+    match /slides/{slideId} {
+       // Any authenticated user can read the master slides.
+      allow get, list: if request.auth != null;
+      // Only admins can modify the master slide library.
+      allow write: if isAdmin();
+    }
+
+    // Rules for the 'doctors' collection
+    match /doctors/{doctorId} {
+      // Admins can read any doctor.
+      // Reps can only read doctors that are in their assigned city.
+      allow get: if isAdmin() || isRepInCity(resource.data.city);
+      // Allow listing for any authenticated user.
+      allow list: if request.auth != null;
+      // Only admins can create, update, or delete doctors.
+      allow write: if isAdmin();
+    }
+
+    // Rules for the 'presentations' collection
+    match /presentations/{presentationId} {
+      // Admins can read any presentation metadata.
+      // Reps can only read presentations belonging to their city.
+      allow get, list: if isAdmin() || isRepInCity(resource.data.city);
+      // Only admins (or backend functions with admin privileges) can create/update presentations.
+      allow write: if isAdmin();
+    }
+
+    // Rules for the 'requests' collection
+    match /requests/{requestId} {
+      // A rep can create a request, but only for themselves.
+      allow create: if isRep() && request.resource.data.repId == request.auth.uid;
+      // An admin can read any request. A rep can only read their own requests.
+      allow get: if isAdmin() || (isRep() && resource.data.repId == request.auth.uid);
+      // Only an admin can update (approve/reject/edit) a request.
+      allow update: if isAdmin();
+      // Admins can list all requests. A rep can list their own requests (will be filtered by queries in the app).
+      allow list: if isAdmin() || isRep();
+      // Only admins can delete requests.
+      allow delete: if isAdmin();
+    }
+  }
+}
