@@ -255,9 +255,6 @@ export default function AdminRequestsPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Review Requests</CardTitle>
-              <CardDescription>
-                Approve or reject requests from representatives. Approving a request will automatically update slides and regenerate the presentation.
-              </CardDescription>
             </div>
             <div className="flex gap-2">
               <Button
