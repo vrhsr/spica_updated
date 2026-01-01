@@ -1,12 +1,13 @@
 {
-  "name": "SG HEALTH PHARMA Portal",
-  "short_name": "SG Portal",
+  "name": "SPICASG Portal",
+  "short_name": "SPICASG",
   "start_url": "/rep/offline",
   "display": "standalone",
   "orientation": "landscape",
   "background_color": "#ffffff",
   "theme_color": "#0ea5e9",
-  "description": "Professional presentation viewer for SG HEALTH PHARMA representatives",
+  "description": "Professional offline presentation viewer for SPICASG medical representatives",
+  "scope": "/",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -20,5 +21,11 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": [
+    "medical",
+    "business",
+    "productivity"
+  ],
+  "prefer_related_applications": false
 }
