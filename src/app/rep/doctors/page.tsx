@@ -193,8 +193,6 @@ export default function RepDoctorsPage() {
           Doctor Presentations {repCity && <span className="text-primary">({repCity})</span>}
         </h1>
         <div className="flex gap-2 items-center flex-wrap">
-          <SyncStatusIndicator outdatedCount={outdatedCount} />
-
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -204,19 +202,24 @@ export default function RepDoctorsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          {doctors && enrichedPresentations && (
-            <BulkDownloadButton
-              presentations={enrichedPresentations}
-              doctors={doctors}
-              syncStatus={syncStatus}
-            />
-          )}
         </div>
       </div>
       <Card>
-        <CardHeader>
-          <CardTitle>Your Assigned Doctors</CardTitle>
-          <CardDescription>View and download presentations.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="space-y-1">
+            <CardTitle>Your Assigned Doctors</CardTitle>
+            <CardDescription>View and download presentations.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <SyncStatusIndicator outdatedCount={outdatedCount} />
+            {doctors && enrichedPresentations && (
+              <BulkDownloadButton
+                presentations={enrichedPresentations}
+                doctors={doctors}
+                syncStatus={syncStatus}
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {presentationsError ? (
