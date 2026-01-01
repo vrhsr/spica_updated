@@ -8,8 +8,10 @@ import { getPresentationOffline, isAvailableOffline } from '@/lib/offline-storag
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure PDF.js worker - use local worker file for offline support
+if (typeof window !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+}
 
 export default function PresentationViewerPage() {
     const params = useParams();
