@@ -29,13 +29,13 @@ import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { generateAndUpsertPresentation } from '../doctors/actions';
+import { generateAndUpsertPresentation } from '@/app/admin/doctors/actions';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { EditSlidesForm } from '../doctors/AddDoctorDialog';
 
 
-type Presentation = { 
+type Presentation = {
   doctorId: string;
   city: string;
   pdfUrl?: string;
@@ -66,7 +66,7 @@ function PresentationsComponent() {
   const searchTerm = searchParams.get('q') || '';
   const cityFilter = searchParams.get('city');
   const statusFilter = searchParams.get('status');
-  
+
   const [isTransitioning, startTransition] = useTransition();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [editingPresentation, setEditingPresentation] = useState<EnrichedPresentation | null>(null);
@@ -74,15 +74,15 @@ function PresentationsComponent() {
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
   const { toast } = useToast();
-  
+
   const isAdmin = adminRole === 'admin';
 
-  const presentationsQuery = useMemoFirebase(() => 
-    (firestore && isAdmin) ? collection(firestore, 'presentations') : null, 
+  const presentationsQuery = useMemoFirebase(() =>
+    (firestore && isAdmin) ? collection(firestore, 'presentations') : null,
     [firestore, isAdmin]
   );
-  const doctorsQuery = useMemoFirebase(() => 
-    (firestore && isAdmin) ? collection(firestore, 'doctors') : null, 
+  const doctorsQuery = useMemoFirebase(() =>
+    (firestore && isAdmin) ? collection(firestore, 'doctors') : null,
     [firestore, isAdmin]
   );
 
@@ -96,23 +96,23 @@ function PresentationsComponent() {
     if (!doctors) return new Map<string, Omit<Doctor, 'id'>>();
     return new Map(doctors.map(doc => [doc.id, { name: doc.name, city: doc.city, selectedSlides: doc.selectedSlides }]));
   }, [doctors]);
-  
+
   const { availableCities, availableStatuses } = useMemo(() => {
     if (!presentations) return { availableCities: [], availableStatuses: [] };
-    
+
     const citySet = new Set<string>();
     const statusSet = new Set<EnrichedPresentation['status']>();
 
     presentations.forEach(p => {
-        citySet.add(p.city);
-        if (p.error) statusSet.add('failed');
-        else if (p.dirty) statusSet.add('pending');
-        else if (p.pdfUrl) statusSet.add('ready');
+      citySet.add(p.city);
+      if (p.error) statusSet.add('failed');
+      else if (p.dirty) statusSet.add('pending');
+      else if (p.pdfUrl) statusSet.add('ready');
     });
 
-    return { 
-        availableCities: [...citySet].sort(),
-        availableStatuses: [...statusSet].sort(),
+    return {
+      availableCities: [...citySet].sort(),
+      availableStatuses: [...statusSet].sort(),
     };
   }, [presentations]);
 
@@ -132,19 +132,19 @@ function PresentationsComponent() {
 
   const enrichedPresentations = useMemo((): EnrichedPresentation[] => {
     if (!presentations) return [];
-    
+
     let enriched = presentations.map(p => {
       const doctorInfo = doctorsMap.get(p.doctorId);
       let status: EnrichedPresentation['status'] = 'unknown';
 
       if (generatingId === p.id) {
-          status = 'generating';
+        status = 'generating';
       } else if (p.error) {
-          status = 'failed';
+        status = 'failed';
       } else if (p.dirty) {
-          status = 'pending';
+        status = 'pending';
       } else if (p.pdfUrl) {
-          status = 'ready';
+        status = 'ready';
       }
 
       return {
@@ -156,71 +156,71 @@ function PresentationsComponent() {
     });
 
     if (statusFilter) {
-        enriched = enriched.filter(p => p.status === statusFilter);
+      enriched = enriched.filter(p => p.status === statusFilter);
     }
     if (cityFilter) {
-        enriched = enriched.filter(p => p.city === cityFilter);
+      enriched = enriched.filter(p => p.city === cityFilter);
     }
     if (searchTerm) {
-        enriched = enriched.filter(p => 
-            (p.doctorName && p.doctorName.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
+      enriched = enriched.filter(p =>
+        (p.doctorName && p.doctorName.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
     }
     return enriched.sort((a, b) => b.updatedAt.toDate().getTime() - a.updatedAt.toDate().getTime());
 
   }, [presentations, doctorsMap, searchTerm, statusFilter, cityFilter, generatingId]);
 
   const getStatusBadge = (presentation: EnrichedPresentation) => {
-     switch(presentation.status) {
-        case 'generating':
-            return <Badge className="bg-blue-100 text-blue-800 animate-pulse">Generating...</Badge>;
-        case 'failed':
-            return <Badge variant="destructive" title={presentation.error}>Failed</Badge>;
-        case 'pending':
-            return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-        case 'ready':
-            return <Badge className="bg-green-100 text-green-800">Ready</Badge>;
-        default:
-            return <Badge variant="outline">Unknown</Badge>;
-     }
+    switch (presentation.status) {
+      case 'generating':
+        return <Badge className="bg-blue-100 text-blue-800 animate-pulse">Generating...</Badge>;
+      case 'failed':
+        return <Badge variant="destructive" title={presentation.error}>Failed</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case 'ready':
+        return <Badge className="bg-green-100 text-green-800">Ready</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
   }
 
   const handleGenerate = async (presentation: EnrichedPresentation) => {
     if (!adminUser || !presentation.doctorSlides || !presentation.doctorName) {
-        toast({ title: 'Error', description: 'Missing required data to generate.', variant: 'destructive'});
-        return;
+      toast({ title: 'Error', description: 'Missing required data to generate.', variant: 'destructive' });
+      return;
     }
 
     setGeneratingId(presentation.id);
     startTransition(async () => {
-        try {
-            const result = await generateAndUpsertPresentation({
-                doctorId: presentation.doctorId,
-                doctorName: presentation.doctorName!,
-                city: presentation.city,
-                selectedSlides: presentation.doctorSlides || [],
-                adminUid: adminUser.uid,
-            });
+      try {
+        const result = await generateAndUpsertPresentation({
+          doctorId: presentation.doctorId,
+          doctorName: presentation.doctorName!,
+          city: presentation.city,
+          selectedSlides: presentation.doctorSlides || [],
+          adminUid: adminUser.uid,
+        });
 
-            if (result.error) {
-                throw new Error(result.error);
-            }
-
-            toast({
-                title: 'Presentation Ready',
-                description: `PDF for ${presentation.doctorName} has been regenerated.`
-            });
-            forceRefetch();
-
-        } catch (err: any) {
-            console.error("Error generating presentation:", err);
-            toast({ title: 'Generation Failed', description: err.message || 'An unknown error occurred.', variant: 'destructive'});
-        } finally {
-            setGeneratingId(null);
+        if (result.error) {
+          throw new Error(result.error);
         }
+
+        toast({
+          title: 'Presentation Ready',
+          description: `PDF for ${presentation.doctorName} has been regenerated.`
+        });
+        forceRefetch();
+
+      } catch (err: any) {
+        console.error("Error generating presentation:", err);
+        toast({ title: 'Generation Failed', description: err.message || 'An unknown error occurred.', variant: 'destructive' });
+      } finally {
+        setGeneratingId(null);
+      }
     });
   }
-  
+
   const handleRegenerate = async (presentation: EnrichedPresentation) => {
     if (!firestore || !adminUser) return;
 
@@ -242,7 +242,7 @@ function PresentationsComponent() {
         description: `Presentation for ${presentation.doctorName} is now pending generation.`
       });
       forceRefetch();
-    } catch(err) {
+    } catch (err) {
       console.error("Error marking for regeneration:", err);
       toast({ title: 'Error', description: 'Could not mark for regeneration.', variant: 'destructive' });
     }
@@ -250,63 +250,63 @@ function PresentationsComponent() {
 
   const handleEditSlidesSave = async (slides: number[]) => {
     if (!editingPresentation || !firestore || !adminUser) return;
-    
+
     const originalPresentationId = editingPresentation.id;
     setGeneratingId(originalPresentationId);
     setEditingPresentation(null); // Close dialog immediately
 
     startTransition(async () => {
-        try {
-            // 1. Update the doctor document
-            const doctorRef = doc(firestore, 'doctors', editingPresentation.doctorId);
-            await updateDoc(doctorRef, { selectedSlides: slides });
-            refetchDoctors(); // re-fetch doctors to update the map
+      try {
+        // 1. Update the doctor document
+        const doctorRef = doc(firestore, 'doctors', editingPresentation.doctorId);
+        await updateDoc(doctorRef, { selectedSlides: slides });
+        refetchDoctors(); // re-fetch doctors to update the map
 
-            // 2. Mark presentation as dirty (not strictly needed as we regenerate right away, but good practice)
-            const presentationRef = doc(firestore, 'presentations', originalPresentationId);
-            await updateDoc(presentationRef, { dirty: true, updatedAt: Timestamp.now(), updatedBy: adminUser.uid });
-            forceRefetch(); // re-fetch presentations to show pending state
+        // 2. Mark presentation as dirty (not strictly needed as we regenerate right away, but good practice)
+        const presentationRef = doc(firestore, 'presentations', originalPresentationId);
+        await updateDoc(presentationRef, { dirty: true, updatedAt: Timestamp.now(), updatedBy: adminUser.uid });
+        forceRefetch(); // re-fetch presentations to show pending state
 
-            toast({
-                title: "Slides Updated",
-                description: `Slides for ${editingPresentation.doctorName} have been updated. Regenerating presentation...`,
-            });
-            
-            // 3. Trigger regeneration
-            await handleGenerate({ ...editingPresentation, doctorSlides: slides });
+        toast({
+          title: "Slides Updated",
+          description: `Slides for ${editingPresentation.doctorName} have been updated. Regenerating presentation...`,
+        });
 
-        } catch (err: any) {
-            console.error("Error updating slides:", err);
-            toast({
-                variant: "destructive",
-                title: "Failed to Update Slides",
-                description: "Could not save slide changes. Please check the console for details."
-            });
-        } finally {
-            setGeneratingId(null);
-        }
+        // 3. Trigger regeneration
+        await handleGenerate({ ...editingPresentation, doctorSlides: slides });
+
+      } catch (err: any) {
+        console.error("Error updating slides:", err);
+        toast({
+          variant: "destructive",
+          title: "Failed to Update Slides",
+          description: "Could not save slide changes. Please check the console for details."
+        });
+      } finally {
+        setGeneratingId(null);
+      }
     });
   }
 
-  
+
   if (isUserLoading) {
-      return (
-          <div className="flex h-64 w-full items-center justify-center">
-              <Loader className="h-8 w-8 animate-spin text-primary" />
-          </div>
-      )
+    return (
+      <div className="flex h-64 w-full items-center justify-center">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   if (!isAdmin) {
     return (
-        <Card className="shadow-sm">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
-                <CardDescription>
-                  You do not have the necessary permissions to view this page. This is because your account does not have the 'admin' role. Please contact the system administrator.
-                </CardDescription>
-            </CardHeader>
-        </Card>
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
+          <CardDescription>
+            You do not have the necessary permissions to view this page. This is because your account does not have the 'admin' role. Please contact the system administrator.
+          </CardDescription>
+        </CardHeader>
+      </Card>
     )
   }
 
@@ -318,30 +318,30 @@ function PresentationsComponent() {
           Manage Presentations
         </h1>
         <div className="flex items-center gap-2">
-            <div className="relative w-full max-w-sm">
+          <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-                placeholder="Search by doctor name..."
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => handleFilterChange('q', e.target.value)}
+              placeholder="Search by doctor name..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => handleFilterChange('q', e.target.value)}
             />
             {searchTerm && (
-                <Button
+              <Button
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
                 onClick={() => handleFilterChange('q', null)}
-                >
+              >
                 <X className="h-4 w-4 text-muted-foreground" />
-                </Button>
+              </Button>
             )}
-            </div>
-            {isAnyFilterActive && (
-                 <Button variant="ghost" onClick={() => router.push(pathname)}>
-                    Clear Filters
-                </Button>
-            )}
+          </div>
+          {isAnyFilterActive && (
+            <Button variant="ghost" onClick={() => router.push(pathname)}>
+              Clear Filters
+            </Button>
+          )}
         </div>
       </div>
       <Card className="shadow-sm">
@@ -350,131 +350,131 @@ function PresentationsComponent() {
           <CardDescription>View, download, or regenerate presentations for doctors.</CardDescription>
         </CardHeader>
         <CardContent>
-           {isLoading ? (
-                <div className="flex h-64 items-center justify-center">
-                    <Loader className="h-8 w-8 animate-spin text-primary" />
-                    <p className="ml-4 text-muted-foreground">Loading presentations...</p>
-                </div>
-            ) : presentationsError ? (
-                <div className="py-8 text-center text-destructive">
-                    Failed to load presentations. This may be a security rule issue. Check the console.
-                </div>
-            ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Doctor Name</TableHead>
-                <TableHead>
+          {isLoading ? (
+            <div className="flex h-64 items-center justify-center">
+              <Loader className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-4 text-muted-foreground">Loading presentations...</p>
+            </div>
+          ) : presentationsError ? (
+            <div className="py-8 text-center text-destructive">
+              Failed to load presentations. This may be a security rule issue. Check the console.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Doctor Name</TableHead>
+                  <TableHead>
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="-ml-4">
-                                City {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{cityFilter}</span>}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                            <DropdownMenuLabel>Filter by City</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                             <DropdownMenuCheckboxItem checked={!cityFilter} onSelect={() => handleFilterChange('city', null)}>
-                                All Cities
-                            </DropdownMenuCheckboxItem>
-                            {availableCities.map(city => (
-                                <DropdownMenuCheckboxItem
-                                    key={city}
-                                    checked={cityFilter === city}
-                                    onSelect={() => handleFilterChange('city', city)}
-                                >
-                                    {city}
-                                </DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="-ml-4">
+                          City {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{cityFilter}</span>}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Filter by City</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuCheckboxItem checked={!cityFilter} onSelect={() => handleFilterChange('city', null)}>
+                          All Cities
+                        </DropdownMenuCheckboxItem>
+                        {availableCities.map(city => (
+                          <DropdownMenuCheckboxItem
+                            key={city}
+                            checked={cityFilter === city}
+                            onSelect={() => handleFilterChange('city', city)}
+                          >
+                            {city}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
                     </DropdownMenu>
-                </TableHead>
-                <TableHead>Last Updated</TableHead>
-                <TableHead>
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                             <Button variant="ghost" className="-ml-4">
-                                Status {statusFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs capitalize text-secondary-foreground">{statusFilter}</span>}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start">
-                            <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuCheckboxItem checked={!statusFilter} onSelect={() => handleFilterChange('status', null)}>
-                                All Statuses
-                            </DropdownMenuCheckboxItem>
-                            {availableStatuses.map(status => (
-                                <DropdownMenuCheckboxItem
-                                    key={status}
-                                    checked={statusFilter === status}
-                                    onSelect={() => handleFilterChange('status', status)}
-                                    className="capitalize"
-                                >
-                                    {status}
-                                </DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
+                  </TableHead>
+                  <TableHead>Last Updated</TableHead>
+                  <TableHead>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="-ml-4">
+                          Status {statusFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs capitalize text-secondary-foreground">{statusFilter}</span>}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuCheckboxItem checked={!statusFilter} onSelect={() => handleFilterChange('status', null)}>
+                          All Statuses
+                        </DropdownMenuCheckboxItem>
+                        {availableStatuses.map(status => (
+                          <DropdownMenuCheckboxItem
+                            key={status}
+                            checked={statusFilter === status}
+                            onSelect={() => handleFilterChange('status', status)}
+                            className="capitalize"
+                          >
+                            {status}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
                     </DropdownMenu>
-                </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {enrichedPresentations.length > 0 ? (
-                enrichedPresentations.map((presentation) => (
-                  <TableRow key={presentation.id} className={(isTransitioning || !!generatingId) ? 'opacity-50' : ''}>
-                    <TableCell className="font-medium">
-                      {presentation.doctorName}
-                    </TableCell>
-                    <TableCell>{presentation.city}</TableCell>
-                    <TableCell>
-                      {presentation.updatedAt ? (
-                        <span title={format(presentation.updatedAt.toDate(), 'PPP p')}>
+                  </TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {enrichedPresentations.length > 0 ? (
+                  enrichedPresentations.map((presentation) => (
+                    <TableRow key={presentation.id} className={(isTransitioning || !!generatingId) ? 'opacity-50' : ''}>
+                      <TableCell className="font-medium">
+                        {presentation.doctorName}
+                      </TableCell>
+                      <TableCell>{presentation.city}</TableCell>
+                      <TableCell>
+                        {presentation.updatedAt ? (
+                          <span title={format(presentation.updatedAt.toDate(), 'PPP p')}>
                             {formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true })}
-                        </span>
-                      ) : 'N/A'}
-                    </TableCell>
-                    <TableCell>
+                          </span>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell>
                         {getStatusBadge(presentation)}
-                    </TableCell>
-                    <TableCell className="text-right space-x-2">
-                       {presentation.status === 'pending' || presentation.status === 'failed' ? (
-                         <Button 
-                            variant="secondary" 
-                            size="sm" 
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        {presentation.status === 'pending' || presentation.status === 'failed' ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleGenerate(presentation)}
                             disabled={isTransitioning || !!generatingId}
-                        >
-                          {generatingId === presentation.id ? (
-                            <Loader className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                             <RefreshCcw className="mr-2 h-4 w-4" />
-                          )}
-                          Generate
-                        </Button>
-                       ) : (
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                          >
+                            {generatingId === presentation.id ? (
+                              <Loader className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCcw className="mr-2 h-4 w-4" />
+                            )}
+                            Generate
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => window.open(presentation.pdfUrl, '_blank')}
                             disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
-                        >
+                          >
                             <Eye className="mr-2 h-4 w-4" />
                             View
-                        </Button>
-                       )}
-                        <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setEditingPresentation(presentation)}
-                            disabled={isTransitioning || !!generatingId}
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingPresentation(presentation)}
+                          disabled={isTransitioning || !!generatingId}
                         >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
                         </Button>
-                       <DropdownMenu>
+                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0" disabled={isTransitioning || !!generatingId}>
                               <span className="sr-only">Open menu</span>
@@ -483,73 +483,73 @@ function PresentationsComponent() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>More Actions</DropdownMenuLabel>
-                             <DropdownMenuItem 
-                                onClick={() => {
-                                    if(presentation.pdfUrl) {
-                                        const link = document.createElement('a');
-                                        link.href = presentation.pdfUrl;
-                                        link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                    }
-                                }}
-                                disabled={!presentation.pdfUrl}
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (presentation.pdfUrl) {
+                                  const link = document.createElement('a');
+                                  link.href = presentation.pdfUrl;
+                                  link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                }
+                              }}
+                              disabled={!presentation.pdfUrl}
                             >
                               <Download className="mr-2 h-4 w-4" /> Download PDF
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                                onClick={() => handleRegenerate(presentation)}
-                                disabled={presentation.dirty || isTransitioning || !!generatingId}
+                            <DropdownMenuItem
+                              onClick={() => handleRegenerate(presentation)}
+                              disabled={presentation.dirty || isTransitioning || !!generatingId}
                             >
                               <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="h-48 text-center text-muted-foreground"
-                  >
-                    <div className="flex flex-col items-center justify-center">
-                        <FileQuestion className="h-12 w-12 text-muted-foreground/50"/>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="h-48 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center justify-center">
+                        <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                         <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
                         <p className="mt-1 text-sm">
-                            {isAnyFilterActive
-                                ? `No presentations match your current filters.`
-                                : "Assign slides to a doctor to create a presentation."
-                            }
+                          {isAnyFilterActive
+                            ? `No presentations match your current filters.`
+                            : "Assign slides to a doctor to create a presentation."
+                          }
                         </p>
-                         {(isAnyFilterActive) && (
-                            <Button variant="link" onClick={() => router.push(pathname)}>Clear All Filters</Button>
+                        {(isAnyFilterActive) && (
+                          <Button variant="link" onClick={() => router.push(pathname)}>Clear All Filters</Button>
                         )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
-      
+
       {/* Edit Slides Dialog */}
       <Dialog open={!!editingPresentation} onOpenChange={(open) => !open && setEditingPresentation(null)}>
         <DialogContent className="max-w-2xl">
           {editingPresentation && (
-             <EditSlidesForm 
-                doctor={{
-                    id: editingPresentation.doctorId,
-                    name: editingPresentation.doctorName,
-                    city: editingPresentation.city,
-                    selectedSlides: editingPresentation.doctorSlides || [],
-                }}
-                onSave={handleEditSlidesSave} 
-                isSaving={isTransitioning || !!generatingId}
+            <EditSlidesForm
+              doctor={{
+                id: editingPresentation.doctorId,
+                name: editingPresentation.doctorName,
+                city: editingPresentation.city,
+                selectedSlides: editingPresentation.doctorSlides || [],
+              }}
+              onSave={handleEditSlidesSave}
+              isSaving={isTransitioning || !!generatingId}
             />
           )}
         </DialogContent>
@@ -561,12 +561,11 @@ function PresentationsComponent() {
 
 
 export default function PresentationsPage() {
-    return (
-        <Suspense fallback={<div className="flex h-64 w-full items-center justify-center"><Loader className="h-8 w-8 animate-spin" /></div>}>
-            <PresentationsComponent />
-        </Suspense>
-    )
+  return (
+    <Suspense fallback={<div className="flex h-64 w-full items-center justify-center"><Loader className="h-8 w-8 animate-spin" /></div>}>
+      <PresentationsComponent />
+    </Suspense>
+  )
 }
- 
 
-    
+

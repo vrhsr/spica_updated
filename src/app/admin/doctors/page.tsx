@@ -49,7 +49,7 @@ import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { generateAndUpsertPresentation } from './actions';
+import { generateAndUpsertPresentation } from '@/app/admin/doctors/actions';
 
 
 export type Doctor = {

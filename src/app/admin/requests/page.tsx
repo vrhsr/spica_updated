@@ -28,7 +28,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { listAllUsers } from '../users/actions';
 import useSWR from 'swr';
-import { generateAndUpsertPresentation } from '../doctors/actions';
+import { generateAndUpsertPresentation } from '@/app/admin/doctors/actions';
 import { SlidePreviewDialog } from '@/components/SlidePreviewDialog';
 
 type Request = {
