@@ -384,80 +384,160 @@ export default function DoctorsPage() {
               Failed to load doctors. This may be a security rule issue. Check the console.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Doctor Name</TableHead>
-                  <TableHead>City</TableHead>
-                  <TableHead>Assigned Slides</TableHead>
-                  <TableHead>Presentation Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Doctor Name</TableHead>
+                      <TableHead>City</TableHead>
+                      <TableHead>Assigned Slides</TableHead>
+                      <TableHead>Presentation Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
+                      <TableRow key={doctor.id} className={!!isSubmitting ? 'opacity-50' : ''}>
+                        <TableCell className="font-medium">{doctor.name}</TableCell>
+                        <TableCell>{doctor.city}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs max-w-xs truncate">{doctor.selectedSlides.join(', ')}</TableCell>
+                        <TableCell>{getStatusBadge(doctor)}</TableCell>
+                        <TableCell className="text-right">
+                          {doctor.presentationStatus === 'error' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="mr-2"
+                              onClick={() => handleGeneration(
+                                doctor.id,
+                                doctor.name,
+                                doctor.city,
+                                [...doctor.selectedSlides]
+                              )
+                              }
+                              disabled={!!isSubmitting}
+                            >
+                              <RefreshCcw className="mr-2 h-4 w-4" />
+                              Retry
+                            </Button>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0" disabled={!!isSubmitting}>
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => setEditDoctor(doctor)} disabled={!!isSubmitting}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit Slides
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-500 focus:bg-red-500/10 focus:text-red-600"
+                                onClick={() => setDoctorToDelete(doctor)}
+                                disabled={!!isSubmitting}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Doctor
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center justify-center">
+                            <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                            <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
+                            <p className="mt-1 text-sm">
+                              {cityFilter ? `No doctors have been added to ${cityFilter} yet.` : "No doctors have been added yet."}
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
                 {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
-                  <TableRow key={doctor.id} className={!!isSubmitting ? 'opacity-50' : ''}>
-                    <TableCell className="font-medium">{doctor.name}</TableCell>
-                    <TableCell>{doctor.city}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs max-w-xs truncate">{doctor.selectedSlides.join(', ')}</TableCell>
-                    <TableCell>{getStatusBadge(doctor)}</TableCell>
-                    <TableCell className="text-right">
-                      {doctor.presentationStatus === 'error' && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="mr-2"
-                          onClick={() => handleGeneration(
-                            doctor.id,
-                            doctor.name,
-                            doctor.city,
-                            [...doctor.selectedSlides] // 👈 force plain array
-                          )
-                          }
-                          disabled={!!isSubmitting}
-                        >
-                          <RefreshCcw className="mr-2 h-4 w-4" />
-                          Retry
-                        </Button>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={!!isSubmitting}>
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => setEditDoctor(doctor)} disabled={!!isSubmitting}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit Slides
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-500 focus:bg-red-500/10 focus:text-red-600"
-                            onClick={() => setDoctorToDelete(doctor)}
-                            disabled={!!isSubmitting}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete Doctor
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                )) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
-                      <div className="flex flex-col items-center justify-center">
-                        <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                        <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
-                        <p className="mt-1 text-sm">
-                          {cityFilter ? `No doctors have been added to ${cityFilter} yet.` : "No doctors have been added yet."}
-                        </p>
+                  <Card key={doctor.id} className={`p-4 ${!!isSubmitting ? 'opacity-50' : ''}`}>
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-semibold">{doctor.name}</p>
+                          <p className="text-sm text-muted-foreground">{doctor.city}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Slides: {doctor.selectedSlides.join(', ')}
+                          </p>
+                        </div>
+                        <div>{getStatusBadge(doctor)}</div>
                       </div>
-                    </TableCell>
-                  </TableRow>
+
+                      <div className="flex flex-wrap gap-2">
+                        {doctor.presentationStatus === 'error' && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleGeneration(
+                              doctor.id,
+                              doctor.name,
+                              doctor.city,
+                              [...doctor.selectedSlides]
+                            )}
+                            disabled={!!isSubmitting}
+                            className="flex-1"
+                          >
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                            Retry
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditDoctor(doctor)}
+                          disabled={!!isSubmitting}
+                          className="flex-1"
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Slides
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled={!!isSubmitting}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              className="text-red-500"
+                              onClick={() => setDoctorToDelete(doctor)}
+                              disabled={!!isSubmitting}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete Doctor
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </Card>
+                )) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                    <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
+                    <p className="mt-1 text-sm">
+                      Add a doctor to get started with creating presentations.
+                    </p>
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

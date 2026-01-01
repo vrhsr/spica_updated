@@ -298,59 +298,139 @@ export default function AdminRequestsPage() {
               <p className="ml-4 text-muted-foreground">Loading requests...</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Request Type</TableHead>
-                  <TableHead>Doctor</TableHead>
-                  <TableHead>City</TableHead>
-                  <TableHead>Requested By</TableHead>
-                  <TableHead>Proposed Slides</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Request Type</TableHead>
+                      <TableHead>Doctor</TableHead>
+                      <TableHead>City</TableHead>
+                      <TableHead>Requested By</TableHead>
+                      <TableHead>Proposed Slides</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRequests.length > 0 ? (
+                      filteredRequests.map(req => (
+                        <TableRow key={req.id}>
+                          <TableCell className="font-medium">
+                            <Badge variant={req.requestType === 'New Doctor' ? 'secondary' : 'outline'}>
+                              {req.requestType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{req.doctorNameDisplay}</TableCell>
+                          <TableCell className="text-muted-foreground">{req.doctorCityDisplay}</TableCell>
+                          <TableCell className="text-muted-foreground">{req.repName}</TableCell>
+                          <TableCell className="max-w-xs text-muted-foreground">
+                            <p className="truncate text-xs" title={req.selectedSlides.join(', ')}>
+                              {req.selectedSlides.join(', ')}
+                            </p>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            <span title={format(req.createdAt.toDate(), 'PPP p')}>
+                              {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
+                            </span>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(req.status)}</TableCell>
+                          <TableCell className="text-right">
+                            {req.status === 'pending' ? (
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setPreviewRequest(req)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View Slides
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRejectRequest(req.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                                  Reject
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveRequest(req)}
+                                  disabled={isSubmitting}
+                                >
+                                  {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                                  Approve
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">No actions</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center justify-center">
+                            <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                            <h3 className="mt-4 text-lg font-semibold">No Requests Found</h3>
+                            <p className="mt-1 text-sm">There are no pending or past requests to review.</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
                 {filteredRequests.length > 0 ? (
                   filteredRequests.map(req => (
-                    <TableRow key={req.id}>
-                      <TableCell className="font-medium">
-                        <Badge variant={req.requestType === 'New Doctor' ? 'secondary' : 'outline'}>
-                          {req.requestType}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{req.doctorNameDisplay}</TableCell>
-                      <TableCell className="text-muted-foreground">{req.doctorCityDisplay}</TableCell>
-                      <TableCell className="text-muted-foreground">{req.repName}</TableCell>
-                      <TableCell className="max-w-xs text-muted-foreground">
-                        <p className="truncate text-xs" title={req.selectedSlides.join(', ')}>
-                          {req.selectedSlides.join(', ')}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        <span title={format(req.createdAt.toDate(), 'PPP p')}>
-                          {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
-                        </span>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(req.status)}</TableCell>
-                      <TableCell className="text-right">
-                        {req.status === 'pending' ? (
-                          <div className="flex justify-end gap-2">
+                    <Card key={req.id} className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant={req.requestType === 'New Doctor' ? 'secondary' : 'outline'} className="text-xs">
+                                {req.requestType}
+                              </Badge>
+                              {getStatusBadge(req.status)}
+                            </div>
+                            <p className="font-semibold">{req.doctorNameDisplay}</p>
+                            <p className="text-sm text-muted-foreground">{req.doctorCityDisplay}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              By: {req.repName} • {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Slides: {req.selectedSlides.join(', ')}
+                            </p>
+                          </div>
+                        </div>
+
+                        {req.status === 'pending' && (
+                          <div className="flex flex-wrap gap-2">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => setPreviewRequest(req)}
                               disabled={isSubmitting}
+                              className="flex-1"
                             >
                               <Eye className="mr-2 h-4 w-4" />
-                              View Slides
+                              View
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleRejectRequest(req.id)}
                               disabled={isSubmitting}
+                              className="flex-1"
                             >
                               {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
                               Reject
@@ -359,30 +439,25 @@ export default function AdminRequestsPage() {
                               size="sm"
                               onClick={() => handleApproveRequest(req)}
                               disabled={isSubmitting}
+                              className="flex-1"
                             >
                               {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                               Approve
                             </Button>
                           </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">No actions</span>
                         )}
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </Card>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
-                      <div className="flex flex-col items-center justify-center">
-                        <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                        <h3 className="mt-4 text-lg font-semibold">No Requests Found</h3>
-                        <p className="mt-1 text-sm">There are no pending or past requests to review.</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                    <h3 className="mt-4 text-lg font-semibold">No Requests Found</h3>
+                    <p className="mt-1 text-sm">There are no pending or past requests to review.</p>
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
