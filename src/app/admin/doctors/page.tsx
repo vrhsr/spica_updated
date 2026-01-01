@@ -1,11 +1,13 @@
-
+```
 'use client';
 
+import React from 'react';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Table,
@@ -16,7 +18,9 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion, Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -38,8 +42,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import React, { useTransition } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AddDoctorDialog, EditSlidesForm } from './AddDoctorDialog';
@@ -84,6 +87,7 @@ export default function DoctorsPage() {
   const [editDoctor, setEditDoctor] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToDelete, setDoctorToDelete] = React.useState<WithId<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -118,7 +122,7 @@ export default function DoctorsPage() {
       return;
     }
 
-    setIsSubmitting(`generate-${doctorId}`);
+    setIsSubmitting(`generate - ${ doctorId } `);
     try {
       const result = await generateAndUpsertPresentation({
         doctorId,
@@ -134,7 +138,7 @@ export default function DoctorsPage() {
 
       toast({
         title: 'Presentation Ready',
-        description: `PDF for ${doctorName} has been generated and is available for download.`
+        description: `PDF for ${ doctorName } has been generated and is available for download.`
       });
       refetchPresentations();
 
@@ -148,27 +152,41 @@ export default function DoctorsPage() {
     }
   }
 
-  const enrichedDoctors = React.useMemo((): EnrichedDoctor[] => {
+  const enrichedDoctors: EnrichedDoctor[] = React.useMemo(() => {
     if (!doctors) return [];
-    const presentationMap = new Map(presentations?.map(p => [p.doctorId, p]));
+    const presentationMap = new Map(presentations?.map(p => [p.doctorId, p]) || []);
 
     return doctors.map(doctor => {
       const presentation = presentationMap.get(doctor.id);
       let status: EnrichedDoctor['presentationStatus'] = 'not-generated';
-
-      if (isSubmitting === `generate-${doctor.id}` || isSubmitting === `edit-slides-${doctor.id}` || isSubmitting === `add-${doctor.id}`) {
-        status = 'generating';
-      } else if (presentation?.error) {
-        status = 'error';
-      } else if (presentation?.dirty) {
-        status = 'pending';
-      } else if (presentation?.pdfUrl) {
-        status = 'ready';
+      if (presentation) {
+        if (presentation.error) status = 'error';
+        else if (presentation.dirty) status = 'pending';
+        else status = 'ready';
       }
 
-      return { ...doctor, presentationStatus: status, presentationError: presentation?.error };
+      // Override status if currently submitting for this doctor
+      if (isSubmitting === `generate - ${ doctor.id }` || isSubmitting === `edit - slides - ${ doctor.id } ` || isSubmitting === `add - ${ doctor.id } `) {
+        status = 'generating';
+      }
+
+      return {
+        ...doctor,
+        presentationStatus: status,
+        presentationError: presentation?.error,
+      };
     });
   }, [doctors, presentations, isSubmitting]);
+
+  // Filter doctors by search term
+  const filteredDoctors = React.useMemo(() => {
+    if (!searchTerm.trim()) return enrichedDoctors;
+    const lowerSearch = searchTerm.toLowerCase();
+    return enrichedDoctors.filter(doctor =>
+      doctor.name.toLowerCase().includes(lowerSearch) ||
+      doctor.city.toLowerCase().includes(lowerSearch)
+    );
+  }, [enrichedDoctors, searchTerm]);
 
 
   const getStatusBadge = (doctor: EnrichedDoctor) => {
@@ -205,10 +223,10 @@ export default function DoctorsPage() {
         throw err;
       });
       tempId = docRef.id;
-      setIsSubmitting(`add-${tempId}`);
+      setIsSubmitting(`add - ${ tempId } `);
       toast({
         title: "Doctor Added",
-        description: `${newDoctor.name} has been successfully added. Generating presentation...`,
+        description: `${ newDoctor.name } has been successfully added.Generating presentation...`,
       });
       refetchDoctors();
       // Now generate the presentation immediately
@@ -231,7 +249,7 @@ export default function DoctorsPage() {
 
     const originalDoctorId = editDoctor.id;
     try {
-      setIsSubmitting(`edit-slides-${originalDoctorId}`);
+      setIsSubmitting(`edit - slides - ${ originalDoctorId } `);
       const doctorRef = doc(firestore, 'doctors', editDoctor.id);
 
       // We set `dirty: true` here so the UI can show a pending state immediately
@@ -248,7 +266,7 @@ export default function DoctorsPage() {
 
       toast({
         title: "Slides Updated",
-        description: `Slides for ${editDoctor.name} have been updated. Regenerating presentation...`,
+        description: `Slides for ${ editDoctor.name } have been updated.Regenerating presentation...`,
       });
       setEditDoctor(null); // Close dialog on success before generation
       refetchDoctors();
@@ -279,7 +297,7 @@ export default function DoctorsPage() {
     if (!doctorToDelete || !firestore) return;
 
     try {
-      setIsSubmitting(`delete-${doctorToDelete.id}`);
+      setIsSubmitting(`delete -${ doctorToDelete.id } `);
       const batch = writeBatch(firestore);
       const doctorRef = doc(firestore, 'doctors', doctorToDelete.id);
       const presentationsRef = collection(firestore, 'presentations');
@@ -304,7 +322,7 @@ export default function DoctorsPage() {
 
       toast({
         title: 'Doctor Deleted',
-        description: `${doctorToDelete.name} and their associated presentation have been successfully deleted.`,
+        description: `${ doctorToDelete.name } and their associated presentation have been successfully deleted.`,
       });
       refetchDoctors();
       refetchPresentations();
@@ -345,7 +363,7 @@ export default function DoctorsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           {cityFilter && (
             <Button variant="outline" size="icon" asChild>
@@ -354,7 +372,7 @@ export default function DoctorsPage() {
               </Link>
             </Button>
           )}
-          <h1 className="font-headline text-3xl font-bold tracking-tight">
+          <h1 className="font-headline text-2xl md:text-3xl font-bold tracking-tight">
             Manage Doctors {cityFilter && <span className="text-primary">({cityFilter})</span>}
           </h1>
         </div>
@@ -371,7 +389,25 @@ export default function DoctorsPage() {
       </div>
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Doctors List</CardTitle>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>All Doctors</CardTitle>
+              <CardDescription>
+                {cityFilter
+                  ? `Doctors in ${ cityFilter }. Click the back arrow to view all cities.`
+                  : 'Manage all doctors and their presentations.'}
+              </CardDescription>
+            </div>
+            <div className="relative w-full md:w-72">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search doctors..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -398,7 +434,7 @@ export default function DoctorsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
+                    {filteredDoctors && filteredDoctors.length > 0 ? filteredDoctors.map((doctor) => (
                       <TableRow key={doctor.id} className={!!isSubmitting ? 'opacity-50' : ''}>
                         <TableCell className="font-medium">{doctor.name}</TableCell>
                         <TableCell>{doctor.city}</TableCell>
@@ -453,7 +489,7 @@ export default function DoctorsPage() {
                             <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                             <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
                             <p className="mt-1 text-sm">
-                              {cityFilter ? `No doctors have been added to ${cityFilter} yet.` : "No doctors have been added yet."}
+                              {searchTerm ? `No doctors match "${searchTerm}"` : cityFilter ? `No doctors have been added to ${ cityFilter } yet.` : "No doctors have been added yet."}
                             </p>
                           </div>
                         </TableCell>
@@ -466,7 +502,7 @@ export default function DoctorsPage() {
               {/* Mobile Card View */}
               <div className="md:hidden space-y-4">
                 {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
-                  <Card key={doctor.id} className={`p-4 ${!!isSubmitting ? 'opacity-50' : ''}`}>
+                  <Card key={doctor.id} className={`p - 4 ${ !!isSubmitting ? 'opacity-50' : '' } `}>
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -532,7 +568,7 @@ export default function DoctorsPage() {
                     <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                     <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
                     <p className="mt-1 text-sm">
-                      Add a doctor to get started with creating presentations.
+                      {searchTerm ? `No doctors match "${searchTerm}"` : "Add a doctor to get started with creating presentations."}
                     </p>
                   </div>
                 )}
@@ -546,7 +582,7 @@ export default function DoctorsPage() {
       <Dialog open={!!editDoctor} onOpenChange={(open) => !open && setEditDoctor(null)}>
         <DialogContent className="max-w-2xl">
           {editDoctor && (
-            <EditSlidesForm doctor={editDoctor} onSave={handleEditSlidesSave} isSaving={isSubmitting === `edit-slides-${editDoctor.id}`} />
+            <EditSlidesForm doctor={editDoctor} onSave={handleEditSlidesSave} isSaving={isSubmitting === `edit - slides - ${ editDoctor.id } `} />
           )}
         </DialogContent>
       </Dialog>
