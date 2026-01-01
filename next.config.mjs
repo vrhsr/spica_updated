@@ -38,32 +38,16 @@ export default isProd
     },
 
     runtimeCaching: [
-      // ⚡ CRITICAL: Cache app shell so it loads offline
+      // ⚡ CRITICAL: Cache app shell so it loads offline (Domain Specific: spicasg.in)
       {
-        urlPattern: /^\/_next\/.*/,
+        urlPattern: /^https?:\/\/(www\.)?spicasg\.in\/(_next|static|favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.js).*/,
         handler: "StaleWhileRevalidate",
         options: {
-          cacheName: "app-shell-next",
+          cacheName: "app-shell-spicasg",
           matchOptions: { ignoreVary: true },
         },
       },
-      {
-        urlPattern: /^\/static\/.*/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "app-shell-static",
-          expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 365 }
-        },
-      },
-      {
-        urlPattern: /\/(favicon\.ico|manifest\.json|icon-.*\.png|logo\.png|pdf\.worker\.min\.js)$/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "app-shell-assets",
-          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 365 }
-        },
-      },
-      // 🧱 Cache PDFs from Supabase storage (for any that still use URL fallback)
+      // 🧱 Cache PDFs from Supabase (fallback) or other external sources
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*\.(pdf)$/,
         handler: "CacheFirst",
