@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Loader, CheckCircle2, XCircle } from 'lucide-react';
+import { Download, Loader, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { savePresentationOffline } from '@/lib/offline-storage';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -13,6 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import { SyncResultMap, SyncStatus } from '@/lib/sync-engine';
 
 interface Presentation {
     id: string;
@@ -30,9 +31,10 @@ interface Doctor {
 interface BulkDownloadButtonProps {
     presentations: Presentation[];
     doctors: Doctor[];
+    syncStatus?: SyncResultMap;
 }
 
-export function BulkDownloadButton({ presentations, doctors }: BulkDownloadButtonProps) {
+export function BulkDownloadButton({ presentations, doctors, syncStatus }: BulkDownloadButtonProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [total, setTotal] = useState(0);
@@ -42,32 +44,48 @@ export function BulkDownloadButton({ presentations, doctors }: BulkDownloadButto
 
     const doctorMap = new Map(doctors.map(d => [d.id, d.name]));
 
-    const handleBulkDownload = async () => {
-        // Filter presentations that are ready and have PDF URLs
+    // Determine what needs to be downloaded
+    // If syncStatus is provided, we prioritize "OUTDATED" and "MISSING" items
+    const getTargetPresentations = () => {
         const readyPresentations = presentations.filter(
             p => p.pdfUrl && !p.dirty && !p.error
         );
 
-        if (readyPresentations.length === 0) {
+        if (!syncStatus) return readyPresentations;
+
+        return readyPresentations.filter(p => {
+            const status = syncStatus.get(p.doctorId)?.status;
+            return status === 'OUTDATED' || status === 'MISSING';
+        });
+    };
+
+    const targetPresentations = getTargetPresentations();
+    const outdatedCount = syncStatus
+        ? Array.from(syncStatus.values()).filter(r => r.status === 'OUTDATED').length
+        : 0;
+
+    const isUpdateMode = outdatedCount > 0;
+
+    const handleBulkDownload = async () => {
+        if (targetPresentations.length === 0) {
             toast({
-                variant: 'destructive',
-                title: 'No Presentations Available',
-                description: 'There are no ready presentations to download.',
+                title: 'All Caught Up!',
+                description: 'All presentations are already downloaded and up to date.',
             });
             return;
         }
 
         setIsDownloading(true);
         setProgress(0);
-        setTotal(readyPresentations.length);
+        setTotal(targetPresentations.length);
         setSuccessCount(0);
         setFailCount(0);
 
         let success = 0;
         let failed = 0;
 
-        for (let i = 0; i < readyPresentations.length; i++) {
-            const presentation = readyPresentations[i];
+        for (let i = 0; i < targetPresentations.length; i++) {
+            const presentation = targetPresentations[i];
             const doctorName = doctorMap.get(presentation.doctorId) || 'Unknown Doctor';
 
             try {
@@ -94,8 +112,8 @@ export function BulkDownloadButton({ presentations, doctors }: BulkDownloadButto
 
         // Show completion toast
         toast({
-            title: '✓ Bulk Download Complete',
-            description: `Downloaded ${success} presentations. ${failed > 0 ? `${failed} failed.` : ''}`,
+            title: isUpdateMode ? '✓ Update Complete' : '✓ Download Complete',
+            description: `Processed ${success} presentations. ${failed > 0 ? `${failed} failed.` : ''}`,
         });
 
         // Close modal after a brief delay
@@ -106,20 +124,36 @@ export function BulkDownloadButton({ presentations, doctors }: BulkDownloadButto
     };
 
     const progressPercentage = total > 0 ? (progress / total) * 100 : 0;
+    const buttonLabel = isUpdateMode
+        ? `Update ${targetPresentations.length} Presentations`
+        : `Download All (${targetPresentations.length})`;
 
     return (
         <>
-            <Button onClick={handleBulkDownload} disabled={isDownloading}>
-                <Download className="mr-2 h-4 w-4" />
-                Download All Offline
+            <Button
+                onClick={handleBulkDownload}
+                disabled={isDownloading || targetPresentations.length === 0}
+                variant={isUpdateMode ? "default" : "outline"}
+                className={isUpdateMode ? "bg-amber-600 hover:bg-amber-700" : ""}
+            >
+                {isDownloading ? (
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                ) : isUpdateMode ? (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                )}
+                {buttonLabel}
             </Button>
 
             <Dialog open={isDownloading} onOpenChange={() => { }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Downloading Presentations</DialogTitle>
+                        <DialogTitle>{isUpdateMode ? 'Updating Presentations' : 'Downloading Presentations'}</DialogTitle>
                         <DialogDescription>
-                            Saving all presentations for offline viewing...
+                            {isUpdateMode
+                                ? 'Getting the latest versions for offline viewing...'
+                                : 'Saving presentations for offline viewing...'}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -146,7 +180,7 @@ export function BulkDownloadButton({ presentations, doctors }: BulkDownloadButto
 
                         {progress === total && total > 0 && (
                             <div className="text-center text-sm font-medium text-green-600">
-                                ✓ Download complete!
+                                ✓ {isUpdateMode ? 'Update' : 'Download'} complete!
                             </div>
                         )}
                     </div>

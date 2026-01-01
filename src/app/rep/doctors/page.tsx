@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -22,9 +23,11 @@ import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { SaveOfflineButton } from '@/components/SaveOfflineButton';
 import { OfflineAwareViewButton } from '@/components/OfflineAwareViewButton';
-import { getPresentationOffline } from '@/lib/offline-storage';
 import { BulkDownloadButton } from '@/components/BulkDownloadButton';
-import Link from 'next/link';
+import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
+import { checkForUpdates, SyncResultMap } from '@/lib/sync-engine';
+import { isAvailableOffline } from '@/lib/offline-storage';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -58,7 +61,10 @@ type EnrichedPresentation = Presentation & {
 export default function RepDoctorsPage() {
   const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [syncStatus, setSyncStatus] = useState<SyncResultMap>(new Map());
 
   const userProfileRef = useMemoFirebase(
     () => (firestore && user?.uid ? doc(firestore, 'users', user.uid) : null),
@@ -113,10 +119,39 @@ export default function RepDoctorsPage() {
 
   }, [presentations, doctorsMap, searchTerm]);
 
+  // Check for updates whenever presentations list changes
+  useEffect(() => {
+    const checkSync = async () => {
+      if (enrichedPresentations.length > 0) {
+        // Only checking those with a valid id (though firestore docs always have id)
+        // Only checking those with a valid id (though firestore docs always have id)
+        const validPresentations = enrichedPresentations.map(p => ({
+          doctorId: p.doctorId,
+          updatedAt: p.updatedAt,
+          id: p.id
+        }));
+        const results = await checkForUpdates(validPresentations);
+        setSyncStatus(results);
+      }
+    };
+    checkSync();
+  }, [enrichedPresentations]);
+
+  const outdatedCount = useMemo(() => {
+    return Array.from(syncStatus.values()).filter(r => r.status === 'OUTDATED').length;
+  }, [syncStatus]);
+
   const getStatusBadge = (presentation: EnrichedPresentation) => {
     if (presentation.error) {
       return <Badge variant="destructive" title={presentation.error}>Failed</Badge>;
     }
+
+    // Check sync status first
+    const sync = syncStatus.get(presentation.doctorId);
+    if (sync?.status === 'OUTDATED') {
+      return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">Update Available</Badge>;
+    }
+
     if (presentation.dirty) {
       return <Badge variant="secondary">Pending Update</Badge>;
     }
@@ -126,6 +161,20 @@ export default function RepDoctorsPage() {
     return <Badge variant="outline">Not Generated</Badge>;
   }
 
+  const handlePresentClick = (e: React.MouseEvent, doctorId: string, doctorName: string) => {
+    e.preventDefault(); // Prevent default if it was a link, though we use button now
+
+    // Synchronous check using localStorage (via offline-storage lib)
+    if (isAvailableOffline(doctorId)) {
+      router.push(`/rep/present/${doctorId}`);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Not Saved Offline",
+        description: `Please save ${doctorName}'s presentation offline before presenting.`,
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -143,7 +192,9 @@ export default function RepDoctorsPage() {
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           Doctor Presentations {repCity && <span className="text-primary">({repCity})</span>}
         </h1>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
+          <SyncStatusIndicator outdatedCount={outdatedCount} />
+
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -157,6 +208,7 @@ export default function RepDoctorsPage() {
             <BulkDownloadButton
               presentations={enrichedPresentations}
               doctors={doctors}
+              syncStatus={syncStatus}
             />
           )}
         </div>
@@ -213,11 +265,14 @@ export default function RepDoctorsPage() {
                             doctorName={p.doctorName || 'Unknown'}
                             pdfUrl={p.pdfUrl}
                           />
-                          <Button asChild variant="default" size="sm" className="h-9">
-                            <Link href={`/rep/present/${p.doctorId}`}>
-                              <Monitor className="mr-2 h-4 w-4" />
-                              Present
-                            </Link>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9"
+                            onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
+                          >
+                            <Monitor className="mr-2 h-4 w-4" />
+                            Present
                           </Button>
                         </TableCell>
                       </TableRow>

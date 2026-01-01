@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Download, Trash2, Loader } from 'lucide-react';
+import { Download, Loader, Check } from 'lucide-react';
 import {
     savePresentationOffline,
     removePresentationOffline,
@@ -108,15 +108,11 @@ export function SaveOfflineButton({
             <Button
                 variant={variant}
                 size={size}
-                onClick={handleRemoveOffline}
-                disabled={loading}
+                className="text-green-600 border-green-200 bg-green-50 hover:bg-green-50 hover:text-green-600 cursor-default"
+                onClick={(e) => e.preventDefault()}
             >
-                {loading ? (
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <Trash2 className="mr-2 h-4 w-4" />
-                )}
-                Remove Offline
+                <Check className="mr-2 h-4 w-4" />
+                Saved
             </Button>
         );
     }
