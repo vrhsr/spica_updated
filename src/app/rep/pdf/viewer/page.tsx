@@ -97,7 +97,7 @@ function PDFViewer() {
                 setTotalPages(doc.numPages);
                 setIsLoading(false);
             },
-            (reason) => {
+            (reason: any) => {
                 // Log the detailed error to the console for visibility
                 console.error("PDF load error:", reason);
                 setError("Failed to load the PDF file. Check the console for details. It might be corrupted or inaccessible.");
