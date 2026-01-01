@@ -1,39 +1,22 @@
 /**
  * Offline Storage Service
  * Manages offline presentation storage using IndexedDB
+ * Now migrated to the new PDF Storage Architecture
  */
 
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
-
-// Database schema
-interface OfflineDB extends DBSchema {
-    presentations: {
-        key: string; // doctorId
-        value: {
-            doctorId: string;
-            doctorName: string;
-            pdfBlob: Blob;
-            downloadedAt: Date;
-            fileSize: number;
-        };
-    };
-}
-
-const DB_NAME = 'offline-presentations';
-const DB_VERSION = 1;
-const STORE_NAME = 'presentations';
+import {
+    initPDFDB,
+    savePDFOffline,
+    getOfflinePDF,
+    hasOfflinePDF,
+    removePDFOffline
+} from './offline-pdf-store';
 
 /**
  * Initialize and return the IndexedDB database
  */
-export async function initDB(): Promise<IDBPDatabase<OfflineDB>> {
-    return openDB<OfflineDB>(DB_NAME, DB_VERSION, {
-        upgrade(db) {
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME);
-            }
-        },
-    });
+export async function initDB() {
+    return initPDFDB();
 }
 
 /**
@@ -43,31 +26,9 @@ export async function savePresentationOffline(
     doctorId: string,
     pdfUrl: string,
     doctorName: string
-): Promise<{ success: boolean; error?: string }> {
+) {
     try {
-        // Fetch the PDF
-        const response = await fetch(pdfUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-        }
-
-        const pdfBlob = await response.blob();
-        const fileSize = pdfBlob.size;
-
-        // Save to IndexedDB
-        const db = await initDB();
-        await db.put(STORE_NAME, {
-            doctorId,
-            doctorName,
-            pdfBlob,
-            downloadedAt: new Date(),
-            fileSize,
-        }, doctorId);
-
-        // Mark as offline in localStorage for quick access
-        localStorage.setItem(`offline-${doctorId}`, 'true');
-        localStorage.setItem(`offline-name-${doctorId}`, doctorName);
-
+        await savePDFOffline(doctorId, pdfUrl, doctorName);
         return { success: true };
     } catch (error) {
         console.error('Error saving presentation offline:', error);
@@ -85,9 +46,8 @@ export async function getPresentationOffline(
     doctorId: string
 ): Promise<Blob | null> {
     try {
-        const db = await initDB();
-        const presentation = await db.get(STORE_NAME, doctorId);
-        return presentation?.pdfBlob || null;
+        const record = await getOfflinePDF(doctorId);
+        return record?.fileBlob || null;
     } catch (error) {
         console.error('Error getting offline presentation:', error);
         return null;
@@ -101,13 +61,7 @@ export async function removePresentationOffline(
     doctorId: string
 ): Promise<boolean> {
     try {
-        const db = await initDB();
-        await db.delete(STORE_NAME, doctorId);
-
-        // Remove from localStorage
-        localStorage.removeItem(`offline-${doctorId}`);
-        localStorage.removeItem(`offline-name-${doctorId}`);
-
+        await removePDFOffline(doctorId);
         return true;
     } catch (error) {
         console.error('Error removing offline presentation:', error);
@@ -117,8 +71,10 @@ export async function removePresentationOffline(
 
 /**
  * Check if a presentation is available offline
+ * Note: Components using this might expect it to be synchronous if they check it in useEffect
  */
 export function isAvailableOffline(doctorId: string): boolean {
+    if (typeof window === 'undefined') return false;
     return localStorage.getItem(`offline-${doctorId}`) === 'true';
 }
 
@@ -129,23 +85,15 @@ export async function listOfflinePresentations(): Promise<
     Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number }>
 > {
     try {
-        const db = await initDB();
-        const allKeys = await db.getAllKeys(STORE_NAME);
+        const db = await initPDFDB();
+        const allPresentations = await db.getAll('pdfs');
 
-        const presentations = await Promise.all(
-            allKeys.map(async (key) => {
-                const data = await db.get(STORE_NAME, key);
-                if (!data) return null;
-                return {
-                    doctorId: data.doctorId,
-                    doctorName: data.doctorName,
-                    downloadedAt: data.downloadedAt,
-                    fileSize: data.fileSize,
-                };
-            })
-        );
-
-        return presentations.filter((p): p is NonNullable<typeof p> => p !== null);
+        return allPresentations.map((data) => ({
+            doctorId: data.doctorId,
+            doctorName: data.doctorName,
+            downloadedAt: new Date(data.downloadedAt),
+            fileSize: data.fileSize,
+        }));
     } catch (error) {
         console.error('Error listing offline presentations:', error);
         return [];

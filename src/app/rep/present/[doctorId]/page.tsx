@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, X, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getPresentationOffline, isAvailableOffline } from '@/lib/offline-storage';
+import { getOfflinePDF, hasOfflinePDF } from '@/lib/offline-pdf-store';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -56,7 +56,7 @@ export default function PresentationViewerPage() {
         setLoading(true);
 
         try {
-            const isSaved = isAvailableOffline(doctorId);
+            const isSaved = await hasOfflinePDF(doctorId);
 
             if (!isSaved) {
                 toast({
@@ -68,15 +68,18 @@ export default function PresentationViewerPage() {
                 return;
             }
 
-            const blob = await getPresentationOffline(doctorId);
-            if (!blob) {
-                throw new Error('Failed to load PDF');
+            const record = await getOfflinePDF(doctorId);
+            if (!record) {
+                throw new Error('Failed to load PDF record');
             }
 
-            // Load PDF with PDF.js
-            const arrayBuffer = await blob.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            // Load PDF with PDF.js using an Object URL (recommended architecture)
+            const pdfUrl = URL.createObjectURL(record.fileBlob);
+            const loadingTask = pdfjsLib.getDocument(pdfUrl);
             const pdf = await loadingTask.promise;
+
+            // Optional: revoke after load if not needed (PDF.js might need it though)
+            // URL.revokeObjectURL(pdfUrl); 
 
             setPdfDoc(pdf);
             setTotalPages(pdf.numPages);
