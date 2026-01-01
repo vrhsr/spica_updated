@@ -143,7 +143,7 @@ export function PWADebugger() {
                         className="w-full h-7 text-xs"
                         onClick={async () => {
                             if (window.confirm('Unregister SW and clear caches?')) {
-                                const reg = await navigator.serviceWorker.getReady();
+                                const reg = await navigator.serviceWorker.getRegistration();
                                 await reg?.unregister();
                                 const keys = await caches.keys();
                                 await Promise.all(keys.map(k => caches.delete(k)));

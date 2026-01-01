@@ -38,9 +38,9 @@ export function getSdks(firebaseApp: FirebaseApp) {
   if (typeof window !== 'undefined') {
     // Only initialize Analytics if it is supported by the browser.
     isSupported().then((supported) => {
-        if (supported) {
-            analytics = getAnalytics(firebaseApp);
-        }
+      if (supported) {
+        analytics = getAnalytics(firebaseApp);
+      }
     });
   }
   return {

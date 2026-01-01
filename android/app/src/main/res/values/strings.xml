@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SpicaSG</string>
+    <string name="title_activity_main">SpicaSG</string>
+    <string name="package_name">io.spicasg.app</string>
+    <string name="custom_url_scheme">io.spicasg.app</string>
+</resources>
