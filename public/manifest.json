@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0066CC",
-  "orientation": "portrait",
+  "orientation": "any",
   "description": "Medical Representative Portal for Offline Doctor Presentations",
   "icons": [
     {

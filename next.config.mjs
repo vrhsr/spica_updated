@@ -31,22 +31,55 @@ export default isProd
     register: true,
     skipWaiting: true,
     disable: false,
+
+    // Offline fallback - redirect to offline.html which auto-redirects to /rep/offline
     fallbacks: {
-      document: "/rep/offline",
+      document: "/offline.html",
     },
+
     runtimeCaching: [
+      // ⚡ CRITICAL: Cache app shell so it loads offline
       {
-        urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
+        urlPattern: /^\/_next\/.*/,
+        handler: "StaleWhileRevalidate",
+        options: {
+          cacheName: "app-shell-next",
+          matchOptions: { ignoreVary: true },
+        },
+      },
+      {
+        urlPattern: /^\/static\/.*/,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "app-shell-static",
+          expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 365 }
+        },
+      },
+      {
+        urlPattern: /\/(favicon\.ico|manifest\.json|icon-.*\.png|logo\.png|pdf\.worker\.min\.js)$/,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "app-shell-assets",
+          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 365 }
+        },
+      },
+      // 🧱 Cache PDFs from Supabase storage (for any that still use URL fallback)
+      {
+        urlPattern: /^https:\/\/.*\.supabase\.co\/.*\.(pdf)$/,
         handler: "CacheFirst",
         options: {
           cacheName: "pdf-cache",
           expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }
         },
       },
+      // 🎛 Default - cache everything else with network-first strategy
       {
         urlPattern: /.*/,
-        handler: "StaleWhileRevalidate",
-        options: { cacheName: "static-cache" }
+        handler: "NetworkFirst",
+        options: {
+          cacheName: "default-cache",
+          networkTimeoutSeconds: 3,
+        }
       }
     ]
   })(nextConfig)

@@ -1,3 +1,5 @@
+'use client';
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -5,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { Inter } from 'next/font/google';
 import { Lora } from 'next/font/google';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-body' });
 const lora = Lora({
@@ -12,16 +16,26 @@ const lora = Lora({
   variable: '--font-headline',
 });
 
-export const metadata: Metadata = {
-  title: 'SG HEALTH PHARMA Portal',
-  description: 'Professional presentation portal for SG HEALTH PHARMA representatives.',
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Offline detection and auto-redirect
+  useEffect(() => {
+    // Skip offline redirect if already in offline mode or special routes
+    const isOfflineRoute = pathname === '/rep/offline' || pathname.startsWith('/rep/present/');
+    const isPublicRoute = pathname === '/' || pathname === '/rep-login' || pathname === '/admin-login';
+
+    if (!navigator.onLine && !isOfflineRoute && !isPublicRoute) {
+      // Only redirect to offline if not already there
+      router.replace('/rep/offline');
+    }
+  }, [router, pathname]);
+
   return (
     <html
       lang="en"
