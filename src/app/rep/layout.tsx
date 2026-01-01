@@ -31,6 +31,8 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
   const { user, role, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
   const [isTimedOut, setIsTimedOut] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [hasCheckedOffline, setHasCheckedOffline] = useState(false);
   const repAvatar = PlaceHolderImages.find((img) => img.id === 'rep-avatar');
 
   const userProfileRef = useMemoFirebase(
@@ -42,6 +44,38 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
 
   const isUserLoading = isAuthLoading || isProfileLoading;
   const isOfflineMode = pathname === '/rep/offline' || (pathname.startsWith('/rep/present/') && new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mode') === 'bypass');
+
+  // Check online/offline status
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    updateOnlineStatus();
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
+
+  // Automatically redirect to offline mode if offline and not already there
+  useEffect(() => {
+    if (!isOnline && !isOfflineMode && !hasCheckedOffline) {
+      setHasCheckedOffline(true);
+      // Check if there are offline presentations available
+      import('@/lib/offline-storage').then(({ listOfflinePresentations }) => {
+        listOfflinePresentations().then(presentations => {
+          if (presentations.length > 0) {
+            // Redirect to offline mode if presentations are available
+            router.push('/rep/offline');
+          }
+        });
+      });
+    }
+  }, [isOnline, isOfflineMode, hasCheckedOffline, router]);
 
   useEffect(() => {
     if (isOfflineMode) return; // Skip auth check in offline mode
@@ -56,11 +90,14 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
       clearTimeout(timer);
     } else if (!isUserLoading && (!user || role !== 'rep')) {
       clearTimeout(timer);
-      router.push('/rep-login');
+      // Don't redirect if offline - let the offline redirect handle it
+      if (isOnline) {
+        router.push('/rep-login');
+      }
     }
 
     return () => clearTimeout(timer);
-  }, [user, role, isUserLoading, router, isOfflineMode]);
+  }, [user, role, isUserLoading, router, isOfflineMode, isOnline]);
 
   if (isTimedOut && !isOfflineMode) {
     return (
