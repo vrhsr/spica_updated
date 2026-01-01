@@ -37,21 +37,21 @@ function OfflineBypassButton() {
     check();
   }, []);
 
-  if (offlineCount === 0) return null;
-
   return (
     <div className="mt-6 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
       <p className="text-xs text-center font-semibold text-primary uppercase tracking-wider mb-3">
-        Ready for Offline Presentation
+        {offlineCount > 0 ? 'Ready for Offline Presentation' : 'Offline Mode Available'}
       </p>
       <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90 h-12 shadow-md">
         <Link href="/rep/offline">
           <Monitor className="mr-2 h-5 w-5" />
-          Access {offlineCount} Downloaded Doctors
+          {offlineCount > 0 ? `Access ${offlineCount} Downloaded Doctors` : 'Access Offline Mode'}
         </Link>
       </Button>
       <p className="text-[10px] text-center text-muted-foreground mt-2">
-        No internet connection required to present these.
+        {offlineCount > 0
+          ? 'No internet connection required to present these.'
+          : 'View and present downloaded presentations without internet.'}
       </p>
     </div>
   );

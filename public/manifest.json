@@ -1,8 +1,9 @@
 {
   "name": "SG HEALTH PHARMA Portal",
   "short_name": "SG Portal",
-  "start_url": "/rep-login",
+  "start_url": "/rep/offline",
   "display": "standalone",
+  "orientation": "landscape",
   "background_color": "#ffffff",
   "theme_color": "#0ea5e9",
   "description": "Professional presentation viewer for SG HEALTH PHARMA representatives",
@@ -10,12 +11,14 @@
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
