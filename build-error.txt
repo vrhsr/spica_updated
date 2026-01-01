@@ -1,0 +1,28 @@
+﻿
+> nextn@0.1.0 build
+> NODE_ENV=production next build
+
+node.exe : 'NODE_ENV' is 
+not recognized as an 
+internal or external 
+command,
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\U
+sers\Ramana\AppData\Roaming 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpe    cified: 
+('NODE_E    NV' is 
+n...terna    l 
+command,:Strin    g) [], 
+RemoteExc    eption
+    + FullyQualified    
+ErrorId : Native    
+CommandError
+ 
+operable program or batch 
+file.
