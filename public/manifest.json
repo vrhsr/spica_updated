@@ -1,19 +1,19 @@
 {
   "name": "SPICASG Portal",
   "short_name": "SPICASG",
-  "start_url": "/rep/offline",
-  "display": "standalone",
-  "orientation": "landscape",
-  "background_color": "#ffffff",
-  "theme_color": "#0ea5e9",
-  "description": "Professional offline presentation viewer for SPICASG medical representatives",
+  "start_url": "/",
   "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0066CC",
+  "orientation": "portrait",
+  "description": "Medical Representative Portal for Offline Doctor Presentations",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
@@ -21,11 +21,5 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "categories": [
-    "medical",
-    "business",
-    "productivity"
-  ],
-  "prefer_related_applications": false
+  ]
 }

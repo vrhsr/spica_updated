@@ -7,7 +7,7 @@
             "namespace": "android_app",
             "package_name": "com.spicasg.portal",
             "sha256_cert_fingerprints": [
-                "REPLACE_WITH_YOUR_SHA256_FROM_BUBBLEWRAP"
+                "PASTE_YOUR_SHA256_FROM_BUBBLEWRAP_HERE"
             ]
         }
     }

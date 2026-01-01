@@ -1,36 +1,15 @@
-import withPWAInit from 'next-pwa';
+import withPWA from "next-pwa";
 
-const withPWA = withPWAInit({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-  fallbacks: {
-    document: '/rep/offline', // Offline fallback page
-  },
-  runtimeCaching: [
-    {
-      urlPattern: /^https?.*/,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'offlineCache',
-        expiration: {
-          maxEntries: 200,
-        },
-      },
-    },
-  ],
-});
+const isProd = process.env.NODE_ENV === "production";
 
-/** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
   typescript: {
-    ignoreBuildErrors: process.env.CI === 'true', // ONLY ignore in CI, not dev
+    ignoreBuildErrors: process.env.CI === 'true',
   },
   eslint: {
     ignoreDuringBuilds: process.env.CI === 'true',
   },
-
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
@@ -40,13 +19,35 @@ const nextConfig = {
       { protocol: 'https', hostname: 'ezogujldmpxycodwboos.supabase.co', pathname: '/**' },
     ],
   },
-
   serverExternalPackages: ["@aws-sdk/*"],
   experimental: {
-    turbo: {
-      // no unnecessary aliasing
-    },
+    turbo: {},
   },
 };
 
-export default withPWA(nextConfig);
+export default isProd
+  ? withPWA({
+    dest: "public",
+    register: true,
+    skipWaiting: true,
+    disable: false,
+    fallbacks: {
+      document: "/rep/offline",
+    },
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "pdf-cache",
+          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }
+        },
+      },
+      {
+        urlPattern: /.*/,
+        handler: "StaleWhileRevalidate",
+        options: { cacheName: "static-cache" }
+      }
+    ]
+  })(nextConfig)
+  : nextConfig;
