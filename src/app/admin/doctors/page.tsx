@@ -1,4 +1,4 @@
-```
+
 'use client';
 
 import React from 'react';
@@ -122,7 +122,7 @@ export default function DoctorsPage() {
       return;
     }
 
-    setIsSubmitting(`generate - ${ doctorId } `);
+    setIsSubmitting(`generate - ${doctorId} `);
     try {
       const result = await generateAndUpsertPresentation({
         doctorId,
@@ -138,7 +138,7 @@ export default function DoctorsPage() {
 
       toast({
         title: 'Presentation Ready',
-        description: `PDF for ${ doctorName } has been generated and is available for download.`
+        description: `PDF for ${doctorName} has been generated and is available for download.`
       });
       refetchPresentations();
 
@@ -166,7 +166,7 @@ export default function DoctorsPage() {
       }
 
       // Override status if currently submitting for this doctor
-      if (isSubmitting === `generate - ${ doctor.id }` || isSubmitting === `edit - slides - ${ doctor.id } ` || isSubmitting === `add - ${ doctor.id } `) {
+      if (isSubmitting === `generate - ${doctor.id}` || isSubmitting === `edit - slides - ${doctor.id} ` || isSubmitting === `add - ${doctor.id} `) {
         status = 'generating';
       }
 
@@ -223,10 +223,10 @@ export default function DoctorsPage() {
         throw err;
       });
       tempId = docRef.id;
-      setIsSubmitting(`add - ${ tempId } `);
+      setIsSubmitting(`add - ${tempId} `);
       toast({
         title: "Doctor Added",
-        description: `${ newDoctor.name } has been successfully added.Generating presentation...`,
+        description: `${newDoctor.name} has been successfully added.Generating presentation...`,
       });
       refetchDoctors();
       // Now generate the presentation immediately
@@ -249,7 +249,7 @@ export default function DoctorsPage() {
 
     const originalDoctorId = editDoctor.id;
     try {
-      setIsSubmitting(`edit - slides - ${ originalDoctorId } `);
+      setIsSubmitting(`edit - slides - ${originalDoctorId} `);
       const doctorRef = doc(firestore, 'doctors', editDoctor.id);
 
       // We set `dirty: true` here so the UI can show a pending state immediately
@@ -266,7 +266,7 @@ export default function DoctorsPage() {
 
       toast({
         title: "Slides Updated",
-        description: `Slides for ${ editDoctor.name } have been updated.Regenerating presentation...`,
+        description: `Slides for ${editDoctor.name} have been updated.Regenerating presentation...`,
       });
       setEditDoctor(null); // Close dialog on success before generation
       refetchDoctors();
@@ -297,7 +297,7 @@ export default function DoctorsPage() {
     if (!doctorToDelete || !firestore) return;
 
     try {
-      setIsSubmitting(`delete -${ doctorToDelete.id } `);
+      setIsSubmitting(`delete -${doctorToDelete.id} `);
       const batch = writeBatch(firestore);
       const doctorRef = doc(firestore, 'doctors', doctorToDelete.id);
       const presentationsRef = collection(firestore, 'presentations');
@@ -322,7 +322,7 @@ export default function DoctorsPage() {
 
       toast({
         title: 'Doctor Deleted',
-        description: `${ doctorToDelete.name } and their associated presentation have been successfully deleted.`,
+        description: `${doctorToDelete.name} and their associated presentation have been successfully deleted.`,
       });
       refetchDoctors();
       refetchPresentations();
@@ -394,7 +394,7 @@ export default function DoctorsPage() {
               <CardTitle>All Doctors</CardTitle>
               <CardDescription>
                 {cityFilter
-                  ? `Doctors in ${ cityFilter }. Click the back arrow to view all cities.`
+                  ? `Doctors in ${cityFilter}. Click the back arrow to view all cities.`
                   : 'Manage all doctors and their presentations.'}
               </CardDescription>
             </div>
@@ -489,7 +489,7 @@ export default function DoctorsPage() {
                             <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                             <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
                             <p className="mt-1 text-sm">
-                              {searchTerm ? `No doctors match "${searchTerm}"` : cityFilter ? `No doctors have been added to ${ cityFilter } yet.` : "No doctors have been added yet."}
+                              {searchTerm ? `No doctors match "${searchTerm}"` : cityFilter ? `No doctors have been added to ${cityFilter} yet.` : "No doctors have been added yet."}
                             </p>
                           </div>
                         </TableCell>
@@ -502,7 +502,7 @@ export default function DoctorsPage() {
               {/* Mobile Card View */}
               <div className="md:hidden space-y-4">
                 {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
-                  <Card key={doctor.id} className={`p - 4 ${ !!isSubmitting ? 'opacity-50' : '' } `}>
+                  <Card key={doctor.id} className={`p - 4 ${!!isSubmitting ? 'opacity-50' : ''} `}>
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -582,7 +582,7 @@ export default function DoctorsPage() {
       <Dialog open={!!editDoctor} onOpenChange={(open) => !open && setEditDoctor(null)}>
         <DialogContent className="max-w-2xl">
           {editDoctor && (
-            <EditSlidesForm doctor={editDoctor} onSave={handleEditSlidesSave} isSaving={isSubmitting === `edit - slides - ${ editDoctor.id } `} />
+            <EditSlidesForm doctor={editDoctor} onSave={handleEditSlidesSave} isSaving={isSubmitting === `edit - slides - ${editDoctor.id} `} />
           )}
         </DialogContent>
       </Dialog>
