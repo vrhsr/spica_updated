@@ -122,7 +122,7 @@ export default function DoctorsPage() {
       return;
     }
 
-    setIsSubmitting(`generate - ${doctorId} `);
+    setIsSubmitting(`generate-${doctorId}`);
     try {
       const result = await generateAndUpsertPresentation({
         doctorId,
@@ -166,7 +166,7 @@ export default function DoctorsPage() {
       }
 
       // Override status if currently submitting for this doctor
-      if (isSubmitting === `generate - ${doctor.id}` || isSubmitting === `edit - slides - ${doctor.id} ` || isSubmitting === `add - ${doctor.id} `) {
+      if (isSubmitting === `generate-${doctor.id}` || isSubmitting === `edit-slides-${doctor.id}` || isSubmitting === `add-${doctor.id}`) {
         status = 'generating';
       }
 
@@ -223,7 +223,7 @@ export default function DoctorsPage() {
         throw err;
       });
       tempId = docRef.id;
-      setIsSubmitting(`add - ${tempId} `);
+      setIsSubmitting(`add-${tempId}`);
       toast({
         title: "Doctor Added",
         description: `${newDoctor.name} has been successfully added.Generating presentation...`,
@@ -249,7 +249,7 @@ export default function DoctorsPage() {
 
     const originalDoctorId = editDoctor.id;
     try {
-      setIsSubmitting(`edit - slides - ${originalDoctorId} `);
+      setIsSubmitting(`edit-slides-${originalDoctorId}`);
       const doctorRef = doc(firestore, 'doctors', editDoctor.id);
 
       // We set `dirty: true` here so the UI can show a pending state immediately
@@ -297,7 +297,7 @@ export default function DoctorsPage() {
     if (!doctorToDelete || !firestore) return;
 
     try {
-      setIsSubmitting(`delete -${doctorToDelete.id} `);
+      setIsSubmitting(`delete-${doctorToDelete.id}`);
       const batch = writeBatch(firestore);
       const doctorRef = doc(firestore, 'doctors', doctorToDelete.id);
       const presentationsRef = collection(firestore, 'presentations');
