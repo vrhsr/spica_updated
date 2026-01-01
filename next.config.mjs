@@ -4,7 +4,22 @@ const withPWA = withPWAInit({
   dest: 'public',
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development', // Disable in dev for easier debugging
+  disable: process.env.NODE_ENV === 'development',
+  fallbacks: {
+    document: '/rep/offline', // Offline fallback page
+  },
+  runtimeCaching: [
+    {
+      urlPattern: /^https?.*/,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'offlineCache',
+        expiration: {
+          maxEntries: 200,
+        },
+      },
+    },
+  ],
 });
 
 /** @type {import('next').NextConfig} */
