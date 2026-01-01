@@ -28,7 +28,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { listAllUsers } from '../users/actions';
 import useSWR from 'swr';
-import { generateAndUpsertPresentation } from '@/app/admin/doctors/actions';
+import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
 import { SlidePreviewDialog } from '@/components/SlidePreviewDialog';
 
 type Request = {
@@ -146,7 +146,7 @@ export default function AdminRequestsPage() {
             adminUid: adminUser.uid,
           });
 
-          if (result.error) {
+          if ('error' in result) {
             throw new Error(`Doctor created, but presentation generation failed: ${result.error}`);
           }
 
@@ -178,7 +178,7 @@ export default function AdminRequestsPage() {
             adminUid: adminUser.uid,
           });
 
-          if (result.error) {
+          if ('error' in result) {
             throw new Error(`Presentation generation failed: ${result.error}`);
           }
 

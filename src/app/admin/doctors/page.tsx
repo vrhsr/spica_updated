@@ -49,7 +49,7 @@ import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { generateAndUpsertPresentation } from '@/app/admin/doctors/actions';
+import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
 
 
 export type Doctor = {
@@ -128,7 +128,7 @@ export default function DoctorsPage() {
         adminUid: adminUser.uid,
       });
 
-      if (result?.error) {
+      if ('error' in result) {
         throw new Error(result.error);
       }
 
