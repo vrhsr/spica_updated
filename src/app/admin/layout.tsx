@@ -234,13 +234,53 @@ export default function AdminLayout({
       </Sidebar>
       <SidebarInset className="bg-secondary/50">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6">
-          <SidebarTrigger className="lg:hidden" />
-          <h2 className="font-headline text-lg font-semibold flex-1 text-center md:text-left md:ml-4 lg:ml-0">
-            {navItems.find((item) => pathname.startsWith(item.href))?.label ||
-              'Admin Portal'}
-          </h2>
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="lg:hidden" />
+            <h2 className="font-headline text-base md:text-lg font-semibold">
+              {navItems.find((item) => pathname.startsWith(item.href))?.label ||
+                'Admin Portal'}
+            </h2>
+          </div>
+
+          {/* Mobile Logout Button */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage
+                      src={adminAvatar?.imageUrl}
+                      data-ai-hint={adminAvatar?.imageHint}
+                    />
+                    <AvatarFallback>AD</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold">
+                      {user.displayName || 'Admin User'}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {user.email}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setIsPasswordResetOpen(true)}>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  <span>Change Password</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
-        <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 p-3 md:p-6 lg:p-8 overflow-x-auto">{children}</main>
       </SidebarInset>
 
       <PasswordResetDialog open={isPasswordResetOpen} onOpenChange={setIsPasswordResetOpen} userEmail={user.email || ''} />
