@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion, Search } from 'lucide-react';
+import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion, Search, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -43,7 +43,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTransition } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { AddDoctorDialog, EditSlidesForm } from './AddDoctorDialog';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
@@ -78,7 +78,10 @@ type EnrichedDoctor = WithId<Doctor> & {
 
 export default function DoctorsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const cityFilter = searchParams.get('city');
+  const searchTerm = searchParams.get('q') || '';
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
   const { toast } = useToast();
@@ -87,7 +90,6 @@ export default function DoctorsPage() {
   const [editDoctor, setEditDoctor] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToDelete, setDoctorToDelete] = React.useState<WithId<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = React.useState('');
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -187,6 +189,18 @@ export default function DoctorsPage() {
       doctor.city.toLowerCase().includes(lowerSearch)
     );
   }, [enrichedDoctors, searchTerm]);
+
+  const handleFilterChange = (key: string, value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const isAnyFilterActive = !!searchTerm || !!cityFilter;
 
 
   const getStatusBadge = (doctor: EnrichedDoctor) => {
@@ -403,10 +417,25 @@ export default function DoctorsPage() {
               <Input
                 placeholder="Search doctors..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleFilterChange('q', e.target.value)}
                 className="pl-9"
               />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                  onClick={() => handleFilterChange('q', null)}
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              )}
             </div>
+            {isAnyFilterActive && (
+              <Button variant="ghost" onClick={() => router.push(pathname)}>
+                Clear Filters
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
