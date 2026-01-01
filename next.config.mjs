@@ -26,8 +26,8 @@ const nextConfig = {
     ],
   },
 
+  serverExternalPackages: ["@aws-sdk/*"],
   experimental: {
-    serverExternalPackages: ["@aws-sdk/*"],
     turbo: {
       // no unnecessary aliasing
     },
