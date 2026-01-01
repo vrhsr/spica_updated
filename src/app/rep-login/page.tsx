@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Stethoscope, ArrowLeft, Chrome, Loader } from 'lucide-react';
+import { Stethoscope, ArrowLeft, Chrome, Loader, Monitor } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import {
   signInWithPopup,
@@ -23,6 +23,39 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
+import { listOfflinePresentations } from '@/lib/offline-storage';
+import { useEffect } from 'react';
+
+function OfflineBypassButton() {
+  const [offlineCount, setOfflineCount] = useState(0);
+
+  useEffect(() => {
+    const check = async () => {
+      const data = await listOfflinePresentations();
+      setOfflineCount(data.length);
+    };
+    check();
+  }, []);
+
+  if (offlineCount === 0) return null;
+
+  return (
+    <div className="mt-6 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
+      <p className="text-xs text-center font-semibold text-primary uppercase tracking-wider mb-3">
+        Ready for Offline Presentation
+      </p>
+      <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90 h-12 shadow-md">
+        <Link href="/rep/offline">
+          <Monitor className="mr-2 h-5 w-5" />
+          Access {offlineCount} Downloaded Doctors
+        </Link>
+      </Button>
+      <p className="text-[10px] text-center text-muted-foreground mt-2">
+        No internet connection required to present these.
+      </p>
+    </div>
+  );
+}
 
 export default function RepLoginPage() {
   const router = useRouter();
@@ -75,7 +108,19 @@ export default function RepLoginPage() {
     }
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+      const idTokenResult = await user.getIdTokenResult();
+      const role = idTokenResult.claims.role;
+
+      if (role !== 'rep') {
+        await auth.signOut();
+        setError(
+          'Access denied. This portal is for Representatives only. Please use the Admin portal.'
+        );
+        return;
+      }
+
       router.push('/rep');
     } catch (err: any) {
       handleAuthError(err);
@@ -94,7 +139,19 @@ export default function RepLoginPage() {
       return;
     }
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const idTokenResult = await user.getIdTokenResult();
+      const role = idTokenResult.claims.role;
+
+      if (role !== 'rep') {
+        await auth.signOut();
+        setError(
+          'Access denied. This portal is for Representatives only. Please use the Admin portal.'
+        );
+        return;
+      }
+
       router.push('/rep');
     } catch (err: any) {
       handleAuthError(err);
@@ -114,7 +171,7 @@ export default function RepLoginPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <Stethoscope className="h-7 w-7" />
               </div>
-              <h1 className="font-headline text-3xl font-bold">SPICASG Portal</h1>
+              <h1 className="font-headline text-3xl font-bold">SG HEALTH PHARMA Portal</h1>
             </Link>
             <p className="text-lg text-muted-foreground">
               Welcome back, Representative. Access your sales tools and personalized presentations.
@@ -138,6 +195,9 @@ export default function RepLoginPage() {
               <h2 className="font-headline text-2xl font-bold tracking-tight">Representative Login</h2>
               <p className="text-sm text-muted-foreground">Sign in to your portal</p>
             </div>
+
+            {/* Offline Bypass Option */}
+            <OfflineBypassButton />
 
             <form onSubmit={handlePasswordLogin} className="mt-6 space-y-4">
               <div className="space-y-2">
@@ -185,9 +245,9 @@ export default function RepLoginPage() {
             </form>
 
             <div className="my-4 flex items-center">
-              <Separator />
+              <Separator className="flex-1" />
               <span className="mx-4 shrink-0 text-xs text-muted-foreground">OR</span>
-              <Separator />
+              <Separator className="flex-1" />
             </div>
 
             <Button
@@ -202,9 +262,14 @@ export default function RepLoginPage() {
             </Button>
 
             {error && (
-              <p className="mt-4 text-center text-sm text-destructive">
-                {error}
-              </p>
+              <div className="mt-4 text-center space-y-2">
+                <p className="text-sm text-destructive">{error}</p>
+                {error.includes('Admin portal') && (
+                  <Button variant="link" asChild className="text-primary h-auto p-0 font-medium">
+                    <Link href="/admin-login">Go to Admin Login</Link>
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>

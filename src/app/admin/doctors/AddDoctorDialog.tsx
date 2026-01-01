@@ -56,12 +56,12 @@ function DoctorForm({
     () => (firestore ? collection(firestore, 'cities') : null),
     [firestore]
   );
-  const { data: cities, isLoading: isLoadingCities } = useCollection<{id: string, name: string}>(citiesCollection);
+  const { data: cities, isLoading: isLoadingCities } = useCollection<{ id: string, name: string }>(citiesCollection);
 
   const handleSave = () => {
     if (name && city) {
-        const finalName = name.trim().startsWith('Dr.') ? name.trim() : `Dr. ${name.trim()}`;
-        onSave({ name: finalName, city });
+      const finalName = name.trim().startsWith('Dr.') ? name.trim() : `Dr. ${name.trim()}`;
+      onSave({ name: finalName, city });
     }
   };
 
@@ -97,7 +97,7 @@ function DoctorForm({
             </SelectTrigger>
             <SelectContent>
               {isLoadingCities ? (
-                 <div className="flex items-center justify-center p-2"><Loader className="h-4 w-4 animate-spin"/></div>
+                <div className="flex items-center justify-center p-2"><Loader className="h-4 w-4 animate-spin" /></div>
               ) : (
                 cities?.map((c) => (
                   <SelectItem key={c.id} value={c.name}>
@@ -111,10 +111,10 @@ function DoctorForm({
       </div>
       <DialogFooter>
         <DialogClose asChild>
-            <Button variant="outline" disabled={isSaving}>Cancel</Button>
+          <Button variant="outline" disabled={isSaving}>Cancel</Button>
         </DialogClose>
         <Button onClick={handleSave} disabled={!name || !city || isLoadingCities || isSaving}>
-          {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : null}
+          {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isSaving ? 'Saving...' : 'Next: Assign Slides'}
         </Button>
       </DialogFooter>
@@ -145,6 +145,7 @@ export function EditSlidesForm({
   }
 
   const [selectedSlides, setSelectedSlides] = React.useState(getDefaultSlides());
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   const toggleSlide = (slideNumber: number) => {
     // Prevent unselecting the first and last slides
@@ -159,6 +160,16 @@ export function EditSlidesForm({
     );
   };
 
+  // Filter slides based on search term
+  const filteredSlides = allSlides.filter((slide) => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      slide.medicineName.toLowerCase().includes(searchLower) ||
+      slide.number.toString().includes(searchTerm)
+    );
+  });
+
   return (
     <>
       <DialogHeader>
@@ -167,41 +178,59 @@ export function EditSlidesForm({
           Select the slides to include in the presentation. The first and last slides are mandatory and always included.
         </DialogDescription>
       </DialogHeader>
-      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-72 overflow-y-auto p-1 border rounded-md">
-        {allSlides.map((slide) => {
-          const isMandatory = slide.number === firstSlideNumber || slide.number === lastSlideNumber;
-          const isSelected = selectedSlides.includes(slide.number);
 
-          return (
-          <div 
-            key={slide.id} 
-            className={cn(
-              "relative aspect-[16/9]", 
-              isSaving && "cursor-not-allowed opacity-75",
-              isMandatory ? "cursor-default" : "cursor-pointer",
-            )} 
-            onClick={() => !isSaving && toggleSlide(slide.number)}
-          >
-            <img
-              src={slide.url}
-              alt={`Slide ${slide.number}`}
-              className={cn(
-                'w-full h-full object-cover rounded-md transition-all',
-                isSelected
-                  ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                  : 'opacity-60',
-                !isMandatory && 'hover:opacity-100'
-              )}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-md" />
-            <div className="absolute bottom-1 left-1.5 right-1.5">
-               <p className="text-white text-xs font-bold truncate">{slide.medicineName}</p>
-            </div>
-            <div className="absolute top-1 right-1 bg-background/70 text-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-              {slide.number}
-            </div>
+      {/* Search Bar */}
+      <div className="px-1">
+        <Input
+          placeholder="Search by medicine name or slide number..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="mb-3"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-[60vh] overflow-y-auto p-2 border rounded-md">
+        {filteredSlides.length > 0 ? (
+          filteredSlides.map((slide) => {
+            const isMandatory = slide.number === firstSlideNumber || slide.number === lastSlideNumber;
+            const isSelected = selectedSlides.includes(slide.number);
+
+            return (
+              <div
+                key={slide.id}
+                className={cn(
+                  "relative aspect-[16/9]",
+                  isSaving && "cursor-not-allowed opacity-75",
+                  isMandatory ? "cursor-default" : "cursor-pointer",
+                )}
+                onClick={() => !isSaving && toggleSlide(slide.number)}
+              >
+                <img
+                  src={slide.url}
+                  alt={`Slide ${slide.number}`}
+                  className={cn(
+                    'w-full h-full object-cover rounded-md transition-all',
+                    isSelected
+                      ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                      : 'opacity-60',
+                    !isMandatory && 'hover:opacity-100'
+                  )}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-md" />
+                <div className="absolute bottom-1 left-1.5 right-1.5">
+                  <p className="text-white text-xs font-bold truncate">{slide.medicineName}</p>
+                </div>
+                <div className="absolute top-1 right-1 bg-background/70 text-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                  {slide.number}
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <div className="col-span-full text-center py-8 text-muted-foreground">
+            No slides found matching "{searchTerm}"
           </div>
-        )})}
+        )}
       </div>
       <DialogFooter>
         <DialogClose asChild>
@@ -211,7 +240,7 @@ export function EditSlidesForm({
           onClick={() => onSave(selectedSlides)}
           disabled={selectedSlides.length === 0 || isSaving}
         >
-          {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin"/> : null}
+          {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isSaving ? 'Saving...' : 'Save and Create Presentation'}
         </Button>
       </DialogFooter>
@@ -245,17 +274,17 @@ export function AddDoctorDialog({
 
   const handleNewDoctorSlidesSave = async (slides: number[]) => {
     if (newDoctorDetails) {
-        setIsSaving(true);
-        try {
-          await onDoctorAdded({
-              name: newDoctorDetails.name!,
-              city: newDoctorDetails.city!,
-              selectedSlides: slides,
-          });
-        } finally {
-          setIsSaving(false);
-          handleOpenChange(false);
-        }
+      setIsSaving(true);
+      try {
+        await onDoctorAdded({
+          name: newDoctorDetails.name!,
+          city: newDoctorDetails.city!,
+          selectedSlides: slides,
+        });
+      } finally {
+        setIsSaving(false);
+        handleOpenChange(false);
+      }
     }
   };
 
@@ -281,4 +310,3 @@ export function AddDoctorDialog({
   );
 }
 
-    

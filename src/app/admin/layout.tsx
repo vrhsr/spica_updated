@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   KeyRound,
   Mail,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -56,7 +57,7 @@ const navItems = [
   { href: '/admin/cities', icon: Building, label: 'Cities' },
   { href: '/admin/slides', icon: GalleryThumbnails, label: 'Slides Library' },
   { href: '/admin/presentations', icon: Presentation, label: 'Presentations' },
-  { href: '/admin/requests', icon: Mail, label: 'Change Requests' },
+  { href: '/admin/requests?status=pending', icon: Mail, label: 'Change Requests' },
 ];
 
 type Request = {
@@ -85,10 +86,56 @@ export default function AdminLayout({
   const { data: requests } = useCollection<Request>(requestsCollection);
   const pendingCount = requests?.filter((r) => r.status === 'pending').length || 0;
 
+  const [isTimedOut, setIsTimedOut] = useState(false);
+
+  // Check if user has admin role and redirect if not
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isUserLoading || !user) {
+        setIsTimedOut(true);
+      }
+    }, 10000); // 10 second timeout
+
+    if (!isUserLoading && user) {
+      clearTimeout(timer);
+      user.getIdTokenResult().then((idTokenResult) => {
+        const userRole = idTokenResult.claims.role;
+        if (userRole !== 'admin') {
+          // User is not an admin, redirect to home page
+          router.push('/');
+        }
+      }).catch((error) => {
+        console.error('Error checking user role:', error);
+        router.push('/');
+      });
+    }
+
+    return () => clearTimeout(timer);
+  }, [user, isUserLoading, router]);
+
+  if (isTimedOut) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-background p-4 text-center">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground mb-6">It's taking longer than expected to load your profile. Please try logging in again.</p>
+        <Button onClick={() => {
+          auth?.signOut();
+          window.location.href = '/admin-login';
+        }}>
+          Login Again
+        </Button>
+      </div>
+    );
+  }
+
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <Loader className="h-12 w-12 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground animate-pulse">Loading secure portal...</p>
+        </div>
       </div>
     );
   }
@@ -103,12 +150,23 @@ export default function AdminLayout({
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader>
-          <Link href="/admin/dashboard" className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Stethoscope className="h-6 w-6" />
+        <SidebarHeader className="border-b border-sidebar-border p-4">
+          <Link href="/admin/dashboard" className="flex items-center gap-3 px-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <img
+                src="/icon-192.png"
+                alt="SG HEALTH PHARMA Logo"
+                className="h-7 w-7 object-contain"
+              />
             </div>
-            <h1 className="font-headline text-xl font-bold">SPICASG</h1>
+            <div className="flex flex-col">
+              <span className="font-headline text-sm font-bold leading-none tracking-tight">
+                SG HEALTH PHARMA
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                Admin Portal
+              </span>
+            </div>
           </Link>
         </SidebarHeader>
         <SidebarContent>
@@ -176,8 +234,8 @@ export default function AdminLayout({
       </Sidebar>
       <SidebarInset className="bg-secondary/50">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6">
-          <SidebarTrigger className="md:hidden" />
-          <h2 className="font-headline text-lg font-semibold">
+          <SidebarTrigger className="lg:hidden" />
+          <h2 className="font-headline text-lg font-semibold flex-1 text-center md:text-left md:ml-4 lg:ml-0">
             {navItems.find((item) => pathname.startsWith(item.href))?.label ||
               'Admin Portal'}
           </h2>

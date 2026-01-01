@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
+import { OfflinePresentationsCard } from '@/components/OfflinePresentationsCard';
 
 type Doctor = { id: string; city: string };
 type Request = {
@@ -52,7 +53,7 @@ export default function RepDashboardPage() {
     if (!firestore || !repCity) return null;
     return query(collection(firestore, 'doctors'), where('city', '==', repCity));
   }, [firestore, repCity]);
-  
+
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(collection(firestore, 'requests'), where('repId', '==', user.uid));
@@ -66,9 +67,9 @@ export default function RepDashboardPage() {
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
   const { data: requests, isLoading: isLoadingRequests } = useCollection<Request>(requestsQuery);
   const { data: presentations, isLoading: isLoadingPresentations } = useCollection<Presentation>(presentationsQuery);
-  
+
   const isLoading = isAuthLoading || isProfileLoading || isLoadingDoctors || isLoadingRequests || isLoadingPresentations;
-  
+
   const dashboardStats = useMemo(() => {
     const pendingRequests = requests?.filter(r => r.status === 'pending').length || 0;
     const readyPpts = presentations?.filter(p => p.pdfUrl && !p.dirty && !p.error).length || 0;
@@ -105,7 +106,7 @@ export default function RepDashboardPage() {
     return (
       <div className="flex h-64 w-full items-center justify-center">
         <Loader className="h-8 w-8 animate-spin text-primary" />
-         <p className="ml-4 text-muted-foreground">Loading dashboard...</p>
+        <p className="ml-4 text-muted-foreground">Loading dashboard...</p>
       </div>
     );
   }
@@ -118,7 +119,8 @@ export default function RepDashboardPage() {
         </h1>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Top Row - Stats + Offline Card */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         {dashboardStats.map((item) => (
           <Card
             key={item.title}
@@ -127,22 +129,23 @@ export default function RepDashboardPage() {
             <Link href={item.href} className="flex h-full flex-col">
               <CardHeader className="flex flex-row items-start justify-between">
                 <div>
-                  <CardTitle className="font-headline text-2xl">
+                  <CardTitle className="font-headline text-xl">
                     {item.title}
                   </CardTitle>
-                  <CardDescription>{item.description}</CardDescription>
+                  <CardDescription className="text-xs">{item.description}</CardDescription>
                 </div>
-                <item.icon className={`h-8 w-8 ${item.color}`} />
+                <item.icon className={`h-6 w-6 ${item.color}`} />
               </CardHeader>
               <CardContent className="flex flex-grow items-end justify-between">
-                <p className={`text-4xl font-bold ${item.count === '+' ? 'text-muted-foreground' : ''}`}>{item.count}</p>
-                <div className="flex items-center text-sm text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary">
-                  View <ArrowRight className="ml-1 h-4 w-4" />
+                <p className={`text-3xl font-bold ${item.count === '+' ? 'text-muted-foreground' : ''}`}>{item.count}</p>
+                <div className="flex items-center text-xs text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary">
+                  View <ArrowRight className="ml-1 h-3 w-3" />
                 </div>
               </CardContent>
             </Link>
           </Card>
         ))}
+        <OfflinePresentationsCard />
       </div>
     </div>
   );

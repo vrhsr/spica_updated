@@ -13,8 +13,8 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: 'SPICASG Portal',
-  description: 'Automated PPT generation for medical representatives.',
+  title: 'SG HEALTH PHARMA Portal',
+  description: 'Professional presentation portal for SG HEALTH PHARMA representatives.',
 };
 
 export default function RootLayout({
@@ -30,7 +30,7 @@ export default function RootLayout({
     >
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#2563eb" />
+        <meta name="theme-color" content="#0ea5e9" />
       </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <FirebaseClientProvider>

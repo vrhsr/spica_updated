@@ -76,7 +76,14 @@ export default function PresentationViewerPage() {
         if (pdfUrl) {
             URL.revokeObjectURL(pdfUrl);
         }
-        router.back();
+
+        // If in bypass mode, go back to offline dashboard
+        const isBypass = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mode') === 'bypass';
+        if (isBypass) {
+            router.push('/rep/offline');
+        } else {
+            router.back();
+        }
     };
 
     const enterFullscreen = () => {

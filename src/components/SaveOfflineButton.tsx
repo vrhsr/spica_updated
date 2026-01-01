@@ -30,7 +30,21 @@ export function SaveOfflineButton({
     const { toast } = useToast();
 
     useEffect(() => {
-        setIsSaved(isAvailableOffline(doctorId));
+        const checkAvailability = () => {
+            setIsSaved(isAvailableOffline(doctorId));
+        };
+
+        // Check on mount
+        checkAvailability();
+
+        // Listen for offline-updated events (including from bulk download)
+        window.addEventListener('offline-updated', checkAvailability);
+        window.addEventListener('storage', checkAvailability);
+
+        return () => {
+            window.removeEventListener('offline-updated', checkAvailability);
+            window.removeEventListener('storage', checkAvailability);
+        };
     }, [doctorId]);
 
     const handleSaveOffline = async () => {

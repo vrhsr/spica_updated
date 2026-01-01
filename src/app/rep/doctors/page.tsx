@@ -23,6 +23,7 @@ import { OfflineBadge } from '@/components/OfflineBadge';
 import { SaveOfflineButton } from '@/components/SaveOfflineButton';
 import { OfflineAwareViewButton } from '@/components/OfflineAwareViewButton';
 import { getPresentationOffline } from '@/lib/offline-storage';
+import { BulkDownloadButton } from '@/components/BulkDownloadButton';
 import Link from 'next/link';
 import { formatDistanceToNow, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -142,14 +143,22 @@ export default function RepDoctorsPage() {
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           Doctor Presentations {repCity && <span className="text-primary">({repCity})</span>}
         </h1>
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by doctor name..."
-            className="pl-9"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex gap-2 items-center">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by doctor name..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          {doctors && enrichedPresentations && (
+            <BulkDownloadButton
+              presentations={enrichedPresentations}
+              doctors={doctors}
+            />
+          )}
         </div>
       </div>
       <Card>
@@ -163,73 +172,75 @@ export default function RepDoctorsPage() {
               Failed to load presentations. This may be a security rule issue.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Doctor Name</TableHead>
-                  <TableHead>Last Updated</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {enrichedPresentations.length > 0 ? (
-                  enrichedPresentations.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">
-                        {p.doctorName}
-                      </TableCell>
-                      <TableCell>
-                        {p.updatedAt ? (
-                          <span title={format(p.updatedAt.toDate(), 'PPP p')}>
-                            {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
-                          </span>
-                        ) : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2 items-center">
-                          {getStatusBadge(p)}
-                          <OfflineBadge doctorId={p.doctorId} />
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Doctor Name</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {enrichedPresentations.length > 0 ? (
+                    enrichedPresentations.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-medium">
+                          {p.doctorName}
+                        </TableCell>
+                        <TableCell>
+                          {p.updatedAt ? (
+                            <span title={format(p.updatedAt.toDate(), 'PPP p')}>
+                              {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
+                            </span>
+                          ) : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2 items-center">
+                            {getStatusBadge(p)}
+                            <OfflineBadge doctorId={p.doctorId} />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right space-x-2 whitespace-nowrap">
+                          <SaveOfflineButton
+                            doctorId={p.doctorId}
+                            pdfUrl={p.pdfUrl || ''}
+                            doctorName={p.doctorName || 'Unknown'}
+                          />
+                          <OfflineAwareViewButton
+                            doctorId={p.doctorId}
+                            doctorName={p.doctorName || 'Unknown'}
+                            pdfUrl={p.pdfUrl}
+                          />
+                          <Button asChild variant="default" size="sm" className="h-9">
+                            <Link href={`/rep/present/${p.doctorId}`}>
+                              <Monitor className="mr-2 h-4 w-4" />
+                              Present
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="h-48 text-center text-muted-foreground"
+                      >
+                        <div className="flex flex-col items-center justify-center">
+                          <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                          <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
+                          <p className="mt-1 text-sm">
+                            No presentations are currently assigned for your city.
+                          </p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <SaveOfflineButton
-                          doctorId={p.doctorId}
-                          pdfUrl={p.pdfUrl || ''}
-                          doctorName={p.doctorName || 'Unknown'}
-                        />
-                        <OfflineAwareViewButton
-                          doctorId={p.doctorId}
-                          doctorName={p.doctorName || 'Unknown'}
-                          pdfUrl={p.pdfUrl}
-                        />
-                        <Button asChild variant="default" size="sm">
-                          <Link href={`/rep/present/${p.doctorId}`}>
-                            <Monitor className="mr-2 h-4 w-4" />
-                            Present
-                          </Link>
-                        </Button>
-                      </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="h-48 text-center text-muted-foreground"
-                    >
-                      <div className="flex flex-col items-center justify-center">
-                        <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                        <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
-                        <p className="mt-1 text-sm">
-                          No presentations are currently assigned for your city.
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

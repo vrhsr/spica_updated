@@ -50,8 +50,8 @@ export default function AdminLoginPage() {
         break;
       case 'auth/configuration-not-found':
       case 'auth/operation-not-allowed':
-         setError('This sign-in method is not enabled for this project. Please enable it in the Firebase Authentication console.');
-         break;
+        setError('This sign-in method is not enabled for this project. Please enable it in the Firebase Authentication console.');
+        break;
       case 'auth/popup-closed-by-user':
         setError('Sign-in process was cancelled.');
         break;
@@ -73,7 +73,19 @@ export default function AdminLoginPage() {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      const idTokenResult = await user.getIdTokenResult();
+      const role = idTokenResult.claims.role;
+
+      if (role !== 'admin') {
+        await auth.signOut();
+        setError(
+          'Access denied. This portal is for Administrators only. Please use the Representative portal.'
+        );
+        return;
+      }
+
       router.push('/admin/dashboard');
     } catch (err: any) {
       handleAuthError(err);
@@ -92,7 +104,19 @@ export default function AdminLoginPage() {
     }
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+      const idTokenResult = await user.getIdTokenResult();
+      const role = idTokenResult.claims.role;
+
+      if (role !== 'admin') {
+        await auth.signOut();
+        setError(
+          'Access denied. This portal is for Administrators only. Please use the Representative portal.'
+        );
+        return;
+      }
+
       router.push('/admin/dashboard');
     } catch (err: any) {
       handleAuthError(err);
@@ -103,97 +127,104 @@ export default function AdminLoginPage() {
 
   return (
     <>
-    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200">
-      <Card className="relative w-full max-w-md shadow-2xl">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute left-4 top-4 text-muted-foreground"
-          asChild
-        >
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Back</span>
-          </Link>
-        </Button>
-        <CardHeader className="pt-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Stethoscope className="h-8 w-8" />
-          </div>
-          <CardTitle className="font-headline text-3xl">Admin Login</CardTitle>
-          <CardDescription>
-            Access the SPICASG management dashboard.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoadingPassword || isLoadingGoogle}
-              />
+      <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200">
+        <Card className="relative w-full max-w-md shadow-2xl">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute left-4 top-4 text-muted-foreground"
+            asChild
+          >
+            <Link href="/">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back</span>
+            </Link>
+          </Button>
+          <CardHeader className="pt-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Stethoscope className="h-8 w-8" />
             </div>
-            <div className="space-y-2">
+            <CardTitle className="font-headline text-3xl">Admin Login</CardTitle>
+            <CardDescription>
+              Access the SG HEALTH PHARMA management dashboard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="admin@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoadingPassword || isLoadingGoogle}
+                />
+              </div>
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <Button 
-                        type="button"
-                        variant="link" 
-                        className="p-0 h-auto text-xs text-muted-foreground"
-                        onClick={() => setIsForgotPasswordOpen(true)}
-                    >
-                        Forgot Password?
-                    </Button>
+                  <Label htmlFor="password">Password</Label>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="p-0 h-auto text-xs text-muted-foreground"
+                    onClick={() => setIsForgotPasswordOpen(true)}
+                  >
+                    Forgot Password?
+                  </Button>
                 </div>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoadingPassword || isLoadingGoogle}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-primary py-6 text-base font-bold text-primary-foreground hover:bg-primary/90"
                 disabled={isLoadingPassword || isLoadingGoogle}
-              />
+              >
+                Login
+              </Button>
+            </form>
+
+            <div className="my-4 flex items-center">
+              <Separator className="flex-1" />
+              <span className="mx-4 shrink-0 text-xs text-muted-foreground">OR</span>
+              <Separator className="flex-1" />
             </div>
+
             <Button
-              type="submit"
-              className="w-full bg-primary py-6 text-base font-bold text-primary-foreground hover:bg-primary/90"
+              variant="outline"
+              className="w-full"
+              onClick={handleGoogleLogin}
               disabled={isLoadingPassword || isLoadingGoogle}
             >
-              Login
+              {isLoadingGoogle && <Chrome className="mr-2 h-5 w-5 animate-spin" />}
+              {!isLoadingGoogle && <Chrome className="mr-2 h-5 w-5" />}
+              Sign in with Google
             </Button>
-          </form>
 
-          <div className="my-4 flex items-center">
-            <Separator />
-            <span className="mx-4 shrink-0 text-xs text-muted-foreground">OR</span>
-            <Separator />
-          </div>
+            {error && (
+              <div className="mt-4 text-center space-y-2">
+                <p className="text-sm text-destructive">{error}</p>
+                {error.includes('Representative portal') && (
+                  <Button variant="link" asChild className="text-primary h-auto p-0">
+                    <Link href="/rep-login">Go to Representative Login</Link>
+                  </Button>
+                )}
+              </div>
+            )}
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleLogin}
-            disabled={isLoadingPassword || isLoadingGoogle}
-          >
-            {isLoadingGoogle && <Chrome className="mr-2 h-5 w-5 animate-spin" />}
-            {!isLoadingGoogle && <Chrome className="mr-2 h-5 w-5" />}
-            Sign in with Google
-          </Button>
-
-           {error && (
-            <p className="mt-4 text-center text-sm text-destructive">{error}</p>
-          )}
-
-        </CardContent>
-      </Card>
-    </div>
-    <ForgotPasswordDialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen} />
+          </CardContent>
+        </Card>
+      </div>
+      <ForgotPasswordDialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen} />
     </>
   );
 }

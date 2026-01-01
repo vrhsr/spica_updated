@@ -1,11 +1,11 @@
-
 'use client';
 
 import {
   Card,
-  CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardContent,
 } from '@/components/ui/card';
 import {
   Table,
@@ -23,11 +23,12 @@ import {
   Mail,
   Building,
   FileText,
-  AlertCircle,
-  PlusCircle,
+  AlertTriangle,
   UploadCloud,
   Loader,
   ShieldQuestion,
+  TrendingUp,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { AddRepDialog } from '@/app/admin/reps/AddRepDialog';
@@ -136,7 +137,7 @@ export default function AdminDashboardPage() {
       type: 'request',
       action: `Requested Slide Change`,
       subject: `for ${doctorMap.get(r.doctorId) || 'Unknown Doctor'}`,
-      by: `Rep: ${userMap.get(r.repId)?.displayName || 'Unknown'}`,
+      by: `Rep: ${userMap.get(r.repId)?.displayName || 'Unknown'} `,
       time: r.createdAt?.toDate() || new Date(),
       isError: false,
     }));
@@ -209,7 +210,7 @@ export default function AdminDashboardPage() {
       {
         title: 'Errors in 24h',
         value: recentPresentations.filter((p) => !!p.error).length || 0,
-        icon: AlertCircle,
+        icon: AlertTriangle,
         variant: 'destructive',
         href: '/admin/presentations?status=error'
       },
@@ -305,7 +306,7 @@ export default function AdminDashboardPage() {
             onDoctorAdded={handleDoctorAdded}
             triggerButton={
               <Button variant="outline">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Doctor
+                <TrendingUp className="mr-2 h-4 w-4" /> Add Doctor
               </Button>
             }
           />
@@ -323,8 +324,33 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* System Status Summary */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {stats.map(renderCard)}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((item) => (
+          <Card
+            key={item.title}
+            className={`group flex flex - col transition - all hover: border - primary / 50 hover: shadow - lg ${item.variant === 'destructive'
+              ? 'border-l-4 border-l-destructive shadow-md ring-1 ring-destructive/20 animate-pulse-subtle'
+              : ''
+              } `}
+          >
+            <Link href={item.href} className="flex h-full flex-col">
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle className="font-headline text-2xl">
+                    {item.title}
+                  </CardTitle>
+                </div>
+                <item.icon className={`h - 8 w - 8 ${item.variant === 'destructive' ? 'text-destructive' : 'text-muted-foreground'} `} />
+              </CardHeader>
+              <CardContent className="flex flex-grow items-end justify-between">
+                <p className="text-4xl font-bold text-foreground">{item.value}</p>
+                <div className="flex items-center text-sm text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary">
+                  View <ArrowRight className="ml-1 h-4 w-4" />
+                </div>
+              </CardContent>
+            </Link>
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -335,23 +361,25 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             {recentActivity.length > 0 ? (
-              <Table>
-                <TableBody>
-                  {recentActivity.map((activity, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <div className={`font-medium ${activity.isError ? 'text-destructive' : ''}`}>{activity.action} {activity.subject}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {activity.by}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatDistanceToNow(activity.time, { addSuffix: true })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableBody>
+                    {recentActivity.map((activity, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <div className={`font - medium ${activity.isError ? 'text-destructive' : ''} `}>{activity.action} {activity.subject}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {activity.by}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {formatDistanceToNow(activity.time, { addSuffix: true })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="text-center text-muted-foreground py-10">
                 No recent activity to display.
@@ -366,32 +394,34 @@ export default function AdminDashboardPage() {
             <CardTitle>Presentation Status by City</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>City</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead>Pending</TableHead>
-                  <TableHead>Errors</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {doctorStatusByCity.map((city) => (
-                  <TableRow key={city.city}>
-                    <TableCell className="font-medium">{city.city}</TableCell>
-                    <TableCell>{city.updated}</TableCell>
-                    <TableCell>{city.pending}</TableCell>
-                    <TableCell
-                      className={city.error > 0 ? 'text-destructive font-bold' : ''}
-                    >
-                      {city.error}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(city)}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>City</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead>Pending</TableHead>
+                    <TableHead>Errors</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {doctorStatusByCity.map((city) => (
+                    <TableRow key={city.city}>
+                      <TableCell className="font-medium">{city.city}</TableCell>
+                      <TableCell>{city.updated}</TableCell>
+                      <TableCell>{city.pending}</TableCell>
+                      <TableCell
+                        className={city.error > 0 ? 'text-destructive font-bold' : ''}
+                      >
+                        {city.error}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(city)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

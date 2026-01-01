@@ -36,15 +36,23 @@ export function PasswordResetDialog({ open, onOpenChange, userEmail }: PasswordR
       });
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
       await sendPasswordResetEmail(auth, userEmail);
       toast({
         title: 'Password Reset Email Sent',
-        description: `An email has been sent to ${userEmail} with instructions to reset your password.`,
+        description: `An email has been sent to ${userEmail}. You will be logged out now. Please check your email and login again.`,
       });
       onOpenChange(false);
+
+      // Force logout and redirect to home as requested
+      setTimeout(() => {
+        auth.signOut().then(() => {
+          window.location.href = '/';
+        });
+      }, 2000); // Give user 2 seconds to read the toast
+
     } catch (error: any) {
       console.error('Password reset error:', error);
       toast({
@@ -71,7 +79,7 @@ export function PasswordResetDialog({ open, onOpenChange, userEmail }: PasswordR
             <Button variant="outline" disabled={isSubmitting}>Cancel</Button>
           </DialogClose>
           <Button onClick={handleResetPassword} disabled={isSubmitting}>
-             {isSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
             Send Reset Link
           </Button>
         </DialogFooter>
