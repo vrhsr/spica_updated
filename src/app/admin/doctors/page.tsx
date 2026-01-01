@@ -87,7 +87,6 @@ export default function DoctorsPage() {
   const [editDoctor, setEditDoctor] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToDelete, setDoctorToDelete] = React.useState<WithId<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = React.useState('');
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -177,16 +176,6 @@ export default function DoctorsPage() {
       };
     });
   }, [doctors, presentations, isSubmitting]);
-
-  // Filter doctors by search term
-  const filteredDoctors = React.useMemo(() => {
-    if (!searchTerm.trim()) return enrichedDoctors;
-    const lowerSearch = searchTerm.toLowerCase();
-    return enrichedDoctors.filter(doctor =>
-      doctor.name.toLowerCase().includes(lowerSearch) ||
-      doctor.city.toLowerCase().includes(lowerSearch)
-    );
-  }, [enrichedDoctors, searchTerm]);
 
 
   const getStatusBadge = (doctor: EnrichedDoctor) => {
@@ -376,27 +365,6 @@ export default function DoctorsPage() {
             Manage Doctors {cityFilter && <span className="text-primary">({cityFilter})</span>}
           </h1>
         </div>
-        <div className="mb-4">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by doctor name or city..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                onClick={() => setSearchTerm('')}
-              >
-                <X className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            )}
-          </div>
-        </div>
         <AddDoctorDialog
           onDoctorAdded={handleDoctorAdded}
           defaultCity={cityFilter || undefined}
@@ -446,7 +414,7 @@ export default function DoctorsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredDoctors && filteredDoctors.length > 0 ? filteredDoctors.map((doctor) => (
+                    {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
                       <TableRow key={doctor.id} className={!!isSubmitting ? 'opacity-50' : ''}>
                         <TableCell className="font-medium">{doctor.name}</TableCell>
                         <TableCell>{doctor.city}</TableCell>
@@ -501,7 +469,7 @@ export default function DoctorsPage() {
                             <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                             <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
                             <p className="mt-1 text-sm">
-                              {searchTerm ? `No doctors match "${searchTerm}"` : cityFilter ? `No doctors have been added to ${cityFilter} yet.` : "No doctors have been added yet."}
+                              {cityFilter ? `No doctors have been added to ${cityFilter} yet.` : "No doctors have been added yet."}
                             </p>
                           </div>
                         </TableCell>
@@ -580,7 +548,7 @@ export default function DoctorsPage() {
                     <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                     <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
                     <p className="mt-1 text-sm">
-                      {searchTerm ? `No doctors match "${searchTerm}"` : "Add a doctor to get started with creating presentations."}
+                      Add a doctor to get started with creating presentations.
                     </p>
                   </div>
                 )}
