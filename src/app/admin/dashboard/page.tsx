@@ -125,7 +125,7 @@ export default function AdminDashboardPage() {
 
       return {
         type: 'presentation',
-        action: p.error ? 'Generation Failed' : 'Presentation Generated',
+        action: p.error ? 'PPT Failed' : 'PPT',
         subject: `for ${doctorMap.get(p.doctorId) || 'Unknown Doctor'}`,
         by: byText,
         time: p.updatedAt.toDate(),
@@ -401,7 +401,6 @@ export default function AdminDashboardPage() {
                     <TableHead>City</TableHead>
                     <TableHead>Updated</TableHead>
                     <TableHead>Pending</TableHead>
-                    <TableHead>Errors</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -411,11 +410,6 @@ export default function AdminDashboardPage() {
                       <TableCell className="font-medium">{city.city}</TableCell>
                       <TableCell>{city.updated}</TableCell>
                       <TableCell>{city.pending}</TableCell>
-                      <TableCell
-                        className={city.error > 0 ? 'text-destructive font-bold' : ''}
-                      >
-                        {city.error}
-                      </TableCell>
                       <TableCell>{getStatusBadge(city)}</TableCell>
                     </TableRow>
                   ))}
