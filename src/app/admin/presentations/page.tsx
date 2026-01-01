@@ -360,179 +360,290 @@ function PresentationsComponent() {
               Failed to load presentations. This may be a security rule issue. Check the console.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Doctor Name</TableHead>
-                  <TableHead>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="-ml-4">
-                          City {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{cityFilter}</span>}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Filter by City</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuCheckboxItem checked={!cityFilter} onSelect={() => handleFilterChange('city', null)}>
-                          All Cities
-                        </DropdownMenuCheckboxItem>
-                        {availableCities.map(city => (
-                          <DropdownMenuCheckboxItem
-                            key={city}
-                            checked={cityFilter === city}
-                            onSelect={() => handleFilterChange('city', city)}
-                          >
-                            {city}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableHead>
-                  <TableHead>Last Updated</TableHead>
-                  <TableHead>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="-ml-4">
-                          Status {statusFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs capitalize text-secondary-foreground">{statusFilter}</span>}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuCheckboxItem checked={!statusFilter} onSelect={() => handleFilterChange('status', null)}>
-                          All Statuses
-                        </DropdownMenuCheckboxItem>
-                        {availableStatuses.map(status => (
-                          <DropdownMenuCheckboxItem
-                            key={status}
-                            checked={statusFilter === status}
-                            onSelect={() => handleFilterChange('status', status)}
-                            className="capitalize"
-                          >
-                            {status}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Doctor Name</TableHead>
+                      <TableHead>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="-ml-4">
+                              City {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{cityFilter}</span>}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Filter by City</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem checked={!cityFilter} onSelect={() => handleFilterChange('city', null)}>
+                              All Cities
+                            </DropdownMenuCheckboxItem>
+                            {availableCities.map(city => (
+                              <DropdownMenuCheckboxItem
+                                key={city}
+                                checked={cityFilter === city}
+                                onSelect={() => handleFilterChange('city', city)}
+                              >
+                                {city}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableHead>
+                      <TableHead>Last Updated</TableHead>
+                      <TableHead>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="-ml-4">
+                              Status {statusFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs capitalize text-secondary-foreground">{statusFilter}</span>}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem checked={!statusFilter} onSelect={() => handleFilterChange('status', null)}>
+                              All Statuses
+                            </DropdownMenuCheckboxItem>
+                            {availableStatuses.map(status => (
+                              <DropdownMenuCheckboxItem
+                                key={status}
+                                checked={statusFilter === status}
+                                onSelect={() => handleFilterChange('status', status)}
+                                className="capitalize"
+                              >
+                                {status}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {enrichedPresentations.length > 0 ? (
+                      enrichedPresentations.map((presentation) => (
+                        <TableRow key={presentation.id} className={(isTransitioning || !!generatingId) ? 'opacity-50' : ''}>
+                          <TableCell className="font-medium">
+                            {presentation.doctorName}
+                          </TableCell>
+                          <TableCell>{presentation.city}</TableCell>
+                          <TableCell>
+                            {presentation.updatedAt ? (
+                              <span title={format(presentation.updatedAt.toDate(), 'PPP p')}>
+                                {formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true })}
+                              </span>
+                            ) : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(presentation)}
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            {presentation.status === 'pending' || presentation.status === 'failed' ? (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleGenerate(presentation)}
+                                disabled={isTransitioning || !!generatingId}
+                              >
+                                {generatingId === presentation.id ? (
+                                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCcw className="mr-2 h-4 w-4" />
+                                )}
+                                Generate
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(presentation.pdfUrl, '_blank')}
+                                disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingPresentation(presentation)}
+                              disabled={isTransitioning || !!generatingId}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0" disabled={isTransitioning || !!generatingId}>
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    if (presentation.pdfUrl) {
+                                      const link = document.createElement('a');
+                                      link.href = presentation.pdfUrl;
+                                      link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }
+                                  }}
+                                  disabled={!presentation.pdfUrl}
+                                >
+                                  <Download className="mr-2 h-4 w-4" /> Download PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleRegenerate(presentation)}
+                                  disabled={presentation.dirty || isTransitioning || !!generatingId}
+                                >
+                                  <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="h-48 text-center text-muted-foreground"
+                        >
+                          <div className="flex flex-col items-center justify-center">
+                            <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                            <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
+                            <p className="mt-1 text-sm">
+                              {isAnyFilterActive
+                                ? `No presentations match your current filters.`
+                                : "Assign slides to a doctor to create a presentation."
+                              }
+                            </p>
+                            {(isAnyFilterActive) && (
+                              <Button variant="link" onClick={() => router.push(pathname)}>Clear All Filters</Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
                 {enrichedPresentations.length > 0 ? (
                   enrichedPresentations.map((presentation) => (
-                    <TableRow key={presentation.id} className={(isTransitioning || !!generatingId) ? 'opacity-50' : ''}>
-                      <TableCell className="font-medium">
-                        {presentation.doctorName}
-                      </TableCell>
-                      <TableCell>{presentation.city}</TableCell>
-                      <TableCell>
-                        {presentation.updatedAt ? (
-                          <span title={format(presentation.updatedAt.toDate(), 'PPP p')}>
-                            {formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true })}
-                          </span>
-                        ) : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(presentation)}
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        {presentation.status === 'pending' || presentation.status === 'failed' ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleGenerate(presentation)}
-                            disabled={isTransitioning || !!generatingId}
-                          >
-                            {generatingId === presentation.id ? (
-                              <Loader className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <RefreshCcw className="mr-2 h-4 w-4" />
-                            )}
-                            Generate
-                          </Button>
-                        ) : (
+                    <Card key={presentation.id} className={`p-4 ${(isTransitioning || !!generatingId) ? 'opacity-50' : ''}`}>
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-semibold">{presentation.doctorName}</p>
+                            <p className="text-sm text-muted-foreground">{presentation.city}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {presentation.updatedAt ? formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}
+                            </p>
+                          </div>
+                          <div>{getStatusBadge(presentation)}</div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {presentation.status === 'pending' || presentation.status === 'failed' ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleGenerate(presentation)}
+                              disabled={isTransitioning || !!generatingId}
+                              className="flex-1"
+                            >
+                              {generatingId === presentation.id ? (
+                                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCcw className="mr-2 h-4 w-4" />
+                              )}
+                              Generate
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(presentation.pdfUrl, '_blank')}
+                              disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
+                              className="flex-1"
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(presentation.pdfUrl, '_blank')}
-                            disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
+                            onClick={() => setEditingPresentation(presentation)}
+                            disabled={isTransitioning || !!generatingId}
+                            className="flex-1"
                           >
-                            <Eye className="mr-2 h-4 w-4" />
-                            View
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
                           </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingPresentation(presentation)}
-                          disabled={isTransitioning || !!generatingId}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0" disabled={isTransitioning || !!generatingId}>
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>More Actions</DropdownMenuLabel>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                if (presentation.pdfUrl) {
-                                  const link = document.createElement('a');
-                                  link.href = presentation.pdfUrl;
-                                  link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
-                                }
-                              }}
-                              disabled={!presentation.pdfUrl}
-                            >
-                              <Download className="mr-2 h-4 w-4" /> Download PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleRegenerate(presentation)}
-                              disabled={presentation.dirty || isTransitioning || !!generatingId}
-                            >
-                              <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" disabled={isTransitioning || !!generatingId}>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  if (presentation.pdfUrl) {
+                                    const link = document.createElement('a');
+                                    link.href = presentation.pdfUrl;
+                                    link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                  }
+                                }}
+                                disabled={!presentation.pdfUrl}
+                              >
+                                <Download className="mr-2 h-4 w-4" /> Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleRegenerate(presentation)}
+                                disabled={presentation.dirty || isTransitioning || !!generatingId}
+                              >
+                                <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </Card>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="h-48 text-center text-muted-foreground"
-                    >
-                      <div className="flex flex-col items-center justify-center">
-                        <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                        <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
-                        <p className="mt-1 text-sm">
-                          {isAnyFilterActive
-                            ? `No presentations match your current filters.`
-                            : "Assign slides to a doctor to create a presentation."
-                          }
-                        </p>
-                        {(isAnyFilterActive) && (
-                          <Button variant="link" onClick={() => router.push(pathname)}>Clear All Filters</Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                    <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
+                    <p className="mt-1 text-sm">
+                      {isAnyFilterActive
+                        ? `No presentations match your current filters.`
+                        : "Assign slides to a doctor to create a presentation."}
+                    </p>
+                    {isAnyFilterActive && (
+                      <Button variant="link" onClick={() => router.push(pathname)}>Clear All Filters</Button>
+                    )}
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

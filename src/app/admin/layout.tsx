@@ -280,7 +280,7 @@ export default function AdminLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-3 md:p-6 lg:p-8 overflow-x-auto">{children}</main>
+        <main className="flex-1 p-3 md:p-6 lg:p-8 overflow-x-auto min-h-[calc(100vh-4rem)]">{children}</main>
       </SidebarInset>
 
       <PasswordResetDialog open={isPasswordResetOpen} onOpenChange={setIsPasswordResetOpen} userEmail={user.email || ''} />
