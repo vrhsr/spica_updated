@@ -38,9 +38,9 @@ export default isProd
     },
 
     runtimeCaching: [
-      // ⚡ CRITICAL: Cache app shell so it loads offline (Domain Specific: spicasg.in OR Vercel)
+      // ⚡ CRITICAL: Cache app shell so it loads offline (Domain Specific: spicasg.in OR any Vercel domain)
       {
-        urlPattern: /^https?:\/\/(www\.)?(spicasg\.in|spica-virid\.vercel\.app)\/(_next|static|favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.js).*/,
+        urlPattern: /^https?:\/\/(www\.)?(spicasg\.in|.*\.vercel\.app)\/(_next|static|favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.js).*/,
         handler: "StaleWhileRevalidate",
         options: {
           cacheName: "app-shell-spicasg",
