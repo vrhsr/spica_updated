@@ -16,6 +16,8 @@ const lora = Lora({
   variable: '--font-headline',
 });
 
+import { PWADebugger } from '@/components/PWADebugger';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -49,6 +51,7 @@ export default function RootLayout({
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <FirebaseClientProvider>
           {children}
+          <PWADebugger />
           <Toaster />
         </FirebaseClientProvider>
       </body>
