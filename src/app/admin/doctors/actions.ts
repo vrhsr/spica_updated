@@ -72,7 +72,7 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
     const bucket = process.env.SUPABASE_S3_BUCKET!;
     const safeFileName = fileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
     const key = `${safeFileName}.pdf`;
-  
+
     await s3.send(
       new PutObjectCommand({
         Bucket: bucket,
@@ -82,7 +82,7 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
         ContentDisposition: `inline; filename="${safeFileName}.pdf"`
       })
     );
-  
+
     return `${process.env.SUPABASE_STORAGE_URL}/storage/v1/object/public/${bucket}/${key}`;
   }
 
@@ -91,38 +91,38 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
     if (selectedSlides.length === 0) {
       throw new Error('No slides were selected for the presentation.');
     }
-    
+
     // 1. Create a new PDF document
     const pdfDoc = await PDFDocument.create();
     const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     // 2. Add selected slides to the presentation
-    const slidesToAdd = allSlides.filter(slide => selectedSlides.includes(slide.number)).sort((a,b) => a.number - b.number);
-    
+    const slidesToAdd = allSlides.filter(slide => selectedSlides.includes(slide.number)).sort((a, b) => a.number - b.number);
+
     for (const slide of slidesToAdd) {
-        let imgBytes;
-        try {
-            const response = await fetch(slide.url);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch image for slide ${slide.number} with status ${response.status}`);
-            }
-            imgBytes = await response.arrayBuffer();
-        } catch (fetchError: any) {
-            console.error(`Failed to fetch image for slide ${slide.number} from ${slide.url}`, fetchError);
-            throw new Error(`Could not download image for slide number ${slide.number}. URL may be invalid or blocked. Original error: ${fetchError.message}`);
+      let imgBytes;
+      try {
+        const response = await fetch(slide.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image for slide ${slide.number} with status ${response.status}`);
         }
-      
-        let img;
-        try {
-            if (slide.url.toLowerCase().endsWith('.png')) {
-                img = await pdfDoc.embedPng(imgBytes);
-            } else {
-                img = await pdfDoc.embedJpg(imgBytes);
-            }
-        } catch(embedError: any) {
-             console.error(`Failed to embed image for slide ${slide.number}. It might be corrupted or in an unsupported format.`, embedError);
-             throw new Error(`Could not process image for slide number ${slide.number}. Check if the file is a valid JPG/PNG. Original error: ${embedError.message}`);
+        imgBytes = await response.arrayBuffer();
+      } catch (fetchError: any) {
+        console.error(`Failed to fetch image for slide ${slide.number} from ${slide.url}`, fetchError);
+        throw new Error(`Could not download image for slide number ${slide.number}. URL may be invalid or blocked. Original error: ${fetchError.message}`);
+      }
+
+      let img;
+      try {
+        if (slide.url.toLowerCase().endsWith('.png')) {
+          img = await pdfDoc.embedPng(imgBytes);
+        } else {
+          img = await pdfDoc.embedJpg(imgBytes);
         }
+      } catch (embedError: any) {
+        console.error(`Failed to embed image for slide ${slide.number}. It might be corrupted or in an unsupported format.`, embedError);
+        throw new Error(`Could not process image for slide number ${slide.number}. Check if the file is a valid JPG/PNG. Original error: ${embedError.message}`);
+      }
 
       // Use a standard 16:9 aspect ratio, e.g., 1280x720
       const page = pdfDoc.addPage([1280, 720]);
@@ -135,29 +135,27 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
 
       // If this is the last slide (Thank You slide), add the doctor's name
       if (slide.number === 34) {
-          const personalizedText = doctorName;
-          const fontSize = 42;
-          const textWidth = helveticaBoldFont.widthOfTextAtSize(personalizedText, fontSize);
-          
-          // Draw the white outline first by rendering the text with a stroke
-          page.drawText(personalizedText, {
-              x: (page.getWidth() - textWidth) / 2,
-              y: 280, // Position it below the main "THANK YOU DOCTOR" text
-              font: helveticaBoldFont,
-              size: fontSize,
-              color: rgb(1, 1, 1), // White for the outline
-              strokeColor: rgb(1, 1, 1),
-              strokeWidth: 1.5, // Thickness of the outline
-          });
-          
-          // Draw the blue fill on top
-          page.drawText(personalizedText, {
-              x: (page.getWidth() - textWidth) / 2,
-              y: 280,
-              font: helveticaBoldFont,
-              size: fontSize,
-              color: rgb(0, 102/255, 204/255), // Royal Blue: #0066CC
-          });
+        const personalizedText = doctorName;
+        const fontSize = 42;
+        const textWidth = helveticaBoldFont.widthOfTextAtSize(personalizedText, fontSize);
+
+        // Draw a white shadow for better visibility
+        page.drawText(personalizedText, {
+          x: ((page.getWidth() - textWidth) / 2) + 1.5,
+          y: 280 - 1.5,
+          font: helveticaBoldFont,
+          size: fontSize,
+          color: rgb(1, 1, 1), // White shadow
+        });
+
+        // Draw the blue fill on top
+        page.drawText(personalizedText, {
+          x: (page.getWidth() - textWidth) / 2,
+          y: 280,
+          font: helveticaBoldFont,
+          size: fontSize,
+          color: rgb(0, 102 / 255, 204 / 255), // Royal Blue: #0066CC
+        });
       }
     }
 
@@ -175,13 +173,13 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
     const snapshot = await q.get();
 
     const presentationData = {
-        doctorId,
-        city,
-        pdfUrl: downloadUrl,
-        updatedAt: Timestamp.now(),
-        updatedBy: adminUid,
-        dirty: false,
-        error: null
+      doctorId,
+      city,
+      pdfUrl: downloadUrl,
+      updatedAt: Timestamp.now(),
+      updatedBy: adminUid,
+      dirty: false,
+      error: null
     };
 
     let presentationId: string;
@@ -195,7 +193,7 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
       await docRef.update(presentationData);
       presentationId = docRef.id;
     }
-    
+
     // Return a direct JSON object on success
     return { presentationId, pdfUrl: downloadUrl };
 
@@ -207,32 +205,31 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
       const q = presentationsRef.where('doctorId', '==', doctorId);
       const snapshot = await q.get();
       if (!snapshot.empty) {
-          const presentationDocRef = snapshot.docs[0].ref;
-          await presentationDocRef.update({ 
-              error: err.message || 'An unknown server error occurred.', 
-              dirty: false, // Set dirty to false as the generation attempt has completed (even if failed)
-              updatedAt: Timestamp.now(),
-              updatedBy: adminUid
-          });
+        const presentationDocRef = snapshot.docs[0].ref;
+        await presentationDocRef.update({
+          error: err.message || 'An unknown server error occurred.',
+          dirty: false, // Set dirty to false as the generation attempt has completed (even if failed)
+          updatedAt: Timestamp.now(),
+          updatedBy: adminUid
+        });
       } else {
-          // If no presentation document exists, create one with the error state.
-          await presentationsRef.add({
-              doctorId,
-              city,
-              pdfUrl: null,
-              updatedAt: Timestamp.now(),
-              updatedBy: adminUid,
-              dirty: false,
-              error: err.message || 'An unknown server error occurred.'
-          });
+        // If no presentation document exists, create one with the error state.
+        await presentationsRef.add({
+          doctorId,
+          city,
+          pdfUrl: null,
+          updatedAt: Timestamp.now(),
+          updatedBy: adminUid,
+          dirty: false,
+          error: err.message || 'An unknown server error occurred.'
+        });
       }
     } catch (firestoreError) {
-        console.error("[generateAndUpsertPresentation] Failed to write error state to Firestore:", firestoreError);
+      console.error("[generateAndUpsertPresentation] Failed to write error state to Firestore:", firestoreError);
     }
-    
+
     // Return a structured error object to the client
     return { error: err.message || 'An unknown error occurred during PDF generation.' };
   }
 };
 
-    
