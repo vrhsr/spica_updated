@@ -12,7 +12,7 @@ const baseConfig = {
     ignoreDuringBuilds: process.env.CI === 'true',
   },
   images: {
-    unoptimized: isCapacitor, // Required for static export
+    unoptimized: isCapacitor,
     remotePatterns: [
       { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
       { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
@@ -30,66 +30,9 @@ const baseConfig = {
 // Capacitor build: Static export (no PWA)
 if (isCapacitor) {
   baseConfig.output = 'export';
-  baseConfig.trailingSlash = true; // Better for file-based routing
+  baseConfig.trailingSlash = true;
 }
 
-// Web build: PWA with Service Worker
-// TEMPORARILY DISABLED: Build errors with static generation
-// Will re-enable after fixing component architecture
+// Temporarily disable PWA to fix build errors
+// Web build: Normal Next.js (no PWA)
 export default baseConfig;
-
-/* 
-export default isProd && !isCapacitor
-  ? withPWA({
-    dest: "public",
-    register: true,
-    skipWaiting: false,
-    disable: false,
-
-    fallbacks: {
-      document: "/offline.html",
-    },
-
-    runtimeCaching: [
-      {
-        urlPattern: /^\/rep\/(offline|present|doctors|requests|page)/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "rep-pages",
-          networkTimeoutSeconds: 3,
-        },
-      },
-      {
-        urlPattern: /^\/rep-login/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "rep-auth",
-        },
-      },
-      {
-        urlPattern: /^\/(_next|static|favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.js)/,
-        handler: "StaleWhileRevalidate",
-        options: {
-          cacheName: "rep-app-shell",
-        },
-      },
-      {
-        urlPattern: /^https:\/\/.*\.supabase\.co\/.*\.(pdf)$/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: "rep-pdf-cache",
-          expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }
-        },
-      },
-      {
-        urlPattern: /.*/,
-handler: "NetworkFirst",
-  options: {
-  cacheName: "rep-default-cache",
-    networkTimeoutSeconds: 3,
-        }
-      }
-    ]
-  }) (baseConfig)
-  : baseConfig;
-*/
