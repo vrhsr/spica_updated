@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { doc } from 'firebase/firestore';
 
@@ -24,7 +24,20 @@ type UserProfile = {
     city: string;
 }
 
+// Wrapper component required for useSearchParams during static generation
 export default function RepLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <Suspense fallback={
+            <div className="flex h-screen items-center justify-center">
+                <Loader className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        }>
+            <RepLayoutInner>{children}</RepLayoutInner>
+        </Suspense>
+    );
+}
+
+function RepLayoutInner({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
