@@ -19,11 +19,11 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit } from 'lucide-react';
+import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
 import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, doc, updateDoc, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, Timestamp, getDocs, deleteDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
@@ -32,6 +32,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { EditSlidesForm } from '../doctors/AddDoctorDialog';
 
 
@@ -70,6 +71,7 @@ function PresentationsComponent() {
   const [isTransitioning, startTransition] = useTransition();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [editingPresentation, setEditingPresentation] = useState<EnrichedPresentation | null>(null);
+  const [deletingPresentation, setDeletingPresentation] = useState<EnrichedPresentation | null>(null);
 
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
@@ -287,6 +289,36 @@ function PresentationsComponent() {
       }
     });
   }
+
+  const handleDeletePresentation = async (presentation: EnrichedPresentation) => {
+    if (!firestore || !adminUser) return;
+
+    setGeneratingId(presentation.id); // Reuse existing loading state
+    setDeletingPresentation(null); // Close confirmation dialog
+
+    startTransition(async () => {
+      try {
+        const presentationRef = doc(firestore, 'presentations', presentation.id);
+        await deleteDoc(presentationRef);
+
+        toast({
+          title: 'Presentation Deleted',
+          description: `Presentation for ${presentation.doctorName} has been removed.`
+        });
+        forceRefetch();
+      } catch (err: any) {
+        console.error("Error deleting presentation:", err);
+        toast({
+          title: 'Delete Failed',
+          description: err.message || 'Could not delete presentation.',
+          variant: 'destructive'
+        });
+      } finally {
+        setGeneratingId(null);
+      }
+    });
+  }
+
 
 
   if (isUserLoading) {
@@ -507,6 +539,13 @@ function PresentationsComponent() {
                                 >
                                   <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setDeletingPresentation(presentation)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Presentation
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -622,6 +661,13 @@ function PresentationsComponent() {
                               >
                                 <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeletingPresentation(presentation)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Presentation
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -665,6 +711,30 @@ function PresentationsComponent() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingPresentation} onOpenChange={(open) => !open && setDeletingPresentation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Presentation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the presentation for{' '}
+              <strong>{deletingPresentation?.doctorName}</strong>?{' '}
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingPresentation && handleDeletePresentation(deletingPresentation)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
     </div>
   );

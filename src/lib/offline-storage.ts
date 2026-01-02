@@ -1,23 +1,15 @@
 /**
  * Offline Storage Service
- * Manages offline presentation storage using IndexedDB
- * Now migrated to the new PDF Storage Architecture
+ * Wrapper around offline-pdf-store for backward compatibility
+ * All IndexedDB operations delegated to offline-pdf-store.ts
  */
 
 import {
-    initPDFDB,
     savePDFOffline,
     getOfflinePDF,
-    hasOfflinePDF,
-    removePDFOffline
+    removePDFOffline,
+    listOfflinePDFs
 } from './offline-pdf-store';
-
-/**
- * Initialize and return the IndexedDB database
- */
-export async function initDB() {
-    return initPDFDB();
-}
 
 /**
  * Save a presentation for offline access
@@ -70,8 +62,7 @@ export async function removePresentationOffline(
 }
 
 /**
- * Check if a presentation is available offline
- * Note: Components using this might expect it to be synchronous if they check it in useEffect
+ * Check if a presentation is available offline (synchronous)
  */
 export function isAvailableOffline(doctorId: string): boolean {
     if (typeof window === 'undefined') return false;
@@ -85,10 +76,9 @@ export async function listOfflinePresentations(): Promise<
     Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number }>
 > {
     try {
-        const db = await initPDFDB();
-        const allPresentations = await db.getAll('pdfs');
+        const allPDFs = await listOfflinePDFs();
 
-        return allPresentations.map((data) => ({
+        return allPDFs.map((data) => ({
             doctorId: data.doctorId,
             doctorName: data.doctorName,
             downloadedAt: new Date(data.downloadedAt),

@@ -15,7 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { doc } from 'firebase/firestore';
@@ -27,6 +27,7 @@ type UserProfile = {
 export default function RepLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const auth = useAuth();
   const { user, role, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
@@ -43,7 +44,10 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const isUserLoading = isAuthLoading || isProfileLoading;
-  const isOfflineMode = pathname === '/rep/offline' || (pathname.startsWith('/rep/present/') && new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mode') === 'bypass');
+
+  // Offline mode detection - use searchParams hook for proper client-side evaluation
+  const isOfflineMode = pathname === '/rep/offline' ||
+    (pathname.startsWith('/rep/present/') && searchParams.get('mode') === 'bypass');
 
   // Check online/offline status
   useEffect(() => {
@@ -61,21 +65,29 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Automatically redirect to offline mode if offline and not already there
+  // Auto-redirect based on connection status
   useEffect(() => {
+    // CASE 1: Went OFFLINE → redirect to /rep/offline (if presentations available)
     if (!isOnline && !isOfflineMode && !hasCheckedOffline) {
       setHasCheckedOffline(true);
-      // Check if there are offline presentations available
+
       import('@/lib/offline-storage').then(({ listOfflinePresentations }) => {
         listOfflinePresentations().then(presentations => {
           if (presentations.length > 0) {
-            // Redirect to offline mode if presentations are available
             router.push('/rep/offline');
           }
         });
       });
     }
-  }, [isOnline, isOfflineMode, hasCheckedOffline, router]);
+
+    // CASE 2: Came back ONLINE → redirect to /rep (main page)
+    if (isOnline && pathname === '/rep/offline') {
+      // Reset the check flag
+      setHasCheckedOffline(false);
+      // Redirect to main rep dashboard
+      router.push('/rep');
+    }
+  }, [isOnline, isOfflineMode, hasCheckedOffline, pathname, router]);
 
   useEffect(() => {
     if (isOfflineMode) return; // Skip auth check in offline mode
@@ -99,7 +111,7 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [user, role, isUserLoading, router, isOfflineMode, isOnline]);
 
-  if (isTimedOut && !isOfflineMode) {
+  if (isTimedOut && !isOfflineMode && isOnline) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-background p-4 text-center">
         <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
@@ -115,7 +127,11 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode) {
+  // CRITICAL FIX: Don't block UI when offline
+  // Allow app to render in degraded mode with offline badge
+  const showLoadingScreen = (isUserLoading || !user || role !== 'rep') && !isOfflineMode && isOnline;
+
+  if (showLoadingScreen) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, Wifi, WifiOff, RefreshCw, Database } from 'lucide-react';
+import { X, Wifi, WifiOff, RefreshCw, Database, HardDrive, Shield } from 'lucide-react';
+import { checkStorageQuota, isPersistentStorage, requestPersistentStorage, getStorageStatus, type StorageQuotaInfo } from '@/lib/storage-quota';
 
 export function PWADebugger() {
     const [isVisible, setIsVisible] = useState(false);
@@ -12,6 +13,9 @@ export function PWADebugger() {
     const [isOnline, setIsOnline] = useState<boolean>(true);
     const [cacheKeys, setCacheKeys] = useState<string[]>([]);
     const [controllerState, setControllerState] = useState<string>('None');
+    const [storageInfo, setStorageInfo] = useState<StorageQuotaInfo | null>(null);
+    const [isPersistent, setIsPersistent] = useState<boolean>(false);
+    const [connectionType, setConnectionType] = useState<string>('Unknown');
 
     const checkStatus = async () => {
         // Check Online Status
@@ -35,6 +39,20 @@ export function PWADebugger() {
         if ('caches' in window) {
             const keys = await caches.keys();
             setCacheKeys(keys);
+        }
+
+        // Check Storage Quota
+        const quota = await checkStorageQuota();
+        setStorageInfo(quota);
+
+        // Check Persistent Storage
+        const persistent = await isPersistentStorage();
+        setIsPersistent(persistent);
+
+        // Check Connection Type
+        const connection = (navigator as any).connection;
+        if (connection) {
+            setConnectionType(connection.effectiveType || 'Unknown');
         }
     };
 
@@ -126,6 +144,56 @@ export function PWADebugger() {
                         )}
                     </div>
                 </div>
+
+                {/* Storage Quota */}
+                {storageInfo && (
+                    <div className="space-y-1">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-muted-foreground">Storage Used:</span>
+                            <Badge
+                                variant={getStorageStatus(storageInfo.percentUsed) === 'critical' ? 'destructive' :
+                                    getStorageStatus(storageInfo.percentUsed) === 'warning' ? 'secondary' : 'outline'}
+                            >
+                                <HardDrive className="h-3 w-3 mr-1" />
+                                {storageInfo.percentUsed.toFixed(1)}%
+                            </Badge>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground space-y-0.5">
+                            <div>Used: {storageInfo.usageFormatted}</div>
+                            <div>Total: {storageInfo.quotaFormatted}</div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Persistent Storage */}
+                <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Persistent:</span>
+                    {isPersistent ? (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            <Shield className="h-3 w-3 mr-1" /> Enabled
+                        </Badge>
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={async () => {
+                                const granted = await requestPersistentStorage();
+                                setIsPersistent(granted);
+                            }}
+                        >
+                            Enable
+                        </Button>
+                    )}
+                </div>
+
+                {/* Connection Type */}
+                {connectionType !== 'Unknown' && (
+                    <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Connection:</span>
+                        <span className="font-mono text-xs font-medium">{connectionType.toUpperCase()}</span>
+                    </div>
+                )}
 
                 {/* Actions */}
                 <div className="pt-2 flex gap-2">

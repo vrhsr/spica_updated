@@ -17,6 +17,8 @@ const lora = Lora({
 });
 
 import { PWADebugger } from '@/components/PWADebugger';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { UpdateNotification } from '@/components/UpdateNotification';
 
 export default function RootLayout({
   children,
@@ -49,11 +51,14 @@ export default function RootLayout({
         <meta name="theme-color" content="#0ea5e9" />
       </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
-        <FirebaseClientProvider>
-          {children}
-          <PWADebugger />
-          <Toaster />
-        </FirebaseClientProvider>
+        <ErrorBoundary level="root">
+          <FirebaseClientProvider>
+            {children}
+            <PWADebugger />
+            <UpdateNotification />
+            <Toaster />
+          </FirebaseClientProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

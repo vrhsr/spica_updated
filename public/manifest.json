@@ -1,13 +1,13 @@
 {
-  "name": "SPICASG Portal",
-  "short_name": "SPICASG",
-  "start_url": "/",
-  "scope": "/",
+  "name": "Field Rep Portal - SG HEALTH PHARMA",
+  "short_name": "Field Rep",
+  "start_url": "/rep",
+  "scope": "/rep",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0066CC",
   "orientation": "any",
-  "description": "Medical Representative Portal for Offline Doctor Presentations",
+  "description": "Offline-capable portal for medical representatives to manage doctor presentations and field activities",
   "icons": [
     {
       "src": "/icon-192.png",

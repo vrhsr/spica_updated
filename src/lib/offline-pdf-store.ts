@@ -1,95 +1,171 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
-
-interface PDFRecord {
-    doctorId: string;
-    fileBlob: Blob;
-    doctorName: string;
-    fileSize: number;
-    downloadedAt: number;
-}
-
-interface PDFStorageDB extends DBSchema {
-    pdfs: {
-        key: string;
-        value: PDFRecord;
-    };
-}
-
-const DB_NAME = 'pdfStorageDB';
-const STORE = 'pdfs';
-
 /**
- * 1. Create a dedicated IndexedDB storage
+ * PDF Offline Storage
+ * All IndexedDB operations go through indexeddb-utils.ts ONLY
  */
-export async function initPDFDB(): Promise<IDBPDatabase<PDFStorageDB>> {
-    return openDB<PDFStorageDB>(DB_NAME, 1, {
-        upgrade(db) {
-            if (!db.objectStoreNames.contains(STORE)) {
-                db.createObjectStore(STORE, { keyPath: "doctorId" });
-            }
-        },
-    });
-}
+
+import { getDB, resetDB, isRecoverableError, STORES } from './indexeddb-utils';
 
 /**
- * 2. Save PDF Offline (Cloud -> Local)
- * Adapted to use fetch as we are using Firebase/S3 URLs
+ * Save PDF Offline (Cloud → Local)
  */
 export async function savePDFOffline(doctorId: string, pdfUrl: string, doctorName: string) {
     if (!pdfUrl) throw new Error("No PDF URL provided");
 
-    const response = await fetch(pdfUrl);
-    if (!response.ok) throw new Error(`Failed to download PDF: ${response.statusText}`);
+    try {
+        // Download the PDF
+        const response = await fetch(pdfUrl);
+        if (!response.ok) throw new Error(`Failed to download PDF: ${response.statusText}`);
 
-    const blob = await response.blob();
+        const blob = await response.blob();
+        const pdfSize = blob.size;
 
-    const db = await initPDFDB();
-    await db.put(STORE, {
-        doctorId,
-        fileBlob: blob,
-        doctorName,
-        fileSize: blob.size,
-        downloadedAt: Date.now()
-    });
+        // Check storage quota
+        const { hasEnoughStorage } = await import('./storage-quota');
+        const hasSpace = await hasEnoughStorage(pdfSize, 10);
 
-    // Mark in localStorage for quick synchronous check
-    localStorage.setItem(`offline-${doctorId}`, 'true');
-    localStorage.setItem(`offline-name-${doctorId}`, doctorName);
+        if (!hasSpace) {
+            throw new Error(
+                `Insufficient storage. PDF size: ${formatBytes(pdfSize)}. ` +
+                `Please delete old presentations to free up space.`
+            );
+        }
 
-    return true;
+        // Save to IndexedDB
+        try {
+            const db = await getDB();
+            await db.put(STORES.PDFS, {
+                doctorId,
+                fileBlob: blob,
+                doctorName,
+                fileSize: blob.size,
+                downloadedAt: Date.now()
+            });
+        } catch (error: any) {
+            // Recovery logic for corrupted DB
+            if (isRecoverableError(error)) {
+                console.warn('IndexedDB error, attempting recovery...', error);
+                await resetDB();
+
+                // Retry after reset
+                const db = await getDB();
+                await db.put(STORES.PDFS, {
+                    doctorId,
+                    fileBlob: blob,
+                    doctorName,
+                    fileSize: blob.size,
+                    downloadedAt: Date.now()
+                });
+            } else {
+                throw error;
+            }
+        }
+
+        // Mark in localStorage for quick sync check
+        localStorage.setItem(`offline-${doctorId}`, 'true');
+        localStorage.setItem(`offline-name-${doctorId}`, doctorName);
+
+        return true;
+    } catch (error: any) {
+        // Clean up localStorage if operation failed
+        localStorage.removeItem(`offline-${doctorId}`);
+        localStorage.removeItem(`offline-name-${doctorId}`);
+
+        throw new Error(`Failed to save PDF offline: ${error.message}`);
+    }
 }
 
 /**
- * 3. Check If Stored Offline
+ * Check if PDF is stored offline
  */
-export async function hasOfflinePDF(doctorId: string) {
-    // Try localStorage first for synchronous-like speed in UI
+export async function hasOfflinePDF(doctorId: string): Promise<boolean> {
+    // Try localStorage first for speed
     if (typeof window !== 'undefined' && localStorage.getItem(`offline-${doctorId}`) === 'true') {
         return true;
     }
 
-    const db = await initPDFDB();
-    const record = await db.get(STORE, doctorId);
-    return !!record;
+    try {
+        const db = await getDB();
+        const record = await db.get(STORES.PDFS, doctorId);
+        return !!record;
+    } catch (error: any) {
+        if (isRecoverableError(error)) {
+            await resetDB();
+            return false; // After reset, nothing is cached
+        }
+        console.error('Error checking offline PDF:', error);
+        return false;
+    }
 }
 
 /**
- * 4. Retrieve PDF for Offline Use
+ * Retrieve PDF for offline use
  */
 export async function getOfflinePDF(doctorId: string) {
-    const db = await initPDFDB();
-    return await db.get(STORE, doctorId);
+    try {
+        const db = await getDB();
+        return await db.get(STORES.PDFS, doctorId);
+    } catch (error: any) {
+        if (isRecoverableError(error)) {
+            console.warn('IndexedDB error, attempting recovery...', error);
+            await resetDB();
+
+            // Retry after reset
+            const db = await getDB();
+            return await db.get(STORES.PDFS, doctorId);
+        }
+        throw new Error(`Failed to retrieve offline PDF: ${error.message}`);
+    }
 }
 
 /**
- * Remove PDF from Offline storage
+ * Remove PDF from offline storage
  */
 export async function removePDFOffline(doctorId: string) {
-    const db = await initPDFDB();
-    await db.delete(STORE, doctorId);
+    try {
+        const db = await getDB();
+        await db.delete(STORES.PDFS, doctorId);
 
-    localStorage.removeItem(`offline-${doctorId}`);
-    localStorage.removeItem(`offline-name-${doctorId}`);
+        localStorage.removeItem(`offline-${doctorId}`);
+        localStorage.removeItem(`offline-name-${doctorId}`);
 
-    return true;
+        return true;
+    } catch (error: any) {
+        // Clean up localStorage even if DB operation failed
+        localStorage.removeItem(`offline-${doctorId}`);
+        localStorage.removeItem(`offline-name-${doctorId}`);
+
+        if (isRecoverableError(error)) {
+            await resetDB();
+            return true; // After reset, it's deleted anyway
+        }
+
+        throw new Error(`Failed to remove offline PDF: ${error.message}`);
+    }
+}
+
+/**
+ * List all offline PDFs
+ */
+export async function listOfflinePDFs() {
+    try {
+        const db = await getDB();
+        return await db.getAll(STORES.PDFS);
+    } catch (error: any) {
+        if (isRecoverableError(error)) {
+            console.warn('IndexedDB error, attempting recovery...', error);
+            await resetDB();
+            return []; // After reset, nothing is cached
+        }
+        console.error('Error listing offline PDFs:', error);
+        return [];
+    }
+}
+
+// Helper function
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }

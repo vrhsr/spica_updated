@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Offline Mode</title>
-    <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        padding: 2rem;
-        text-align: center;
-        background: #f9fafb;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .container {
-        max-width: 400px;
-      }
-      h2 {
-        color: #111827;
-        margin-bottom: 1rem;
-      }
-      p {
-        color: #6b7280;
-        margin-bottom: 2rem;
-      }
-      .loader {
-        border: 3px solid #e5e7eb;
-        border-top: 3px solid #0066CC;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: 0 auto;
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h2>Offline Mode</h2>
-      <p>You are offline. Loading your saved presentations...</p>
-      <div class="loader"></div>
-    </div>
 
-    <script>
-      // Auto-redirect to offline dashboard in the app
-      setTimeout(function() {
-        window.location.href = "/rep/offline";
-      }, 500);
-    </script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline Mode</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 2rem;
+      text-align: center;
+      background: #f9fafb;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 400px;
+    }
+
+    h2 {
+      color: #111827;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      color: #6b7280;
+      margin-bottom: 2rem;
+    }
+
+    .loader {
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #0066CC;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h2>Offline Mode</h2>
+    <p>You are currently offline. Your saved presentations are available.</p>
+    <a href="/rep/offline"
+      style="display: inline-block; margin-top: 1.5rem; padding: 0.75rem 1.5rem; background: #0066CC; color: white; text-decoration: none; border-radius: 0.5rem; font-weight: 500;">Go
+      to Offline Dashboard</a>
+  </div>
+</body>
+
 </html>
