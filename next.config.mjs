@@ -34,11 +34,16 @@ if (isCapacitor) {
 }
 
 // Web build: PWA with Service Worker
+// TEMPORARILY DISABLED: Build errors with static generation
+// Will re-enable after fixing component architecture
+export default baseConfig;
+
+/* 
 export default isProd && !isCapacitor
   ? withPWA({
     dest: "public",
     register: true,
-    skipWaiting: false, // Changed to false - allow user to control updates
+    skipWaiting: false,
     disable: false,
 
     fallbacks: {
@@ -47,7 +52,6 @@ export default isProd && !isCapacitor
 
     runtimeCaching: [
       {
-        // Rep-specific routes only (offline-first)
         urlPattern: /^\/rep\/(offline|present|doctors|requests|page)/,
         handler: "NetworkFirst",
         options: {
@@ -56,7 +60,6 @@ export default isProd && !isCapacitor
         },
       },
       {
-        // Rep login page (cached for offline access)
         urlPattern: /^\/rep-login/,
         handler: "CacheFirst",
         options: {
@@ -64,7 +67,6 @@ export default isProd && !isCapacitor
         },
       },
       {
-        // App shell resources (scoped to /rep)
         urlPattern: /^\/(_next|static|favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.js)/,
         handler: "StaleWhileRevalidate",
         options: {
@@ -72,7 +74,6 @@ export default isProd && !isCapacitor
         },
       },
       {
-        // PDF files from Supabase
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*\.(pdf)$/,
         handler: "CacheFirst",
         options: {
@@ -81,14 +82,14 @@ export default isProd && !isCapacitor
         },
       },
       {
-        // Default fallback for other resources
         urlPattern: /.*/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "rep-default-cache",
-          networkTimeoutSeconds: 3,
+handler: "NetworkFirst",
+  options: {
+  cacheName: "rep-default-cache",
+    networkTimeoutSeconds: 3,
         }
       }
     ]
-  })(baseConfig)
+  }) (baseConfig)
   : baseConfig;
+*/
