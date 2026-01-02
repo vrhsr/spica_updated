@@ -3,7 +3,7 @@
  * All IndexedDB operations go through indexeddb-utils.ts ONLY
  */
 
-import { getDB, resetDB, isRecoverableError, STORES } from './indexeddb-utils';
+import { getDB, STORES } from './indexeddb-utils';
 
 /**
  * Save PDF Offline (Cloud → Local)
@@ -36,35 +36,15 @@ export async function savePDFOffline(
         }
 
         // Save to IndexedDB
-        try {
-            const db = await getDB();
-            await db.put(STORES.PDFS, {
-                doctorId,
-                fileBlob: blob,
-                doctorName,
-                fileSize: blob.size,
-                downloadedAt: Date.now(),
-                ...metadata
-            });
-        } catch (error: any) {
-            // Recovery logic for corrupted DB
-            if (isRecoverableError(error)) {
-                console.warn('IndexedDB error, attempting recovery...', error);
-                await resetDB();
-
-                // Retry after reset
-                const db = await getDB();
-                await db.put(STORES.PDFS, {
-                    doctorId,
-                    fileBlob: blob,
-                    doctorName,
-                    fileSize: blob.size,
-                    downloadedAt: Date.now()
-                });
-            } else {
-                throw error;
-            }
-        }
+        const db = await getDB();
+        await db.put(STORES.PDFS, {
+            doctorId,
+            fileBlob: blob,
+            doctorName,
+            fileSize: blob.size,
+            downloadedAt: Date.now(),
+            ...metadata
+        });
 
         // Mark in localStorage for quick sync check
         localStorage.setItem(`offline-${doctorId}`, 'true');
@@ -94,10 +74,6 @@ export async function hasOfflinePDF(doctorId: string): Promise<boolean> {
         const record = await db.get(STORES.PDFS, doctorId);
         return !!record;
     } catch (error: any) {
-        if (isRecoverableError(error)) {
-            await resetDB();
-            return false; // After reset, nothing is cached
-        }
         console.error('Error checking offline PDF:', error);
         return false;
     }
@@ -111,14 +87,7 @@ export async function getOfflinePDF(doctorId: string) {
         const db = await getDB();
         return await db.get(STORES.PDFS, doctorId);
     } catch (error: any) {
-        if (isRecoverableError(error)) {
-            console.warn('IndexedDB error, attempting recovery...', error);
-            await resetDB();
-
-            // Retry after reset
-            const db = await getDB();
-            return await db.get(STORES.PDFS, doctorId);
-        }
+        console.error('Error retrieving offline PDF:', error);
         throw new Error(`Failed to retrieve offline PDF: ${error.message}`);
     }
 }
@@ -140,11 +109,7 @@ export async function removePDFOffline(doctorId: string) {
         localStorage.removeItem(`offline-${doctorId}`);
         localStorage.removeItem(`offline-name-${doctorId}`);
 
-        if (isRecoverableError(error)) {
-            await resetDB();
-            return true; // After reset, it's deleted anyway
-        }
-
+        console.error('Error removing offline PDF:', error);
         throw new Error(`Failed to remove offline PDF: ${error.message}`);
     }
 }
@@ -157,11 +122,6 @@ export async function listOfflinePDFs() {
         const db = await getDB();
         return await db.getAll(STORES.PDFS);
     } catch (error: any) {
-        if (isRecoverableError(error)) {
-            console.warn('IndexedDB error, attempting recovery...', error);
-            await resetDB();
-            return []; // After reset, nothing is cached
-        }
         console.error('Error listing offline PDFs:', error);
         return [];
     }
