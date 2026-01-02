@@ -73,6 +73,26 @@ export default function PresentationViewerPage() {
                 throw new Error('Failed to load PDF record');
             }
 
+            // GUARDRAILS - Smart Sync
+            if (record.state === 'FAILED') {
+                toast({
+                    variant: 'destructive',
+                    title: 'Sync Failed',
+                    description: 'This presentation failed to download properly. Please retry the "Start Day" sync.',
+                });
+                setLoading(false);
+                // We keep it null so the empty state is shown
+                return;
+            }
+
+            if (record.state === 'STALE') {
+                toast({
+                    className: "bg-amber-100 border-amber-500 text-amber-900",
+                    title: 'Presentation Outdated',
+                    description: 'You are viewing an older version. Please sync when online.',
+                });
+            }
+
             // Load PDF with PDF.js using an Object URL (recommended architecture)
             const pdfUrl = URL.createObjectURL(record.fileBlob);
             const loadingTask = pdfjsLib.getDocument(pdfUrl);

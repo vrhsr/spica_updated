@@ -19,9 +19,10 @@ import {
 import Link from 'next/link';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
+import { StartDayButton } from '@/components/StartDayButton';
 import { OfflinePresentationsCard } from '@/components/OfflinePresentationsCard';
 
-type Doctor = { id: string; city: string };
+type Doctor = { id: string; city: string; name: string };
 type Request = {
   id: string;
   repId: string;
@@ -29,9 +30,11 @@ type Request = {
   createdAt: Timestamp;
 };
 type Presentation = {
+  doctorId: string;
   dirty: boolean;
   error?: string;
   pdfUrl?: string;
+  updatedAt: Timestamp;
 };
 type UserProfile = {
   city: string;
@@ -113,10 +116,16 @@ export default function RepDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           Dashboard
         </h1>
+        <div className="w-full md:w-auto">
+          <StartDayButton
+            presentations={presentations || []}
+            doctors={doctors || []}
+          />
+        </div>
       </div>
 
       {/* Top Row - Stats + Offline Card */}

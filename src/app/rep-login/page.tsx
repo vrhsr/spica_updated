@@ -93,6 +93,9 @@ export default function RepLoginPage() {
       case 'auth/popup-closed-by-user':
         setError('Sign-in process was cancelled.');
         break;
+      case 'auth/network-request-failed':
+        setError('Network Connection Error. Please check your internet or firewall settings.');
+        break;
       default:
         setError('An unexpected error occurred. Please try again.');
         break;

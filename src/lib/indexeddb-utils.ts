@@ -10,20 +10,38 @@ const DB_VERSION = 1;
 
 export const STORES = {
     PDFS: 'pdfs',
+    SYNC_STATE: 'sync_state',
 } as const;
 
-interface PDFRecord {
+export interface PDFRecord {
     doctorId: string;
     fileBlob: Blob;
     doctorName: string;
     fileSize: number;
     downloadedAt: number;
+    // Sync metadata
+    state?: 'READY' | 'FAILED' | 'STALE';
+    lastSyncAttempt?: number;
+    checksum?: string;
 }
 
-interface SpicasgDB extends DBSchema {
+export interface SyncStateRecord {
+    id: string; // 'current_session'
+    lastSyncTime: number;
+    totalDoctors: number;
+    syncedCount: number;
+    failedCount: number;
+    status: 'IDLE' | 'CHECKING' | 'SYNCING' | 'PAUSED' | 'COMPLETED' | 'ERROR';
+}
+
+export interface SpicasgDB extends DBSchema {
     pdfs: {
         key: string;
         value: PDFRecord;
+    };
+    sync_state: {
+        key: string;
+        value: SyncStateRecord;
     };
 }
 
@@ -41,6 +59,9 @@ export async function getDB(): Promise<IDBPDatabase<SpicasgDB>> {
                 // Create object stores if they don't exist
                 if (!db.objectStoreNames.contains(STORES.PDFS)) {
                     db.createObjectStore(STORES.PDFS, { keyPath: 'doctorId' });
+                }
+                if (!db.objectStoreNames.contains(STORES.SYNC_STATE)) {
+                    db.createObjectStore(STORES.SYNC_STATE, { keyPath: 'id' });
                 }
             },
         });

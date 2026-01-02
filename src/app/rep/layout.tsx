@@ -15,7 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useAuth, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { doc } from 'firebase/firestore';
@@ -27,11 +27,12 @@ type UserProfile = {
 export default function RepLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const auth = useAuth();
     const { user, role, isUserLoading: isAuthLoading } = useUser();
     const firestore = useFirestore();
     const [isTimedOut, setIsTimedOut] = useState(false);
-    const [isOnline, setIsOnline] = useState(true);
+    const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
     const [hasCheckedOffline, setHasCheckedOffline] = useState(false);
     const repAvatar = PlaceHolderImages.find((img) => img.id === 'rep-avatar');
 
@@ -43,7 +44,13 @@ export default function RepLayout({ children }: { children: React.ReactNode }) {
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
     const isUserLoading = isAuthLoading || isProfileLoading;
-    const isOfflineMode = pathname === '/rep/offline' || (pathname.startsWith('/rep/present/') && new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mode') === 'bypass');
+
+    // Offline mode should bypass auth for:
+    // 1. /rep/offline page (always)
+    // 2. /rep/present/* routes when actually offline OR when ?mode=bypass is set
+    const isBypassMode = searchParams.get('mode') === 'bypass';
+    const isOfflineMode = pathname === '/rep/offline' ||
+        (pathname.startsWith('/rep/present/') && (!isOnline || isBypassMode));
 
     // Check online/offline status
     useEffect(() => {

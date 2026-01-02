@@ -8,7 +8,12 @@ import { getDB, resetDB, isRecoverableError, STORES } from './indexeddb-utils';
 /**
  * Save PDF Offline (Cloud → Local)
  */
-export async function savePDFOffline(doctorId: string, pdfUrl: string, doctorName: string) {
+export async function savePDFOffline(
+    doctorId: string,
+    pdfUrl: string,
+    doctorName: string,
+    metadata?: { state?: 'READY' | 'FAILED' | 'STALE', lastSyncAttempt?: number, checksum?: string }
+) {
     if (!pdfUrl) throw new Error("No PDF URL provided");
 
     try {
@@ -38,7 +43,8 @@ export async function savePDFOffline(doctorId: string, pdfUrl: string, doctorNam
                 fileBlob: blob,
                 doctorName,
                 fileSize: blob.size,
-                downloadedAt: Date.now()
+                downloadedAt: Date.now(),
+                ...metadata
             });
         } catch (error: any) {
             // Recovery logic for corrupted DB
