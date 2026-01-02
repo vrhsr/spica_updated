@@ -1,5 +1,9 @@
 'use client';
 
+// Force dynamic rendering for entire /rep route segment
+// Required because pages use Firebase Auth, IndexedDB, and offline features
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { LogOut, Stethoscope, Loader, PlusCircle, AlertTriangle, WifiOff } from 'lucide-react';
