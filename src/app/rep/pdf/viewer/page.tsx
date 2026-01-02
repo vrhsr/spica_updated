@@ -1,9 +1,6 @@
 
 'use client';
 
-// Force dynamic rendering (required for auth + PWA features)
-export const dynamic = 'force-dynamic';
-
 import React, { Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';

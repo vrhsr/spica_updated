@@ -3,41 +3,72 @@ import withPWA from "next-pwa";
 const isProd = process.env.NODE_ENV === "production";
 const isCapacitor = process.env.BUILD_TARGET === "capacitor";
 
-/** @type {import('next').NextConfig} */
 const baseConfig = {
-  reactStrictMode: true,
-
-  // ✅ DEFAULT: Normal Next.js runtime (Vercel-safe)
-  // This prevents static export mode from leaking into production
-  output: isCapacitor ? undefined : 'standalone',
-
-  typescript: {
-    ignoreBuildErrors: process.env.CI === 'true',
-  },
-  eslint: {
-    ignoreDuringBuilds: process.env.CI === 'true',
-  },
-  images: {
-    unoptimized: isCapacitor, // Required for static export
-    remotePatterns: [
-      { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
-      { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
-      { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
-      { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' },
-      { protocol: 'https', hostname: 'ezogujldmpxycodwboos.supabase.co', pathname: '/**' },
-    ],
-  },
-  experimental: {
-    turbo: {},
-  },
+    reactStrictMode: true,
+    typescript: {
+        ignoreBuildErrors: process.env.CI === 'true',
+    },
+    eslint: {
+        ignoreDuringBuilds: process.env.CI === 'true',
+    },
+    images: {
+        unoptimized: isCapacitor, // Required for static export
+        remotePatterns: [
+            { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
+            { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
+            { protocol: 'https', hostname: 'picsum.photos', pathname: '/**' },
+            { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' },
+            { protocol: 'https', hostname: 'ezogujldmpxycodwboos.supabase.co', pathname: '/**' },
+        ],
+    },
+    serverExternalPackages: ["@aws-sdk/*"],
+    experimental: {
+        turbo: {},
+    },
 };
 
-// 🔒 ONLY enable export in Capacitor builds (explicit opt-in)
+// Capacitor build: Static export (no PWA)
 if (isCapacitor) {
-  console.warn('⚠️ Building for Capacitor: enabling static export');
-  baseConfig.output = 'export';
-  baseConfig.trailingSlash = true;
+    baseConfig.output = 'export';
+    baseConfig.trailingSlash = true; // Better for file-based routing
 }
 
-// Web build: Normal Next.js (PWA temporarily disabled)
-export default baseConfig;
+// Web build: PWA with Service Worker
+export default isProd && !isCapacitor
+    ? withPWA({
+        dest: "public",
+        register: true,
+        skipWaiting: false, // Changed to false - allow user to control updates
+        disable: false,
+
+        fallbacks: {
+            document: "/offline.html",
+        },
+
+        runtimeCaching: [
+            {
+                urlPattern: /^\/(_next|static|favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.js)/,
+                handler: "StaleWhileRevalidate",
+                options: {
+                    cacheName: "app-shell",
+                },
+            },
+            {
+                urlPattern: /^https:\/\/.*\.supabase\.co\/.*\.(pdf)$/,
+                handler: "CacheFirst",
+                options: {
+                    cacheName: "pdf-cache",
+                    expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }
+                },
+            },
+            {
+                urlPattern: /.*/,
+                handler: "NetworkFirst",
+                options: {
+                    cacheName: "default-cache",
+                    networkTimeoutSeconds: 3,
+                }
+            }
+        ]
+    })(baseConfig)
+    : baseConfig;

@@ -1,9 +1,6 @@
 
 'use client';
 
-// Force dynamic rendering (required for auth + PWA features)
-export const dynamic = 'force-dynamic';
-
 import React, { useMemo, useState } from 'react';
 import {
   Card,

@@ -1,8 +1,5 @@
 'use client';
 
-// Force dynamic rendering (required for auth + PWA features)
-export const dynamic = 'force-dynamic';
-
 import React, { useEffect, useState } from 'react';
 import { listOfflinePresentations, formatBytes } from '@/lib/offline-storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

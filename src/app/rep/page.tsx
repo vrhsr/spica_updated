@@ -21,9 +21,6 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { OfflinePresentationsCard } from '@/components/OfflinePresentationsCard';
 
-// Force dynamic rendering (required for auth + PWA features)
-export const dynamic = 'force-dynamic';
-
 type Doctor = { id: string; city: string };
 type Request = {
   id: string;

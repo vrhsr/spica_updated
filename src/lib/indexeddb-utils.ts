@@ -5,7 +5,7 @@
 
 import { openDB, IDBPDatabase, DBSchema } from 'idb';
 
-const DB_NAME = 'rep-offline-db'; // Rep-specific database (isolated from admin)
+const DB_NAME = 'spicasg-offline-db';
 const DB_VERSION = 1;
 
 export const STORES = {
@@ -33,28 +33,8 @@ let dbPromise: Promise<IDBPDatabase<SpicasgDB>> | null = null;
 /**
  * Get the database instance (ONLY entry point for IndexedDB)
  * This function MUST be used by all other files
- * 
- * Security: Only allows access for rep role
  */
 export async function getDB(): Promise<IDBPDatabase<SpicasgDB>> {
-    // Role guard: Only reps can access offline storage
-    if (typeof window !== 'undefined') {
-        try {
-            // Check localStorage for cached role (set by Firebase auth)
-            const userRole = localStorage.getItem('userRole');
-
-            if (userRole && userRole !== 'rep') {
-                throw new Error(
-                    'Offline storage is only available for field representatives. ' +
-                    'Admin users should use the online portal.'
-                );
-            }
-        } catch (e) {
-            // If localStorage fails, continue (don't block functionality)
-            console.warn('Could not verify user role for IndexedDB access:', e);
-        }
-    }
-
     if (!dbPromise) {
         dbPromise = openDB<SpicasgDB>(DB_NAME, DB_VERSION, {
             upgrade(db) {
@@ -74,20 +54,11 @@ export async function getDB(): Promise<IDBPDatabase<SpicasgDB>> {
  */
 export async function resetDB(): Promise<void> {
     try {
-        // CRITICAL FIX: Nullify promise FIRST before closing
-        // This prevents concurrent getDB() calls from getting a closing connection
-        const oldPromise = dbPromise;
-        dbPromise = null; // ← Set to null IMMEDIATELY
-
-        // Close the old connection (if it exists)
-        if (oldPromise) {
-            try {
-                const db = await oldPromise;
-                db.close();
-            } catch (e) {
-                // Ignore errors - connection might already be broken
-                console.warn('Error closing old DB connection:', e);
-            }
+        // Close existing connection
+        if (dbPromise) {
+            const db = await dbPromise;
+            db.close();
+            dbPromise = null;
         }
 
         // Delete the database
@@ -101,23 +72,21 @@ export async function resetDB(): Promise<void> {
 
             request.onerror = () => {
                 console.error(`Failed to delete database: ${DB_NAME}`, request.error);
-                // Don't reject - allow continuation even if delete fails
-                resolve();
+                reject(request.error);
             };
 
             request.onblocked = () => {
-                console.warn(`Delete blocked for database: ${DB_NAME}. It will complete when other tabs close.`);
-                // Don't reject - the delete will complete eventually
+                console.warn(`Delete blocked for database: ${DB_NAME}. Close other tabs.`);
+                // Don't reject - the delete will complete when tabs close
                 resolve();
             };
         });
 
-        // Small delay to let browser finish cleanup
-        await new Promise(resolve => setTimeout(resolve, 100));
-
+        // Force new connection on next getDB() call
+        dbPromise = null;
     } catch (error) {
         console.error('Error resetting database:', error);
-        // Ensure promise is nullified even on error
+        // Force reset promise anyway
         dbPromise = null;
         throw error;
     }
@@ -132,7 +101,6 @@ export function isRecoverableError(error: any): boolean {
         message.includes('UnknownError') ||
         message.includes('backing store') ||
         message.includes('VersionError') ||
-        message.includes('InvalidStateError') ||
-        message.includes('connection is closing')
+        message.includes('InvalidStateError')
     );
 }

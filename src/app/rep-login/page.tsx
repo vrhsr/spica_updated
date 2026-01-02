@@ -28,26 +28,7 @@ import { useEffect } from 'react';
 
 function OfflineBypassButton() {
   const [offlineCount, setOfflineCount] = useState(0);
-  const [isOffline, setIsOffline] = useState(false);
-  const router = useRouter();
 
-  // Detect offline status
-  useEffect(() => {
-    const updateStatus = () => {
-      setIsOffline(!navigator.onLine);
-    };
-
-    updateStatus();
-    window.addEventListener('online', updateStatus);
-    window.addEventListener('offline', updateStatus);
-
-    return () => {
-      window.removeEventListener('online', updateStatus);
-      window.removeEventListener('offline', updateStatus);
-    };
-  }, []);
-
-  // Count offline presentations
   useEffect(() => {
     const check = async () => {
       const data = await listOfflinePresentations();
@@ -56,37 +37,22 @@ function OfflineBypassButton() {
     check();
   }, []);
 
-  // Auto-redirect when offline and presentations available
-  useEffect(() => {
-    if (isOffline && offlineCount > 0) {
-      // Small delay to let user see what's happening
-      const timer = setTimeout(() => {
-        router.push('/rep/offline');
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isOffline, offlineCount, router]);
-
-  // Only show when offline
-  if (!isOffline) return null;
-
   return (
-    <div className="mt-6 p-4 border-2 border-dashed border-amber-500/50 rounded-xl bg-amber-50/80">
-      <p className="text-xs text-center font-semibold text-amber-800 uppercase tracking-wider mb-3">
-        {offlineCount > 0 ? '✈️ You are offline - Redirecting...' : '⚠️ No offline presentations available'}
+    <div className="mt-6 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
+      <p className="text-xs text-center font-semibold text-primary uppercase tracking-wider mb-3">
+        {offlineCount > 0 ? 'Ready for Offline Presentation' : 'Offline Mode Available'}
       </p>
-      {offlineCount > 0 ? (
-        <Button asChild variant="default" className="w-full bg-amber-600 hover:bg-amber-700 h-12 shadow-md">
-          <Link href="/rep/offline">
-            <Monitor className="mr-2 h-5 w-5" />
-            Access {offlineCount} Downloaded Presentations
-          </Link>
-        </Button>
-      ) : (
-        <p className="text-xs text-center text-amber-700">
-          You need an internet connection to login. Please connect and save presentations for offline use.
-        </p>
-      )}
+      <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90 h-12 shadow-md">
+        <Link href="/rep/offline">
+          <Monitor className="mr-2 h-5 w-5" />
+          {offlineCount > 0 ? `Access ${offlineCount} Downloaded Doctors` : 'Access Offline Mode'}
+        </Link>
+      </Button>
+      <p className="text-[10px] text-center text-muted-foreground mt-2">
+        {offlineCount > 0
+          ? 'No internet connection required to present these.'
+          : 'View and present downloaded presentations without internet.'}
+      </p>
     </div>
   );
 }
