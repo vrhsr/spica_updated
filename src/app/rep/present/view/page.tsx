@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, X, Loader, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
@@ -8,12 +8,15 @@ import { getOfflinePDF, hasOfflinePDF } from '@/lib/offline-pdf-store';
 import { useToast } from '@/hooks/use-toast';
 import { useOfflineReady } from '@/hooks/useOfflineReady';
 import * as pdfjsLib from 'pdfjs-dist';
-import { Suspense } from 'react';
+import { App } from '@capacitor/app';
+import { PresentationExitDialog } from '@/components/PresentationExitDialog';
 
 // Configure PDF.js worker - use local worker file for offline support
 if (typeof window !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 }
+
+// ... (existing imports remain, handled by tool context)
 
 function PresentationViewerContent() {
     const router = useRouter();
@@ -32,6 +35,10 @@ function PresentationViewerContent() {
     const [isOffline, setIsOffline] = useState(false);
     const [isPresenting, setIsPresenting] = useState(false);
 
+    // NEW: Post-presentation feedback state
+    const [showExitDialog, setShowExitDialog] = useState(false);
+    const [doctorName, setDoctorName] = useState<string>('');
+
     // Touch gesture handling
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
@@ -45,11 +52,27 @@ function PresentationViewerContent() {
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
 
+        // Hardware Back Button Handling (Capacitor)
+        let backListener: any;
+        const setupBackListener = async () => {
+            backListener = await App.addListener('backButton', () => {
+                if (showExitDialog) {
+                    // If dialog is open, let default happen (close app or do nothing? closer to cancel)
+                    setShowExitDialog(false);
+                } else {
+                    // Open exit confirmation
+                    setShowExitDialog(true);
+                }
+            });
+        };
+        setupBackListener();
+
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
+            if (backListener) backListener.remove();
         };
-    }, []);
+    }, [showExitDialog]);
 
     useEffect(() => {
         // Wait for IndexedDB to be ready before loading
@@ -78,12 +101,15 @@ function PresentationViewerContent() {
                 throw new Error('Failed to load PDF record');
             }
 
+            // Capture doctor name for feedback dialog
+            setDoctorName(record.doctorName || 'Doctor');
+
             // GUARDRAILS - Smart Sync
             if (record.state === 'FAILED') {
                 toast({
                     variant: 'destructive',
                     title: 'Sync Failed',
-                    description: 'This presentation failed to download properly. Please retry the \"Start Day\" sync.',
+                    description: 'This presentation failed to download properly. Please retry the "Start Day" sync.',
                 });
                 setLoading(false);
                 return;
@@ -115,6 +141,8 @@ function PresentationViewerContent() {
             setLoading(false);
         }
     };
+
+    // ... (renderPage, useEffects for rendering remain same)
 
     const renderPage = useCallback(async (pageNumber: number) => {
         if (!pdfDoc || !canvasRef.current) return;
@@ -163,7 +191,17 @@ function PresentationViewerContent() {
         setCurrentPage(p => Math.min(totalPages, p + 1));
     }, [totalPages]);
 
+    // MODIFIED: handleClose now opens the feedback dialog
     const handleClose = () => {
+        // Exit fullscreen if active
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(err => console.warn(err));
+            setIsPresenting(false);
+        }
+        setShowExitDialog(true);
+    };
+
+    const confirmExit = () => {
         router.push('/rep/offline');
     };
 
@@ -179,10 +217,12 @@ function PresentationViewerContent() {
     const exitPresentation = () => {
         if (document.fullscreenElement) {
             document.exitFullscreen().then(() => setIsPresenting(false));
+            // Don't auto-show dialog on ESC/ExitFullscreen, only on explicit Close/Back
         }
     };
 
-    // Touch gesture handlers
+    // ... (Touch handlers, handleCanvasClick remain same)
+
     const handleTouchStart = (e: React.TouchEvent) => {
         touchStartX.current = e.touches[0].clientX;
         touchStartY.current = e.touches[0].clientY;
@@ -265,7 +305,7 @@ function PresentationViewerContent() {
                 <div className="text-center text-white">
                     <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
                     <p className="text-xl">No presentation selected</p>
-                    <Button variant="outline" className="mt-4" onClick={handleClose}>
+                    <Button variant="outline" className="mt-4" onClick={() => router.push('/rep/offline')}>
                         Go to Offline Mode
                     </Button>
                 </div>
@@ -282,7 +322,7 @@ function PresentationViewerContent() {
                     <p className="text-sm text-gray-400 mt-2 max-w-sm">
                         Unable to access offline storage.
                     </p>
-                    <Button variant="outline" className="mt-4" onClick={handleClose}>
+                    <Button variant="outline" className="mt-4" onClick={() => router.push('/rep/offline')}>
                         Go Back
                     </Button>
                 </div>
@@ -402,9 +442,18 @@ function PresentationViewerContent() {
                     <p className="text-xs">• Use arrow keys or buttons below</p>
                 </div>
             )}
+
+            <PresentationExitDialog
+                open={showExitDialog}
+                onOpenChange={setShowExitDialog}
+                doctorId={doctorId}
+                doctorName={doctorName}
+                onExitConfirmed={confirmExit}
+            />
         </div>
     );
 }
+
 
 export default function PresentationViewerPage() {
     return (

@@ -8,6 +8,8 @@ import { getOfflinePDF, hasOfflinePDF } from '@/lib/offline-pdf-store';
 import { useToast } from '@/hooks/use-toast';
 import { useOfflineReady } from '@/hooks/useOfflineReady';
 import * as pdfjsLib from 'pdfjs-dist';
+import { App } from '@capacitor/app';
+import { PresentationExitDialog } from '@/components/PresentationExitDialog';
 
 // Configure PDF.js worker - use local worker file for offline support
 if (typeof window !== 'undefined') {
@@ -33,6 +35,10 @@ export default function PresentationViewerClient({ doctorId }: PresentationViewe
     const [isOffline, setIsOffline] = useState(false);
     const [isPresenting, setIsPresenting] = useState(false);
 
+    // NEW: Post-presentation feedback state
+    const [showExitDialog, setShowExitDialog] = useState(false);
+    const [doctorName, setDoctorName] = useState<string>('');
+
     // Touch gesture handling
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
@@ -46,11 +52,35 @@ export default function PresentationViewerClient({ doctorId }: PresentationViewe
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
 
+        // Hardware Back Button Handling (Capacitor)
+        let backListener: any;
+        const setupBackListener = async () => {
+            try {
+                backListener = await App.addListener('backButton', () => {
+                    if (showExitDialog) {
+                        setShowExitDialog(false);
+                    } else {
+                        setShowExitDialog(true);
+                    }
+                });
+            } catch (err) {
+                console.warn('Hardware back button not supported:', err);
+            }
+        };
+        setupBackListener();
+
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
+            if (backListener && backListener.remove) {
+                try {
+                    backListener.remove();
+                } catch (e) {
+                    // ignore
+                }
+            }
         };
-    }, []);
+    }, [showExitDialog]);
 
     useEffect(() => {
         // Wait for IndexedDB to be ready before loading
@@ -78,6 +108,9 @@ export default function PresentationViewerClient({ doctorId }: PresentationViewe
             if (!record) {
                 throw new Error('Failed to load PDF record');
             }
+
+            // Capture doctor name
+            setDoctorName(record.doctorName || 'Doctor');
 
             // GUARDRAILS - Smart Sync
             if (record.state === 'FAILED') {
@@ -169,6 +202,17 @@ export default function PresentationViewerClient({ doctorId }: PresentationViewe
     }, [totalPages]);
 
     const handleClose = () => {
+        const isBypass = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mode') === 'bypass';
+
+        // Exit fullscreen if active
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(err => console.warn(err));
+            setIsPresenting(false);
+        }
+        setShowExitDialog(true);
+    };
+
+    const confirmExit = () => {
         const isBypass = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('mode') === 'bypass';
         if (isBypass) {
             router.push('/rep/offline');
@@ -286,7 +330,7 @@ export default function PresentationViewerClient({ doctorId }: PresentationViewe
                     <p className="text-sm text-gray-400 mt-2 max-w-sm">
                         Unable to access offline storage. Please restart the app or check browser settings.
                     </p>
-                    <Button variant="outline" className="mt-4" onClick={handleClose}>
+                    <Button variant="outline" className="mt-4" onClick={() => router.push('/rep/offline')}>
                         Go Back
                     </Button>
                 </div>
@@ -310,7 +354,7 @@ export default function PresentationViewerClient({ doctorId }: PresentationViewe
             <div className="flex h-screen w-full items-center justify-center bg-black">
                 <div className="text-center text-white">
                     <p className="text-xl">Presentation not available</p>
-                    <Button variant="outline" className="mt-4" onClick={handleClose}>
+                    <Button variant="outline" className="mt-4" onClick={() => router.push('/rep/offline')}>
                         Go Back
                     </Button>
                 </div>
@@ -409,6 +453,14 @@ export default function PresentationViewerClient({ doctorId }: PresentationViewe
                     <p className="text-xs">• Use arrow keys or buttons below</p>
                 </div>
             )}
+
+            <PresentationExitDialog
+                open={showExitDialog}
+                onOpenChange={setShowExitDialog}
+                doctorId={doctorId}
+                doctorName={doctorName}
+                onExitConfirmed={confirmExit}
+            />
         </div>
     );
 }

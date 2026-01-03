@@ -6,12 +6,13 @@
 import { openDB, IDBPDatabase, DBSchema } from 'idb';
 
 const DB_NAME = 'spicasg-offline-db';
-const DB_VERSION = 2; // Bumped for new store
+const DB_VERSION = 3; // Bumped for visit_logs store
 
 export const STORES = {
     PDFS: 'pdfs',
     SYNC_STATE: 'sync_state',
-    SYNC_INTENT: 'sync_intent', // NEW: Kill-resilient sync tracking
+    SYNC_INTENT: 'sync_intent',
+    VISIT_LOGS: 'visit_logs', // NEW: Store for visit tracking
 } as const;
 
 export interface PDFRecord {
@@ -24,6 +25,16 @@ export interface PDFRecord {
     state?: 'READY' | 'FAILED' | 'STALE';
     lastSyncAttempt?: number;
     checksum?: string;
+}
+
+export interface VisitLogRecord {
+    id: string; // uuid
+    doctorId: string;
+    timestamp: number;
+    status: 'VISITED' | 'NOT_VISITED'; // Yes/No
+    latitude?: number;
+    longitude?: number;
+    synced: number; // 0 = false, 1 = true (Boolean not allowed as IDB Key)
 }
 
 export interface SyncStateRecord {
@@ -71,6 +82,11 @@ export interface SpicasgDB extends DBSchema {
         key: string;
         value: SyncIntentRecord;
     };
+    visit_logs: {
+        key: string;
+        value: VisitLogRecord;
+        indexes: { 'by-synced': number };
+    };
 }
 
 // Singleton promise - ensures only ONE db connection
@@ -94,6 +110,11 @@ export async function getDB(): Promise<IDBPDatabase<SpicasgDB>> {
                 // NEW in version 2: sync_intent store
                 if (!db.objectStoreNames.contains(STORES.SYNC_INTENT)) {
                     db.createObjectStore(STORES.SYNC_INTENT, { keyPath: 'id' });
+                }
+                // NEW in version 3: visit_logs store
+                if (!db.objectStoreNames.contains(STORES.VISIT_LOGS)) {
+                    const store = db.createObjectStore(STORES.VISIT_LOGS, { keyPath: 'id' });
+                    store.createIndex('by-synced', 'synced');
                 }
             },
         });

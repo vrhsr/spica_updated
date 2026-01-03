@@ -4,16 +4,18 @@ import React, { useEffect, useState } from 'react';
 import { listOfflinePresentations, formatBytes } from '@/lib/offline-storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Monitor, HardDrive, ArrowLeft, WifiOff, Search, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Monitor, HardDrive, ArrowLeft, WifiOff, Search, AlertTriangle, RefreshCw, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useOfflineReady } from '@/hooks/useOfflineReady';
+import { isVisitedToday } from '@/lib/visit-logs-store';
 
 export default function OfflineDashboardPage() {
     const { isReady, isLoading: isDBLoading, error: dbError, retry } = useOfflineReady();
     const [presentations, setPresentations] = useState<Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number }>>([]);
+    const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -25,6 +27,17 @@ export default function OfflineDashboardPage() {
             try {
                 const data = await listOfflinePresentations();
                 setPresentations(data);
+
+                // Check visit status for all doctors
+                const visited = new Set<string>();
+                await Promise.all(data.map(async (p) => {
+                    const isVisited = await isVisitedToday(p.doctorId);
+                    if (isVisited) {
+                        visited.add(p.doctorId);
+                    }
+                }));
+                setVisitedIds(visited);
+
             } catch (error) {
                 console.error('[Offline Page] Failed to load presentations:', error);
             } finally {
@@ -104,29 +117,42 @@ export default function OfflineDashboardPage() {
                 </div>
             ) : filtered.length > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {filtered.map((p) => (
-                        <Card key={p.doctorId} className="group hover:border-primary transition-all">
-                            <CardHeader className="pb-2">
-                                <div className="flex justify-between items-start">
-                                    <CardTitle className="text-lg">{p.doctorName}</CardTitle>
-                                    <Badge variant="outline" className="text-[10px]">
-                                        {formatBytes(p.fileSize)}
-                                    </Badge>
-                                </div>
-                                <CardDescription>
-                                    Saved on {format(p.downloadedAt, 'MMM d, yyyy')}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Button asChild className="w-full h-11" variant="default">
-                                    <Link href={`/rep/present/view?id=${p.doctorId}`}>
-                                        <Monitor className="mr-2 h-4 w-4" />
-                                        Present Now
-                                    </Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    ))}
+                    {filtered.map((p) => {
+                        const visited = visitedIds.has(p.doctorId);
+                        return (
+                            <Card key={p.doctorId} className={`group hover:border-primary transition-all ${visited ? 'bg-green-50/50 border-green-200' : ''}`}>
+                                <CardHeader className="pb-2">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <CardTitle className="text-lg flex items-center gap-2">
+                                                {p.doctorName}
+                                                {visited && (
+                                                    <Badge className="bg-green-600 hover:bg-green-700 h-5 px-1.5 gap-1">
+                                                        <CheckCircle className="h-3 w-3" />
+                                                        Visited
+                                                    </Badge>
+                                                )}
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Saved on {format(p.downloadedAt, 'MMM d, yyyy')}
+                                            </CardDescription>
+                                        </div>
+                                        <Badge variant="outline" className="text-[10px]">
+                                            {formatBytes(p.fileSize)}
+                                        </Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <Button asChild className="w-full h-11" variant={visited ? "secondary" : "default"}>
+                                        <Link href={`/rep/present/view?id=${p.doctorId}`}>
+                                            <Monitor className="mr-2 h-4 w-4" />
+                                            {visited ? 'Present Again' : 'Present Now'}
+                                        </Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )
+                    })}
                 </div>
             ) : (
                 <div className="text-center py-20 bg-muted/30 rounded-xl border-2 border-dashed">
