@@ -21,6 +21,7 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { StartDayButton } from '@/components/StartDayButton';
 import { OfflinePresentationsCard } from '@/components/OfflinePresentationsCard';
+import { useOfflineReady } from '@/hooks/useOfflineReady';
 
 type Doctor = { id: string; city: string; name: string };
 type Request = {
@@ -41,6 +42,10 @@ type UserProfile = {
 };
 
 export default function RepDashboardPage() {
+  // Initialize offline storage and sync manager on dashboard load
+  // This ensures pending sync state is detected from IndexedDB
+  useOfflineReady();
+
   const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
 

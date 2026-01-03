@@ -4,25 +4,35 @@ import React, { useEffect, useState } from 'react';
 import { listOfflinePresentations, formatBytes } from '@/lib/offline-storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Monitor, HardDrive, ArrowLeft, WifiOff, Search } from 'lucide-react';
+import { Monitor, HardDrive, ArrowLeft, WifiOff, Search, AlertTriangle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { useOfflineReady } from '@/hooks/useOfflineReady';
 
 export default function OfflineDashboardPage() {
+    const { isReady, isLoading: isDBLoading, error: dbError, retry } = useOfflineReady();
     const [presentations, setPresentations] = useState<Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number }>>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
+        // Only load presentations once IndexedDB is ready
+        if (!isReady) return;
+
         const load = async () => {
-            const data = await listOfflinePresentations();
-            setPresentations(data);
-            setLoading(false);
+            try {
+                const data = await listOfflinePresentations();
+                setPresentations(data);
+            } catch (error) {
+                console.error('[Offline Page] Failed to load presentations:', error);
+            } finally {
+                setLoading(false);
+            }
         };
         load();
-    }, []);
+    }, [isReady]);
 
     const filtered = presentations.filter(p =>
         p.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -64,7 +74,23 @@ export default function OfflineDashboardPage() {
                 </Badge>
             </div>
 
-            {loading ? (
+            {/* Database Error State */}
+            {dbError && (
+                <div className="text-center py-20 bg-destructive/5 rounded-xl border-2 border-destructive/20">
+                    <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+                    <h2 className="mt-4 text-xl font-semibold text-destructive">Storage Error</h2>
+                    <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
+                        Unable to access offline storage. This may be due to private browsing mode or storage restrictions.
+                    </p>
+                    <Button onClick={retry} variant="outline" className="mt-4">
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Retry
+                    </Button>
+                </div>
+            )}
+
+            {/* Loading State */}
+            {!dbError && (isDBLoading || loading) ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {[1, 2, 3].map(i => (
                         <Card key={i} className="animate-pulse">

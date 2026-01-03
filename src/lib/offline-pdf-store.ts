@@ -3,7 +3,7 @@
  * All IndexedDB operations go through indexeddb-utils.ts ONLY
  */
 
-import { getDB, STORES } from './indexeddb-utils';
+import { getDB, STORES, PDFRecord } from './indexeddb-utils';
 
 /**
  * Save PDF Offline (Cloud → Local)
@@ -124,6 +124,119 @@ export async function listOfflinePDFs() {
     } catch (error: any) {
         console.error('Error listing offline PDFs:', error);
         return [];
+    }
+}
+
+/**
+ * WHATSAPP-STYLE: Verify all PDFs on app startup
+ * Checks that blobs exist and are valid, marks any failures
+ * This ensures UI is always derived from verified storage state
+ */
+export async function verifyAllOfflinePDFs(): Promise<{
+    verified: number;
+    failed: number;
+    failedIds: string[];
+}> {
+    const result = { verified: 0, failed: 0, failedIds: [] as string[] };
+
+    try {
+        const db = await getDB();
+        const allPdfs = await db.getAll(STORES.PDFS);
+
+        for (const pdf of allPdfs) {
+            const isValid = await verifyPDFRecord(pdf);
+
+            if (isValid) {
+                result.verified++;
+            } else {
+                result.failed++;
+                result.failedIds.push(pdf.doctorId);
+
+                // Mark as FAILED in storage
+                await db.put(STORES.PDFS, {
+                    ...pdf,
+                    state: 'FAILED',
+                    lastSyncAttempt: Date.now()
+                });
+
+                // Update localStorage flag
+                localStorage.removeItem(`offline-${pdf.doctorId}`);
+            }
+        }
+
+        console.log('[PDF Verify] Verification complete:', result);
+        return result;
+    } catch (error) {
+        console.error('[PDF Verify] Verification failed:', error);
+        return result;
+    }
+}
+
+/**
+ * Verify a single PDF record is valid
+ */
+async function verifyPDFRecord(record: PDFRecord): Promise<boolean> {
+    try {
+        // Check 1: Blob exists
+        if (!record.fileBlob) {
+            console.warn(`[PDF Verify] Missing blob for ${record.doctorId}`);
+            return false;
+        }
+
+        // Check 2: Blob has content
+        if (record.fileBlob.size === 0) {
+            console.warn(`[PDF Verify] Empty blob for ${record.doctorId}`);
+            return false;
+        }
+
+        // Check 3: Blob size matches stored size (if available)
+        if (record.fileSize && record.fileBlob.size !== record.fileSize) {
+            console.warn(`[PDF Verify] Size mismatch for ${record.doctorId}: expected ${record.fileSize}, got ${record.fileBlob.size}`);
+            return false;
+        }
+
+        // Check 4: State is not already FAILED
+        if (record.state === 'FAILED') {
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error(`[PDF Verify] Error verifying ${record.doctorId}:`, error);
+        return false;
+    }
+}
+
+/**
+ * Rebuild localStorage flags from IndexedDB (source of truth)
+ * Call this on app startup to sync quick-access flags
+ */
+export async function rebuildLocalStorageFlags(): Promise<void> {
+    try {
+        // Clear all offline flags first
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key?.startsWith('offline-')) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+
+        // Rebuild from IndexedDB
+        const db = await getDB();
+        const allPdfs = await db.getAll(STORES.PDFS);
+
+        for (const pdf of allPdfs) {
+            if (pdf.state !== 'FAILED') {
+                localStorage.setItem(`offline-${pdf.doctorId}`, 'true');
+                localStorage.setItem(`offline-name-${pdf.doctorId}`, pdf.doctorName);
+            }
+        }
+
+        console.log(`[PDF Store] Rebuilt localStorage flags for ${allPdfs.length} PDFs`);
+    } catch (error) {
+        console.error('[PDF Store] Failed to rebuild localStorage flags:', error);
     }
 }
 

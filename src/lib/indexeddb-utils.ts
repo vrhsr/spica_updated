@@ -6,11 +6,12 @@
 import { openDB, IDBPDatabase, DBSchema } from 'idb';
 
 const DB_NAME = 'spicasg-offline-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped for new store
 
 export const STORES = {
     PDFS: 'pdfs',
     SYNC_STATE: 'sync_state',
+    SYNC_INTENT: 'sync_intent', // NEW: Kill-resilient sync tracking
 } as const;
 
 export interface PDFRecord {
@@ -34,6 +35,29 @@ export interface SyncStateRecord {
     status: 'IDLE' | 'CHECKING' | 'SYNCING' | 'PAUSED' | 'COMPLETED' | 'ERROR';
 }
 
+/**
+ * KILL-RESILIENT: Persisted sync intent
+ * Survives app kill and enables automatic resume on next launch
+ */
+export interface SyncIntentRecord {
+    id: string; // 'current_intent'
+    date: string; // e.g., '2026-01-03'
+    status: 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
+    startedAt: number;
+    // All doctor IDs that need syncing
+    allDoctorIds: string[];
+    // All items with their metadata (needed for resume)
+    items: Array<{
+        doctorId: string;
+        doctorName: string;
+        pdfUrl: string;
+        updatedAt: number;
+    }>;
+    // Tracking progress
+    completedDoctorIds: string[];
+    failedDoctorIds: string[];
+}
+
 export interface SpicasgDB extends DBSchema {
     pdfs: {
         key: string;
@@ -42,6 +66,10 @@ export interface SpicasgDB extends DBSchema {
     sync_state: {
         key: string;
         value: SyncStateRecord;
+    };
+    sync_intent: {
+        key: string;
+        value: SyncIntentRecord;
     };
 }
 
@@ -55,13 +83,17 @@ let dbPromise: Promise<IDBPDatabase<SpicasgDB>> | null = null;
 export async function getDB(): Promise<IDBPDatabase<SpicasgDB>> {
     if (!dbPromise) {
         dbPromise = openDB<SpicasgDB>(DB_NAME, DB_VERSION, {
-            upgrade(db) {
+            upgrade(db, oldVersion) {
                 // Create object stores if they don't exist
                 if (!db.objectStoreNames.contains(STORES.PDFS)) {
                     db.createObjectStore(STORES.PDFS, { keyPath: 'doctorId' });
                 }
                 if (!db.objectStoreNames.contains(STORES.SYNC_STATE)) {
                     db.createObjectStore(STORES.SYNC_STATE, { keyPath: 'id' });
+                }
+                // NEW in version 2: sync_intent store
+                if (!db.objectStoreNames.contains(STORES.SYNC_INTENT)) {
+                    db.createObjectStore(STORES.SYNC_INTENT, { keyPath: 'id' });
                 }
             },
         });

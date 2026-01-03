@@ -3,9 +3,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, X, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, X, Loader, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { getOfflinePDF, hasOfflinePDF } from '@/lib/offline-pdf-store';
 import { useToast } from '@/hooks/use-toast';
+import { useOfflineReady } from '@/hooks/useOfflineReady';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker - use local worker file for offline support
@@ -18,6 +19,7 @@ export default function PresentationViewerPage() {
     const router = useRouter();
     const doctorId = params.doctorId as string;
     const { toast } = useToast();
+    const { isReady: isDBReady, isLoading: isDBLoading, error: dbError } = useOfflineReady();
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -49,8 +51,10 @@ export default function PresentationViewerPage() {
     }, []);
 
     useEffect(() => {
+        // Wait for IndexedDB to be ready before loading
+        if (!isDBReady) return;
         loadPresentation();
-    }, [doctorId]);
+    }, [doctorId, isDBReady]);
 
     const loadPresentation = async () => {
         setLoading(true);
@@ -270,11 +274,31 @@ export default function PresentationViewerPage() {
         }
     }, [pdfDoc, loading, startPresentation]);
 
-    if (loading) {
+    // Database initialization error
+    if (dbError) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center bg-black">
+                <div className="text-center text-white">
+                    <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+                    <p className="text-xl">Storage Error</p>
+                    <p className="text-sm text-gray-400 mt-2 max-w-sm">
+                        Unable to access offline storage. Please restart the app or check browser settings.
+                    </p>
+                    <Button variant="outline" className="mt-4" onClick={handleClose}>
+                        Go Back
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    if (isDBLoading || loading) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-black">
                 <Loader className="h-12 w-12 animate-spin text-white" />
-                <p className="ml-4 text-white">Loading presentation...</p>
+                <p className="ml-4 text-white">
+                    {isDBLoading ? 'Initializing storage...' : 'Loading presentation...'}
+                </p>
             </div>
         );
     }
