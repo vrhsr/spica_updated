@@ -1,5 +1,6 @@
 {
-  "appId": "io.spicasg.app",
-  "appName": "SpicaSG",
-  "webDir": "out"
+  "appId": "com.spicasg.app",
+  "appName": "SPICASG",
+  "webDir": "out",
+  "bundledWebRuntime": false
 }

@@ -7,7 +7,8 @@
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
-    "build:capacitor": "BUILD_TARGET=capacitor next build",
+    "build:capacitor": "node scripts/build-capacitor.js",
+    "cap:sync": "npx cap sync android",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"

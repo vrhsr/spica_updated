@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Shield, Users, ArrowRight, Menu, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Shield, Users, ArrowRight, Menu, X, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,7 +14,34 @@ import {
 } from '@/components/ui/card';
 
 export default function LandingPage() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Detect online/offline status
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Handle Representative card click - redirect to offline mode if offline
+  const handleRepClick = (e: React.MouseEvent) => {
+    if (!isOnline) {
+      e.preventDefault();
+      router.push('/rep/offline');
+    }
+    // If online, let the default Link behavior work
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/50">
@@ -46,10 +74,11 @@ export default function LandingPage() {
                     Admin Portal
                   </Button>
                 </Link>
-                <Link href="/rep-login" onClick={() => setMobileMenuOpen(false)}>
+                <Link href={isOnline ? "/rep-login" : "/rep/offline"} onClick={(e) => { setMobileMenuOpen(false); handleRepClick(e); }}>
                   <Button variant="ghost" className="w-full justify-start font-normal">
+                    {!isOnline && <WifiOff className="mr-2 h-4 w-4 text-orange-500" />}
                     <Users className="mr-3 h-5 w-5" />
-                    Representative Portal
+                    {isOnline ? 'Representative Portal' : 'Offline Presentations'}
                   </Button>
                 </Link>
               </div>
@@ -93,23 +122,36 @@ export default function LandingPage() {
             </Card>
 
             {/* Rep Portal Card */}
-            <Card className="group flex flex-col transition-all hover:border-primary/50 hover:shadow-lg bg-white">
-              <Link href="/rep-login" className="flex h-full flex-col">
+            <Card className={`group flex flex-col transition-all hover:border-primary/50 hover:shadow-lg bg-white ${!isOnline ? 'ring-2 ring-orange-400' : ''}`}>
+              <Link href={isOnline ? "/rep-login" : "/rep/offline"} onClick={handleRepClick} className="flex h-full flex-col">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="space-y-1">
-                    <CardTitle className="text-2xl font-bold">Representative</CardTitle>
-                    <CardDescription>Presentations and doctor proposals</CardDescription>
+                    <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                      Representative
+                      {!isOnline && (
+                        <span className="text-xs font-normal bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <WifiOff className="h-3 w-3" /> Offline
+                        </span>
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {isOnline ? 'Presentations and doctor proposals' : 'Access downloaded presentations offline'}
+                    </CardDescription>
                   </div>
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                    <Users className="h-6 w-6 text-primary group-hover:text-white transition-colors" />
+                  <div className={`h-12 w-12 rounded-lg flex items-center justify-center transition-colors ${!isOnline ? 'bg-orange-100 group-hover:bg-orange-500' : 'bg-primary/10 group-hover:bg-primary'}`}>
+                    {!isOnline ? (
+                      <WifiOff className="h-6 w-6 text-orange-500 group-hover:text-white transition-colors" />
+                    ) : (
+                      <Users className="h-6 w-6 text-primary group-hover:text-white transition-colors" />
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-grow items-end justify-between pt-6">
                   <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
-                    Access field portal
+                    {isOnline ? 'Access field portal' : 'View offline presentations'}
                   </p>
-                  <div className="flex items-center text-sm text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary">
-                    Login <ArrowRight className="ml-1 h-4 w-4" />
+                  <div className={`flex items-center text-sm transition-transform group-hover:translate-x-1 ${!isOnline ? 'text-orange-600 group-hover:text-orange-700' : 'text-muted-foreground group-hover:text-primary'}`}>
+                    {isOnline ? 'Login' : 'Open'} <ArrowRight className="ml-1 h-4 w-4" />
                   </div>
                 </CardContent>
               </Link>

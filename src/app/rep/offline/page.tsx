@@ -119,7 +119,7 @@ export default function OfflineDashboardPage() {
                             </CardHeader>
                             <CardContent>
                                 <Button asChild className="w-full h-11" variant="default">
-                                    <Link href={`/rep/present/${p.doctorId}?mode=bypass`}>
+                                    <Link href={`/rep/present/view?id=${p.doctorId}`}>
                                         <Monitor className="mr-2 h-4 w-4" />
                                         Present Now
                                     </Link>
