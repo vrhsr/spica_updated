@@ -135,6 +135,21 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
         );
     }
 
+    // CRITICAL FIX: When offline and not on allowed offline routes, redirect immediately
+    // Don't wait for Firebase auth - it will never resolve offline
+    if (!isOnline && !isOfflineMode) {
+        // Redirect to offline mode immediately
+        router.replace('/rep/offline');
+        return (
+            <div className="flex h-screen items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <WifiOff className="h-12 w-12 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">You're offline. Redirecting...</p>
+                </div>
+            </div>
+        );
+    }
+
     if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode) {
         return (
             <div className="flex h-screen items-center justify-center">

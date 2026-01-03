@@ -53,14 +53,9 @@ export default isProd && !isCapacitor
                     cacheName: "app-shell",
                 },
             },
-            {
-                urlPattern: /^https:\/\/.*\.supabase\.co\/.*\.(pdf)$/,
-                handler: "CacheFirst",
-                options: {
-                    cacheName: "pdf-cache",
-                    expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }
-                },
-            },
+            // NOTE: PDFs are NOT cached by Service Worker
+            // They are stored in IndexedDB by offline-pdf-store.ts
+            // This is intentional for WhatsApp-style offline reliability
             {
                 urlPattern: /.*/,
                 handler: "NetworkFirst",
