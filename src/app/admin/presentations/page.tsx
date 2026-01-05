@@ -34,6 +34,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { EditSlidesForm } from '../doctors/AddDoctorDialog';
+import { useBodyPointerEventsCleanup } from '@/hooks/use-body-pointer-events-cleanup';
 
 
 type Presentation = {
@@ -76,6 +77,9 @@ function PresentationsComponent() {
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
   const { toast } = useToast();
+
+  // Fix pointer-events issue with dialogs
+  useBodyPointerEventsCleanup();
 
   const isAdmin = adminRole === 'admin';
 
@@ -290,21 +294,23 @@ function PresentationsComponent() {
     });
   }
 
-  const handleDeletePresentation = async (presentation: EnrichedPresentation) => {
-    if (!firestore || !adminUser) return;
+  const handleDeletePresentation = async () => {
+    if (!deletingPresentation || !firestore || !adminUser) return;
 
-    setGeneratingId(presentation.id); // Reuse existing loading state
-    setDeletingPresentation(null); // Close confirmation dialog
+    const presentationToDelete = deletingPresentation;
 
     startTransition(async () => {
       try {
-        const presentationRef = doc(firestore, 'presentations', presentation.id);
+        const presentationRef = doc(firestore, 'presentations', presentationToDelete.id);
         await deleteDoc(presentationRef);
 
         toast({
           title: 'Presentation Deleted',
-          description: `Presentation for ${presentation.doctorName} has been removed.`
+          description: `Presentation for ${presentationToDelete.doctorName} has been removed.`
         });
+
+        // Close dialog and refetch after successful deletion
+        setDeletingPresentation(null);
         forceRefetch();
       } catch (err: any) {
         console.error("Error deleting presentation:", err);
@@ -313,8 +319,8 @@ function PresentationsComponent() {
           description: err.message || 'Could not delete presentation.',
           variant: 'destructive'
         });
-      } finally {
-        setGeneratingId(null);
+        // Close dialog even on error
+        setDeletingPresentation(null);
       }
     });
   }
@@ -713,7 +719,7 @@ function PresentationsComponent() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingPresentation} onOpenChange={(open) => !open && setDeletingPresentation(null)}>
+      <AlertDialog open={!!deletingPresentation} onOpenChange={(open) => { if (!open) setDeletingPresentation(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Presentation</AlertDialogTitle>
@@ -724,9 +730,10 @@ function PresentationsComponent() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeletingPresentation(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deletingPresentation && handleDeletePresentation(deletingPresentation)}
+              onClick={handleDeletePresentation}
+              disabled={isTransitioning}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

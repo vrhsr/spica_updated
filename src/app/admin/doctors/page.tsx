@@ -53,6 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
+import { useBodyPointerEventsCleanup } from '@/hooks/use-body-pointer-events-cleanup';
 
 
 export type Doctor = {
@@ -87,6 +88,9 @@ export default function DoctorsPage() {
   const [editDoctor, setEditDoctor] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToDelete, setDoctorToDelete] = React.useState<WithId<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null);
+
+  // Fix pointer-events issue with dialogs
+  useBodyPointerEventsCleanup();
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -568,7 +572,7 @@ export default function DoctorsPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!doctorToDelete} onOpenChange={(open) => !open && setDoctorToDelete(null)}>
+      <AlertDialog open={!!doctorToDelete} onOpenChange={(open) => { if (!open) setDoctorToDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -577,7 +581,7 @@ export default function DoctorsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDoctorToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteDoctor} disabled={!!isSubmitting} className="bg-destructive hover:bg-destructive/90">
               {isSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
               Delete

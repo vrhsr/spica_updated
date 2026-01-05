@@ -16,7 +16,6 @@ const lora = Lora({
   variable: '--font-headline',
 });
 
-import { PWADebugger } from '@/components/PWADebugger';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { UpdateNotification } from '@/components/UpdateNotification';
 
@@ -54,7 +53,6 @@ export default function RootLayout({
         <ErrorBoundary level="root">
           <FirebaseClientProvider>
             {children}
-            <PWADebugger />
             <UpdateNotification />
             <Toaster />
           </FirebaseClientProvider>

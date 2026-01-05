@@ -59,6 +59,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { listAllUsers, setUserRole, setUserCity, deleteUser } from './actions';
+import { useBodyPointerEventsCleanup } from '@/hooks/use-body-pointer-events-cleanup';
 
 
 const RoleUserSchema = z.object({
@@ -101,6 +102,9 @@ export default function UsersPage() {
   const [roleChangeToConfirm, setRoleChangeToConfirm] = useState<RoleChangeConfirmation | null>(null);
   const [cityChangeToConfirm, setCityChangeToConfirm] = useState<CityChangeConfirmation | null>(null);
   const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
+
+  // Fix pointer-events issue with dialogs
+  useBodyPointerEventsCleanup();
 
   const citiesCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'cities') : null),
@@ -516,7 +520,7 @@ export default function UsersPage() {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => { if (!open) setUserToDelete(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -538,7 +542,7 @@ export default function UsersPage() {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setUserToDelete(null); setDeleteConfirmationInput(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteUser}
               disabled={deleteConfirmationInput !== 'DELETE' || isSubmitting}
