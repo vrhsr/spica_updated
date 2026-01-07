@@ -361,7 +361,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             {recentActivity.length > 0 ? (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-w-[calc(100vw-3rem)] md:max-w-full">
                 <Table>
                   <TableBody>
                     {recentActivity.map((activity, index) => (
@@ -372,54 +372,55 @@ export default function AdminDashboardPage() {
                             {activity.by}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
+                        <TableCell className="text-right text-muted-foreground whitespace-nowrap">
                           {formatDistanceToNow(activity.time, { addSuffix: true })}
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground py-10">
-                No recent activity to display.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Doctor Overview Widget */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Presentation Status by City</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>City</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead>Pending</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {doctorStatusByCity.map((city) => (
-                    <TableRow key={city.city}>
-                      <TableCell className="font-medium">{city.city}</TableCell>
-                      <TableCell>{city.updated}</TableCell>
-                      <TableCell>{city.pending}</TableCell>
-                      <TableCell>{getStatusBadge(city)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
               </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+          ) : (
+          <div className="text-center text-muted-foreground py-10">
+            No recent activity to display.
+          </div>
+            )}
+        </CardContent>
+      </Card>
+
+      {/* Doctor Overview Widget */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>Presentation Status by City</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto max-w-[calc(100vw-3rem)] md:max-w-full">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>City</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead>Pending</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {doctorStatusByCity.map((city) => (
+                  <TableRow key={city.city}>
+                    <TableCell className="font-medium">{city.city}</TableCell>
+                    <TableCell>{city.updated}</TableCell>
+                    <TableCell>{city.pending}</TableCell>
+                    <TableCell>{getStatusBadge(city)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
+    </div >
   );
 }
 

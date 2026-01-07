@@ -297,7 +297,7 @@ export default function AdminRequestsPage() {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto max-w-[calc(100vw-3rem)] md:max-w-full">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -404,9 +404,18 @@ export default function AdminRequestsPage() {
                             <p className="text-xs text-muted-foreground mt-1">
                               By: {req.repName} • {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Slides: {req.selectedSlides.join(', ')}
-                            </p>
+                            {/* Slides display moved to dedicated section below for better wrapping */}
+                          </div>
+                        </div>
+
+                        <div className="mt-2">
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Requested Slides:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {req.selectedSlides.map(slide => (
+                              <Badge key={slide} variant="secondary" className="text-[10px] px-1 h-5">
+                                {slide}
+                              </Badge>
+                            ))}
                           </div>
                         </div>
 
