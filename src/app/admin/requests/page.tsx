@@ -252,15 +252,16 @@ export default function AdminRequestsPage() {
       </div>
       <Card className="shadow-sm">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <CardTitle>Review Requests</CardTitle>
             </div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex">
               <Button
                 variant={statusFilter === 'all' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setStatusFilter('all')}
+                className="w-full sm:w-auto"
               >
                 All
               </Button>
@@ -268,6 +269,7 @@ export default function AdminRequestsPage() {
                 variant={statusFilter === 'pending' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setStatusFilter('pending')}
+                className="w-full sm:w-auto"
               >
                 Pending
               </Button>
@@ -275,6 +277,7 @@ export default function AdminRequestsPage() {
                 variant={statusFilter === 'approved' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setStatusFilter('approved')}
+                className="w-full sm:w-auto"
               >
                 Approved
               </Button>
@@ -282,6 +285,7 @@ export default function AdminRequestsPage() {
                 variant={statusFilter === 'rejected' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setStatusFilter('rejected')}
+                className="w-full sm:w-auto"
               >
                 Rejected
               </Button>
