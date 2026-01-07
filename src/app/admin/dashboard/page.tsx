@@ -353,8 +353,8 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Activity Log */}
+      <div className="grid gap-6 lg:grid-cols-1">
+        {/* Recent Activity Log - Made full width since we removed the other widget */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
@@ -367,7 +367,7 @@ export default function AdminDashboardPage() {
                     {recentActivity.map((activity, index) => (
                       <TableRow key={index}>
                         <TableCell>
-                          <div className={`font - medium ${activity.isError ? 'text-destructive' : ''} `}>{activity.action} {activity.subject}</div>
+                          <div className={`font-medium ${activity.isError ? 'text-destructive' : ''} `}>{activity.action} {activity.subject}</div>
                           <div className="text-sm text-muted-foreground">
                             {activity.by}
                           </div>
@@ -385,37 +385,6 @@ export default function AdminDashboardPage() {
                 No recent activity to display.
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Doctor Overview Widget */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Presentation Status by City</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto max-w-[calc(100vw-3rem)] md:max-w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>City</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead>Pending</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {doctorStatusByCity.map((city) => (
-                    <TableRow key={city.city}>
-                      <TableCell className="font-medium">{city.city}</TableCell>
-                      <TableCell>{city.updated}</TableCell>
-                      <TableCell>{city.pending}</TableCell>
-                      <TableCell>{getStatusBadge(city)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
           </CardContent>
         </Card>
       </div>
