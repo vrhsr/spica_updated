@@ -57,7 +57,7 @@ function OfflineBypassButton() {
       <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90 h-12 shadow-md">
         <Link href="/rep/offline">
           <Monitor className="mr-2 h-5 w-5" />
-          {offlineCount > 0 ? `Access ${offlineCount} Downloaded Doctors` : 'Access Offline Mode'}
+          {offlineCount > 0 ? `Access ${offlineCount} Downloaded s` : 'Access Offline Mode'}
         </Link>
       </Button>
       <p className="text-[10px] text-center text-muted-foreground mt-2">
@@ -129,6 +129,8 @@ export default function RepLoginPage() {
           scopes: ['profile', 'email'],
           grantOfflineAccess: true,
         });
+        // Force account picker by signing out first
+        await GoogleAuth.signOut();
         const googleUser = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
         const userCredential = await signInWithCredential(auth, credential);
