@@ -142,7 +142,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     // Don't wait for Firebase auth - it will never resolve offline
     if (!isOnline && !isOfflineMode) {
         // Redirect to offline mode immediately
-        router.replace('/rep/offline');
+        window.location.href = '/rep/offline';
         return (
             <div className="flex h-screen items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
