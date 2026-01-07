@@ -182,9 +182,9 @@ export default function AdminLayout({
                       <item.icon className="h-5 w-5" />
                       <span className="font-medium">{item.label}</span>
                       {showBadge && (
-                        <Badge className="ml-auto bg-destructive text-destructive-foreground">
+                        <div className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm">
                           {pendingCount}
-                        </Badge>
+                        </div>
                       )}
                     </SidebarMenuButton>
                   </Link>

@@ -334,13 +334,11 @@ export default function AdminDashboardPage() {
               } `}
           >
             <Link href={item.href} className="flex h-full flex-col">
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="font-headline text-2xl">
-                    {item.title}
-                  </CardTitle>
-                </div>
-                <item.icon className={`h - 8 w - 8 ${item.variant === 'destructive' ? 'text-destructive' : 'text-muted-foreground'} `} />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="font-headline text-xl font-bold">
+                  {item.title}
+                </CardTitle>
+                <item.icon className={`h-6 w-6 ${item.variant === 'destructive' ? 'text-destructive' : 'text-muted-foreground'}`} />
               </CardHeader>
               <CardContent className="flex flex-grow items-end justify-between">
                 <p className="text-4xl font-bold text-foreground">{item.value}</p>
