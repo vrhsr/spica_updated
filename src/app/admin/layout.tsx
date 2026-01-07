@@ -150,20 +150,20 @@ export default function AdminLayout({
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader className="border-b border-sidebar-border p-4">
+        <SidebarHeader className="border-b border-sidebar-border p-4" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
           <Link href="/admin/dashboard" className="flex items-center gap-3 px-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               <img
                 src="/icon-192.png"
                 alt="SG HEALTH PHARMA Logo"
-                className="h-7 w-7 object-contain"
+                className="h-8 w-8 object-contain"
               />
             </div>
             <div className="flex flex-col">
-              <span className="font-headline text-sm font-bold leading-none tracking-tight">
+              <span className="font-headline text-base font-bold leading-none tracking-tight">
                 SG HEALTH PHARMA
               </span>
-              <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+              <span className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
                 Admin Portal
               </span>
             </div>
@@ -178,9 +178,9 @@ export default function AdminLayout({
               return (
                 <SidebarMenuItem key={item.label}>
                   <Link href={item.href}>
-                    <SidebarMenuButton isActive={pathname.startsWith(item.href)}>
-                      <item.icon />
-                      <span>{item.label}</span>
+                    <SidebarMenuButton isActive={pathname.startsWith(item.href)} className="text-base py-3">
+                      <item.icon className="h-5 w-5" />
+                      <span className="font-medium">{item.label}</span>
                       {showBadge && (
                         <Badge className="ml-auto bg-destructive text-destructive-foreground">
                           {pendingCount}
@@ -233,7 +233,7 @@ export default function AdminLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="bg-secondary/50">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)', paddingBottom: '0.5rem', minHeight: 'calc(4rem + env(safe-area-inset-top))' }}>
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'env(safe-area-inset-top)', minHeight: 'calc(3.5rem + env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">
             <SidebarTrigger className="lg:hidden" />
             <h2 className="font-headline text-base md:text-lg font-semibold">
