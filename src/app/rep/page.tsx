@@ -85,7 +85,7 @@ export default function RepDashboardPage() {
     return [
       {
         title: 'Presentations Ready',
-        description: 'View and download presentations for your doctors',
+        description: 'Presentations for doctors',
         count: readyPpts.toString(),
         icon: FileCheck,
         href: '/rep/doctors',
