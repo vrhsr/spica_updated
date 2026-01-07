@@ -19,6 +19,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { doc } from 'firebase/firestore';
+import { PasswordResetDialog } from '@/components/PasswordResetDialog';
+import { KeyRound } from 'lucide-react';
 
 type UserProfile = {
     city: string;
@@ -47,6 +49,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     const [isTimedOut, setIsTimedOut] = useState(false);
     const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
     const [hasCheckedOffline, setHasCheckedOffline] = useState(false);
+    const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
     const repAvatar = PlaceHolderImages.find((img) => img.id === 'rep-avatar');
 
     const userProfileRef = useMemoFirebase(
@@ -207,6 +210,10 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                         <DropdownMenuContent side="bottom" align="end" className="w-48">
                             <DropdownMenuLabel>My Account</DropdownMenuLabel>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => setIsPasswordResetOpen(true)}>
+                                <KeyRound className="mr-2 h-4 w-4" />
+                                <span>Change Password</span>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onSelect={handleLogout}>
                                 <LogOut className="mr-2 h-4 w-4" />
                                 <span>Log out</span>
@@ -222,6 +229,13 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
             <main className="flex-1 px-4 md:px-6 lg:px-8">
                 {children}
             </main>
+            {user?.email && (
+                <PasswordResetDialog
+                    open={isPasswordResetOpen}
+                    onOpenChange={setIsPasswordResetOpen}
+                    userEmail={user.email}
+                />
+            )}
         </div>
     );
 }
