@@ -19,10 +19,13 @@ import { useAuth } from '@/firebase';
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithCredential,
   GoogleAuthProvider,
 } from 'firebase/auth';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import { Separator } from '@/components/ui/separator';
+import { isCapacitorApp } from '@/lib/capacitor-utils';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -104,21 +107,37 @@ export default function AdminLoginPage() {
       return;
     }
     try {
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
-      const idTokenResult = await user.getIdTokenResult();
-      const role = idTokenResult.claims.role;
-
-      if (role !== 'admin') {
-        await auth.signOut();
-        setError(
-          'Access denied. This portal is for Administrators only. Please use the Representative portal.'
-        );
-        return;
+      if (isCapacitorApp()) {
+        await GoogleAuth.initialize({
+          clientId: '731200978852-8mvn08dar40n0pr1u276hbgmlt9nsqjm.apps.googleusercontent.com',
+          scopes: ['profile', 'email'],
+          grantOfflineAccess: true,
+        });
+        const googleUser = await GoogleAuth.signIn();
+        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+        const userCredential = await signInWithCredential(auth, credential);
+        const user = userCredential.user;
+        const idTokenResult = await user.getIdTokenResult();
+        const role = idTokenResult.claims.role;
+        if (role !== 'admin') {
+          await auth.signOut();
+          setError('Access denied. This portal is for Administrators only.');
+          return;
+        }
+        router.push('/admin/dashboard');
+      } else {
+        const provider = new GoogleAuthProvider();
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+        const idTokenResult = await user.getIdTokenResult();
+        const role = idTokenResult.claims.role;
+        if (role !== 'admin') {
+          await auth.signOut();
+          setError('Access denied. This portal is for Administrators only.');
+          return;
+        }
+        router.push('/admin/dashboard');
       }
-
-      router.push('/admin/dashboard');
     } catch (err: any) {
       handleAuthError(err);
     } finally {
