@@ -3,10 +3,6 @@
   "appName": "SPICA SG",
   "webDir": "out",
   "bundledWebRuntime": false,
-  "server": {
-    "url": "https://spicasg.in",
-    "androidScheme": "https"
-  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 2000,
