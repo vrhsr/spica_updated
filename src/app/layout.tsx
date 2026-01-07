@@ -54,7 +54,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="theme-color" content="#0ea5e9" />
       </head>
-      <body className={cn('min-h-screen bg-background font-body antialiased')} style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <ErrorBoundary level="root">
           <FirebaseClientProvider>
             {children}
