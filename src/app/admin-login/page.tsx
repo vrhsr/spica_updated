@@ -113,6 +113,8 @@ export default function AdminLoginPage() {
           scopes: ['profile', 'email'],
           grantOfflineAccess: true,
         });
+        // Force account picker by signing out first
+        await GoogleAuth.signOut();
         const googleUser = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
         const userCredential = await signInWithCredential(auth, credential);
