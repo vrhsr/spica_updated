@@ -502,66 +502,82 @@ export default function DoctorsPage() {
               {/* Mobile Card View */}
               <div className="md:hidden space-y-4">
                 {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
-                  <Card key={doctor.id} className={`p - 4 ${!!isSubmitting ? 'opacity-50' : ''} `}>
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-semibold">{doctor.name}</p>
-                          <p className="text-sm text-muted-foreground">{doctor.city}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Slides: {doctor.selectedSlides.join(', ')}
-                          </p>
+                  <Card key={doctor.id} className={`overflow-hidden border-none shadow-md ${!!isSubmitting ? 'opacity-50' : ''}`}>
+                    <CardContent className="p-0">
+                      <div className="p-4 bg-muted/30">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-headline text-lg font-bold text-primary">{doctor.name}</h3>
+                            <div className="flex items-center text-sm text-muted-foreground mt-1">
+                              <Building className="mr-1 h-3 w-3" />
+                              {doctor.city}
+                            </div>
+                          </div>
+                          {getStatusBadge(doctor)}
                         </div>
-                        <div>{getStatusBadge(doctor)}</div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {doctor.presentationStatus === 'error' && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleGeneration(
-                              doctor.id,
-                              doctor.name,
-                              doctor.city,
-                              [...doctor.selectedSlides]
+                      <div className="p-4 space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                            Assigned Slides ({doctor.selectedSlides.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {doctor.selectedSlides.length > 0 ? (
+                              doctor.selectedSlides.map(slideId => (
+                                <Badge key={slideId} variant="secondary" className="text-xs font-normal">
+                                  Slide {slideId}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-sm text-muted-foreground italic">No slides assigned</span>
                             )}
-                            disabled={!!isSubmitting}
-                            className="flex-1"
-                          >
-                            <RefreshCcw className="mr-2 h-4 w-4" />
-                            Retry
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditDoctor(doctor)}
-                          disabled={!!isSubmitting}
-                          className="flex-1"
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Slides
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled={!!isSubmitting}>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem
-                              className="text-red-500"
-                              onClick={() => setDoctorToDelete(doctor)}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                          {/* First Row of Actions */}
+                          {doctor.presentationStatus === 'error' ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleGeneration(
+                                doctor.id,
+                                doctor.name,
+                                doctor.city,
+                                [...doctor.selectedSlides]
+                              )}
                               disabled={!!isSubmitting}
+                              className="w-full"
                             >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete Doctor
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <RefreshCcw className="mr-2 h-4 w-4" />
+                              Retry
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditDoctor(doctor)}
+                              disabled={!!isSubmitting}
+                              className="w-full"
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Slides
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="w-full bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
+                            onClick={() => setDoctorToDelete(doctor)}
+                            disabled={!!isSubmitting}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    </CardContent>
                   </Card>
                 )) : (
                   <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
