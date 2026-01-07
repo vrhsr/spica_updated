@@ -11,7 +11,25 @@ export function isCapacitorApp(): boolean {
     if (typeof window === 'undefined') return false;
 
     // Check if Capacitor global object exists
-    return !!(window as any).Capacitor;
+    const capacitor = (window as any).Capacitor;
+    if (capacitor) {
+        // Check if running on native platform
+        if (typeof capacitor.isNativePlatform === 'function') {
+            return capacitor.isNativePlatform();
+        }
+        // Fallback to platform check
+        const platform = capacitor.getPlatform?.();
+        return platform === 'android' || platform === 'ios';
+    }
+
+    // Fallback: Check user agent for Android WebView
+    const ua = navigator.userAgent || '';
+    // Android WebView detection
+    if (ua.includes('wv') || (ua.includes('Android') && !ua.includes('Chrome/'))) {
+        return true;
+    }
+
+    return false;
 }
 
 /**
@@ -31,5 +49,5 @@ export function getPlatform(): 'ios' | 'android' | 'web' {
     const capacitor = (window as any).Capacitor;
     if (!capacitor) return 'web';
 
-    return capacitor.getPlatform() || 'web';
+    return capacitor.getPlatform?.() || 'web';
 }
