@@ -313,16 +313,16 @@ function PresentationsComponent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           Manage Presentations
         </h1>
-        <div className="flex items-center gap-2">
-          <div className="relative w-full max-w-sm">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by doctor name..."
-              className="pl-9"
+              className="pl-9 w-full"
               value={searchTerm}
               onChange={(e) => handleFilterChange('q', e.target.value)}
             />
@@ -338,7 +338,7 @@ function PresentationsComponent() {
             )}
           </div>
           {isAnyFilterActive && (
-            <Button variant="ghost" onClick={() => router.push(pathname)}>
+            <Button variant="ghost" onClick={() => router.push(pathname)} className="shrink-0">
               Clear Filters
             </Button>
           )}
@@ -542,90 +542,100 @@ function PresentationsComponent() {
               <div className="md:hidden space-y-4">
                 {enrichedPresentations.length > 0 ? (
                   enrichedPresentations.map((presentation) => (
-                    <Card key={presentation.id} className={`p-4 ${(isTransitioning || !!generatingId) ? 'opacity-50' : ''}`}>
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-semibold">{presentation.doctorName}</p>
-                            <p className="text-sm text-muted-foreground">{presentation.city}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {presentation.updatedAt ? formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}
-                            </p>
+                    <Card key={presentation.id} className={`overflow-hidden border-none shadow-md ${(isTransitioning || !!generatingId) ? 'opacity-50' : ''}`}>
+                      <CardContent className="p-0">
+                        <div className="bg-muted/30 p-4 border-b">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h3 className="font-headline text-lg font-bold text-primary">{presentation.doctorName}</h3>
+                              <div className="flex items-center text-sm text-muted-foreground mt-1 gap-2">
+                                <span>{presentation.city}</span>
+                                <span>•</span>
+                                <span>{presentation.updatedAt ? formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}</span>
+                              </div>
+                            </div>
+                            <div className="shrink-0">
+                              {getStatusBadge(presentation)}
+                            </div>
                           </div>
-                          <div>{getStatusBadge(presentation)}</div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          {presentation.status === 'pending' || presentation.status === 'failed' ? (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleGenerate(presentation)}
-                              disabled={isTransitioning || !!generatingId}
-                              className="flex-1"
-                            >
-                              {generatingId === presentation.id ? (
-                                <Loader className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <RefreshCcw className="mr-2 h-4 w-4" />
-                              )}
-                              Generate
-                            </Button>
-                          ) : (
+                        <div className="p-4 space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            {presentation.status === 'pending' || presentation.status === 'failed' ? (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleGenerate(presentation)}
+                                disabled={isTransitioning || !!generatingId}
+                                className="w-full"
+                              >
+                                {generatingId === presentation.id ? (
+                                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCcw className="mr-2 h-4 w-4" />
+                                )}
+                                Generate
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(presentation.pdfUrl, '_blank')}
+                                disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
+                                className="w-full"
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View PDF
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => window.open(presentation.pdfUrl, '_blank')}
-                              disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
-                              className="flex-1"
+                              onClick={() => setEditingPresentation(presentation)}
+                              disabled={isTransitioning || !!generatingId}
+                              className="w-full"
                             >
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Slides
                             </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingPresentation(presentation)}
-                            disabled={isTransitioning || !!generatingId}
-                            className="flex-1"
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" disabled={isTransitioning || !!generatingId}>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>More Actions</DropdownMenuLabel>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  if (presentation.pdfUrl) {
-                                    const link = document.createElement('a');
-                                    link.href = presentation.pdfUrl;
-                                    link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                  }
-                                }}
-                                disabled={!presentation.pdfUrl}
-                              >
-                                <Download className="mr-2 h-4 w-4" /> Download PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleRegenerate(presentation)}
-                                disabled={presentation.dirty || isTransitioning || !!generatingId}
-                              >
-                                <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          </div>
+
+                          <div className="flex justify-end pt-1">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="w-full text-muted-foreground" disabled={isTransitioning || !!generatingId}>
+                                  <MoreHorizontal className="mr-2 h-4 w-4" /> More Actions
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    if (presentation.pdfUrl) {
+                                      const link = document.createElement('a');
+                                      link.href = presentation.pdfUrl;
+                                      link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }
+                                  }}
+                                  disabled={!presentation.pdfUrl}
+                                >
+                                  <Download className="mr-2 h-4 w-4" /> Download PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleRegenerate(presentation)}
+                                  disabled={presentation.dirty || isTransitioning || !!generatingId}
+                                >
+                                  <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-                      </div>
+                      </CardContent>
                     </Card>
                   ))
                 ) : (
