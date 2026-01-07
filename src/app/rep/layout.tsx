@@ -177,9 +177,10 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                         <img
                             src="/icon-192.png"
                             alt="SG HEALTH PHARMA Logo"
+                            className="h-8 w-8 object-contain"
                         />
-                        <span className="font-headline text-lg font-bold">
-                            SG HEALTH PHARMA Portal {isOfflineMode && <span className="text-xs font-normal text-muted-foreground">(Offline)</span>}
+                        <span className="font-headline text-sm md:text-lg font-bold">
+                            SPICA SG {isOfflineMode && <span className="text-xs font-normal text-muted-foreground">(Offline)</span>}
                         </span>
                     </Link>
                 </div>

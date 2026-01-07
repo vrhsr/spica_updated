@@ -207,8 +207,7 @@ export default function RepDoctorsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="space-y-1">
-            <CardTitle>Your Assigned Doctors</CardTitle>
-            <CardDescription>View and download presentations.</CardDescription>
+            <CardTitle>Doctors</CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <SyncStatusIndicator outdatedCount={outdatedCount} />

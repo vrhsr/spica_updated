@@ -1,0 +1,44 @@
+﻿The Google Sign-In function needs to be manually updated.
+
+LOCATION: src/app/rep-login/page.tsx
+LINE: 117-146
+
+REPLACE THIS SECTION:
+------------------------
+Find the 'handleGoogleLogin' function and replace the TRY block (lines 125-140) with:
+
+    try {
+      if (isCapacitorApp()) {
+        await GoogleAuth.initialize({
+          clientId: '731200978852-8mvn08dar40n0pr1u276hbgmlt9nsqjm.apps.googleusercontent.com',
+          scopes: ['profile', 'email'],
+          grantOfflineAccess: true,
+        });
+        const googleUser = await GoogleAuth.signIn();
+        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+        const userCredential = await signInWithCredential(auth, credential);
+        const user = userCredential.user;
+        const idTokenResult = await user.getIdTokenResult();
+        const role = idTokenResult.claims.role;
+        if (role !== 'rep') {
+          await auth.signOut();
+          setError('Access denied. This portal is for Representatives only.');
+          return;
+        }
+        router.push('/rep');
+      } else {
+        const provider = new GoogleAuthProvider();
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
+        const idTokenResult = await user.getIdTokenResult();
+        const role = idTokenResult.claims.role;
+        if (role !== 'rep') {
+          await auth.signOut();
+          setError('Access denied. This portal is for Representatives only.');
+          return;
+        }
+        router.push('/rep');
+      }
+
+IMPORTANT: This is the ONLY change needed. The imports are already there.
+After making this change, rebuild the Android app.
