@@ -43,7 +43,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useAuth } from '@/firebase';
-import { PasswordResetDialog } from './PasswordResetDialog';
+import { PasswordResetDialog } from '@/components/PasswordResetDialog';
 import { cn } from '@/lib/utils';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
