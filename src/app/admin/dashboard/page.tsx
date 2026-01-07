@@ -379,48 +379,47 @@ export default function AdminDashboardPage() {
                     ))}
                   </TableBody>
                 </Table>
-              </Table>
               </div>
-          ) : (
-          <div className="text-center text-muted-foreground py-10">
-            No recent activity to display.
-          </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-10">
+                No recent activity to display.
+              </div>
             )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Doctor Overview Widget */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Presentation Status by City</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto max-w-[calc(100vw-3rem)] md:max-w-full">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>City</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead>Pending</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {doctorStatusByCity.map((city) => (
-                  <TableRow key={city.city}>
-                    <TableCell className="font-medium">{city.city}</TableCell>
-                    <TableCell>{city.updated}</TableCell>
-                    <TableCell>{city.pending}</TableCell>
-                    <TableCell>{getStatusBadge(city)}</TableCell>
+        {/* Doctor Overview Widget */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle>Presentation Status by City</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto max-w-[calc(100vw-3rem)] md:max-w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>City</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead>Pending</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {doctorStatusByCity.map((city) => (
+                    <TableRow key={city.city}>
+                      <TableCell className="font-medium">{city.city}</TableCell>
+                      <TableCell>{city.updated}</TableCell>
+                      <TableCell>{city.pending}</TableCell>
+                      <TableCell>{getStatusBadge(city)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
-    </div >
   );
 }
 
