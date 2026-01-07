@@ -5,7 +5,13 @@
   "bundledWebRuntime": false,
   "server": {
     "url": "https://spicasg.in",
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": [
+      "spicasg.in",
+      "*.spicasg.in",
+      "*.firebaseapp.com",
+      "*.googleapis.com"
+    ]
   },
   "plugins": {
     "SplashScreen": {
@@ -14,6 +20,14 @@
       "showSpinner": true,
       "androidSpinnerStyle": "large",
       "spinnerColor": "#ffffff"
+    },
+    "GoogleAuth": {
+      "scopes": [
+        "profile",
+        "email"
+      ],
+      "serverClientId": "731200978852-8mvn08dar40n0pr1u276hbgmlt9nsqjm.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
     }
   }
 }
