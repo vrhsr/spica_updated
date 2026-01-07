@@ -6,18 +6,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Download, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { isCapacitorApp } from '@/lib/capacitor-utils';
 
 /**
  * Service Worker Update Notification Component
  * Handles PWA update notifications and allows users to control when updates are applied
+ * Hidden in Capacitor app as updates are handled by app stores
  */
 export function UpdateNotification() {
     const [showUpdate, setShowUpdate] = useState(false);
     const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isCapApp, setIsCapApp] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
+        // Check if running in Capacitor (mobile app)
+        setIsCapApp(isCapacitorApp());
+
         if ('serviceWorker' in navigator) {
             // Check for updates every 30 minutes
             const checkForUpdates = async () => {
@@ -91,12 +97,13 @@ export function UpdateNotification() {
         });
     };
 
-    if (!showUpdate) {
+    // Hide in Capacitor app - updates are handled by app stores
+    if (!showUpdate || isCapApp) {
         return null;
     }
 
     return (
-        <div className="fixed bottom-20 right-4 z-50 max-w-md">
+        <div className="fixed bottom-4 right-4 z-40 max-w-md" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <Card className="border-primary shadow-lg">
                 <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">

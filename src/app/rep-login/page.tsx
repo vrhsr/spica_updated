@@ -25,17 +25,27 @@ import {
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import { listOfflinePresentations } from '@/lib/offline-storage';
 import { useEffect } from 'react';
+import { isCapacitorApp } from '@/lib/capacitor-utils';
 
 function OfflineBypassButton() {
   const [offlineCount, setOfflineCount] = useState(0);
+  const [isCapApp, setIsCapApp] = useState(false);
 
   useEffect(() => {
+    // Check if running in Capacitor
+    setIsCapApp(isCapacitorApp());
+
     const check = async () => {
       const data = await listOfflinePresentations();
       setOfflineCount(data.length);
     };
     check();
   }, []);
+
+  // Only show offline mode in Capacitor app, not in web browser
+  if (!isCapApp) {
+    return null;
+  }
 
   return (
     <div className="mt-6 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">

@@ -171,13 +171,12 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex min-h-screen flex-col">
             <OfflineBanner />
-            <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-sm lg:px-6">
+            <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'env(safe-area-inset-top)', minHeight: 'calc(4rem + env(safe-area-inset-top))' }}>
                 <div className="flex items-center gap-4">
                     <Link href={isOfflineMode ? "/rep/offline" : "/rep"} className="flex items-center gap-2">
                         <img
                             src="/icon-192.png"
                             alt="SG HEALTH PHARMA Logo"
-                            className="h-8 w-8 object-contain"
                         />
                         <span className="font-headline text-lg font-bold">
                             SG HEALTH PHARMA Portal {isOfflineMode && <span className="text-xs font-normal text-muted-foreground">(Offline)</span>}

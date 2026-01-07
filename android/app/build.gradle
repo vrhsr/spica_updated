@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "io.spicasg.app"
+    namespace = "com.spicasg.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "io.spicasg.app"
+        applicationId "com.spicasg.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -40,6 +40,13 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    
+    // Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:34.7.0')
+    // Firebase Authentication
+    implementation 'com.google.firebase:firebase-auth'
+    // Google Play Services Auth (for Google Sign-In)
+    implementation 'com.google.android.gms:play-services-auth:21.0.0'
 }
 
 apply from: 'capacitor.build.gradle'
