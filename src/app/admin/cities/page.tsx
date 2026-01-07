@@ -53,7 +53,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 type City = { id: string; name: string };
 type Doctor = { id: string; city: string };
-type Rep = { id:string; city: string; role: string };
+type Rep = { id: string; city: string; role: string };
 
 function AddCityDialog({
   citiesCollection,
@@ -79,20 +79,20 @@ function AddCityDialog({
       setIsOpen(false);
       onCityAdded(); // Trigger refetch
     } catch (error: any) {
-       console.error('Error adding city: ', error);
-       toast({
-         variant: 'destructive',
-         title: 'Error Adding City',
-         description: 'Could not add the city. Check console for details.',
-       });
-       if (error.message?.includes('permission-denied') || error.message?.includes('insufficient permissions')) {
-         const contextualError = new FirestorePermissionError({
-           operation: 'create',
-           path: citiesCollection.path,
-           requestResourceData: { name: finalCityName },
-         });
-         errorEmitter.emit('permission-error', contextualError);
-       }
+      console.error('Error adding city: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error Adding City',
+        description: 'Could not add the city. Check console for details.',
+      });
+      if (error.message?.includes('permission-denied') || error.message?.includes('insufficient permissions')) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: citiesCollection.path,
+          requestResourceData: { name: finalCityName },
+        });
+        errorEmitter.emit('permission-error', contextualError);
+      }
     }
   };
 
@@ -188,10 +188,10 @@ export default function CitiesPage() {
       const cityRef = doc(firestore, 'cities', cityToDelete.id);
       deleteDoc(cityRef).catch(error => {
         const contextualError = new FirestorePermissionError({
-            operation: 'delete',
-            path: cityRef.path,
-          });
-          errorEmitter.emit('permission-error', contextualError);
+          operation: 'delete',
+          path: cityRef.path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
       });
       toast({
         title: 'City Deleted',
@@ -199,14 +199,14 @@ export default function CitiesPage() {
       });
       forceRefetch(); // Refetch the cities list
     } catch (error) {
-       console.error('Error deleting city:', error);
-       toast({
+      console.error('Error deleting city:', error);
+      toast({
         variant: 'destructive',
         title: 'Error Deleting City',
         description: 'An unexpected error occurred. Please check the console.',
-       });
+      });
     } finally {
-        setCityToDelete(null);
+      setCityToDelete(null);
     }
   }
 
@@ -218,83 +218,85 @@ export default function CitiesPage() {
       </div>
     );
   }
-  
+
   if (citiesError) {
-      // Error is already thrown by the useCollection hook, but we can show a UI message too.
-      return (
-        <div className="flex h-64 items-center justify-center text-center text-destructive">
-            There was an error fetching the cities. <br />
-            This is likely a Firestore security rule issue. Please check the console for details.
-        </div>
-      )
+    // Error is already thrown by the useCollection hook, but we can show a UI message too.
+    return (
+      <div className="flex h-64 items-center justify-center text-center text-destructive">
+        There was an error fetching the cities. <br />
+        This is likely a Firestore security rule issue. Please check the console for details.
+      </div>
+    )
   }
 
   return (
     <TooltipProvider>
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Manage Cities
-        </h1>
-        <AddCityDialog citiesCollection={citiesCollection} onCityAdded={forceRefetch} />
-      </div>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <h1 className="font-headline text-3xl font-bold tracking-tight">
+            Manage Cities
+          </h1>
+          <div className="w-full md:w-auto">
+            <AddCityDialog citiesCollection={citiesCollection} onCityAdded={forceRefetch} />
+          </div>
+        </div>
 
-      {cityData.length === 0 ? (
+        {cityData.length === 0 ? (
           <Card className="text-center">
-              <CardHeader>
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
-                    <Building className="h-6 w-6 text-muted-foreground"/>
-                  </div>
-              </CardHeader>
-              <CardContent>
-                  <h3 className="text-xl font-semibold">No Cities Found</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                      Your `/cities` collection in Firestore appears to be empty.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                      Click the "Add City" button to add your first city.
-                  </p>
-              </CardContent>
+            <CardHeader>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+                <Building className="h-6 w-6 text-muted-foreground" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <h3 className="text-xl font-semibold">No Cities Found</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Your `/cities` collection in Firestore appears to be empty.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Click the "Add City" button to add your first city.
+              </p>
+            </CardContent>
           </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
             {cityData.map((city) => {
               const isDeletable = city.doctors === 0 && city.reps === 0;
               return (
-              <Card key={city.id}>
+                <Card key={city.id}>
                   <CardHeader>
-                  <CardTitle className="font-headline text-2xl">
+                    <CardTitle className="font-headline text-2xl">
                       {city.name}
-                  </CardTitle>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 rounded-lg border p-4">
+                    <div className="flex items-center gap-3 rounded-lg border p-4">
                       <HeartPulse className="h-8 w-8 text-primary" />
                       <div>
-                      <p className="text-sm text-muted-foreground">Doctors</p>
-                      <p className="text-2xl font-bold">{city.doctors}</p>
+                        <p className="text-sm text-muted-foreground">Doctors</p>
+                        <p className="text-2xl font-bold">{city.doctors}</p>
                       </div>
-                  </div>
-                  <div className="flex items-center gap-3 rounded-lg border p-4">
+                    </div>
+                    <div className="flex items-center gap-3 rounded-lg border p-4">
                       <Users className="h-8 w-8 text-primary" />
                       <div>
-                      <p className="text-sm text-muted-foreground">Reps</p>
-                      <p className="text-2xl font-bold">{city.reps}</p>
+                        <p className="text-sm text-muted-foreground">Reps</p>
+                        <p className="text-2xl font-bold">{city.reps}</p>
                       </div>
-                  </div>
+                    </div>
                   </CardContent>
                   <CardFooter className="flex justify-between">
                     <Button asChild>
-                        <Link href={`/admin/doctors?city=${city.name}`}>
+                      <Link href={`/admin/doctors?city=${city.name}`}>
                         Manage Doctors
-                        </Link>
+                      </Link>
                     </Button>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="inline-block"> 
-                          <Button 
-                            variant="destructive" 
-                            size="icon" 
+                        <div className="inline-block">
+                          <Button
+                            variant="destructive"
+                            size="icon"
                             onClick={() => setCityToDelete(city)}
                             disabled={!isDeletable}
                             aria-label={`Delete city ${city.name}`}
@@ -310,27 +312,28 @@ export default function CitiesPage() {
                       )}
                     </Tooltip>
                   </CardFooter>
-              </Card>
-            )})}
-        </div>
-      )}
+                </Card>
+              )
+            })}
+          </div>
+        )}
 
-      <AlertDialog open={!!cityToDelete} onOpenChange={(open) => !open && setCityToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the city "{cityToDelete?.name}". This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCity} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <AlertDialog open={!!cityToDelete} onOpenChange={(open) => !open && setCityToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the city "{cityToDelete?.name}". This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteCity} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-    </div>
+      </div>
     </TooltipProvider>
   );
 }

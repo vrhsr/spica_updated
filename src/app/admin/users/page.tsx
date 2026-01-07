@@ -298,18 +298,20 @@ export default function UsersPage() {
   // This is the view for an admin user.
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
           Users &amp; Roles Management
         </h1>
-        <AddRepDialog
-          cities={cities || []}
-          isLoadingCities={isLoadingCities}
-          onRepAdded={fetchUsers}
-          triggerButton={
-            <Button><Users className="mr-2 h-4 w-4" /> Add User</Button>
-          }
-        />
+        <div className="w-full md:w-auto">
+          <AddRepDialog
+            cities={cities || []}
+            isLoadingCities={isLoadingCities}
+            onRepAdded={fetchUsers}
+            triggerButton={
+              <Button className="w-full md:w-auto"><Users className="mr-2 h-4 w-4" /> Add User</Button>
+            }
+          />
+        </div>
       </div>
       <Card className="shadow-sm">
         <CardHeader>
@@ -430,82 +432,116 @@ export default function UsersPage() {
                   const canPerformAction = !isCurrentUser && !isKingAdmin;
 
                   return (
-                    <Card key={user.uid} className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-semibold">{user.displayName || 'N/A'}</p>
-                            <p className="text-sm text-muted-foreground">{user.email || 'N/A'}</p>
-                            {user.phone && <p className="text-sm text-muted-foreground">{user.phone}</p>}
+                    <Card key={user.uid} className="overflow-hidden border-none shadow-md">
+                      <CardContent className="p-0">
+                        {/* Header Section */}
+                        <div className="bg-muted/30 p-4 border-b">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-headline text-lg font-bold truncate">
+                                  {user.displayName || 'Unnamed User'}
+                                </h3>
+                                {getRoleBadge(user.role)}
+                              </div>
+                              <div className="text-sm text-muted-foreground break-all">
+                                {user.email || 'No Email'}
+                              </div>
+                              {user.phone && (
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {user.phone}
+                                </div>
+                              )}
+                            </div>
+
+                            {canPerformAction && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" disabled={isSubmitting}>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-red-500 focus:text-red-600"
+                                    onClick={() => handleOpenDeleteDialog(user)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete User
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </div>
-                          {canPerformAction && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" disabled={isSubmitting}>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-red-500"
-                                  onClick={() => handleOpenDeleteDialog(user)}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete User
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
                         </div>
 
-                        <div className="space-y-2">
-                          <div>
-                            <Label className="text-xs text-muted-foreground">Role</Label>
-                            <Select
-                              value={user.role || ''}
-                              onValueChange={(value: 'admin' | 'rep') =>
-                                initiateRoleChange(user.uid, value, user.displayName || user.email || 'this user')
-                              }
-                              disabled={!canPerformAction || isSubmitting}
-                            >
-                              <SelectTrigger className="w-full mt-1">
-                                <SelectValue placeholder="Select role...">
-                                  {getRoleBadge(user.role)}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="rep">Representative</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label className="text-xs text-muted-foreground">City</Label>
-                            <Select
-                              value={user.city || ''}
-                              onValueChange={(value: string) =>
-                                initiateCityChange(user.uid, value, user)
-                              }
-                              disabled={user.role !== 'rep' || isLoadingCities || !canPerformAction || isSubmitting}
-                            >
-                              <SelectTrigger className="w-full mt-1">
-                                <SelectValue placeholder={user.role !== 'rep' ? "N/A" : "Select city..."} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {isLoadingCities ? (
-                                  <div className="flex items-center justify-center p-2"><Loader className="h-4 w-4 animate-spin" /></div>
-                                ) : cities?.map(city => (
-                                  <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
-                                ))
+                        {/* Controls Section */}
+                        <div className="p-4 space-y-4">
+                          <div className="grid grid-cols-1 gap-4">
+                            <div>
+                              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+                                Role Assignment
+                              </Label>
+                              <Select
+                                value={user.role || ''}
+                                onValueChange={(value: 'admin' | 'rep') =>
+                                  initiateRoleChange(user.uid, value, user.displayName || user.email || 'this user')
                                 }
-                              </SelectContent>
-                            </Select>
+                                disabled={!canPerformAction || isSubmitting}
+                              >
+                                <SelectTrigger className="w-full bg-background">
+                                  <SelectValue placeholder="Select role...">
+                                    <div className="flex items-center gap-2">
+                                      {user.role === 'admin' && <ShieldQuestion className="h-4 w-4 text-destructive" />}
+                                      {user.role === 'rep' && <Users className="h-4 w-4 text-blue-600" />}
+                                      <span>{user.role === 'admin' ? 'Admin' : user.role === 'rep' ? 'Representative' : 'Not Set'}</span>
+                                    </div>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">
+                                    <div className="flex items-center gap-2">
+                                      <ShieldQuestion className="h-4 w-4 text-destructive" /> <span>Admin</span>
+                                    </div>
+                                  </SelectItem>
+                                  <SelectItem value="rep">
+                                    <div className="flex items-center gap-2">
+                                      <Users className="h-4 w-4 text-blue-600" /> <span>Representative</span>
+                                    </div>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
+                                City
+                              </Label>
+                              <Select
+                                value={user.city || ''}
+                                onValueChange={(value: string) =>
+                                  initiateCityChange(user.uid, value, user)
+                                }
+                                disabled={user.role !== 'rep' || isLoadingCities || !canPerformAction || isSubmitting}
+                              >
+                                <SelectTrigger className="w-full bg-background">
+                                  <SelectValue placeholder={user.role !== 'rep' ? "N/A" : "Select city..."} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {isLoadingCities ? (
+                                    <div className="flex items-center justify-center p-2"><Loader className="h-4 w-4 animate-spin" /></div>
+                                  ) : cities?.map(city => (
+                                    <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
+                                  ))
+                                  }
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </CardContent>
                     </Card>
                   );
                 })}
