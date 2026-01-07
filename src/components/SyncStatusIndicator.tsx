@@ -11,12 +11,7 @@ interface SyncStatusIndicatorProps {
 
 export function SyncStatusIndicator({ outdatedCount, onSyncClick, isSyncing }: SyncStatusIndicatorProps) {
     if (outdatedCount === 0) {
-        return (
-            <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="font-medium">All Content Up to Date</span>
-            </div>
-        );
+        return null;
     }
 
     return (
