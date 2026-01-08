@@ -1,212 +1,404 @@
+
 'use client';
 
-import React, { useState } from 'react';
-import { useAuth, useFirestore, useUser, useCollection } from '@/firebase';
-import { collection, addDoc, query, where, serverTimestamp } from 'firebase/firestore';
+import React, { useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Loader, PlusCircle, FileQuestion } from 'lucide-react';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, Timestamp, addDoc, doc } from 'firebase/firestore';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogDescription,
   DialogFooter,
+  DialogClose,
+  DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader, PlusCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
+import { format, formatDistanceToNow } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { EditSlidesForm } from '@/app/admin/doctors/AddDoctorDialog';
 
+type Doctor = { id: string; name: string; city: string; selectedSlides: number[] };
+type UserProfile = { city: string };
 type Request = {
-  id: string;
-  type: 'new_doctor' | 'update_slides' | 'other';
-  details: string;
+  doctorId?: string;
+  doctorName?: string;
+  doctorCity?: string;
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: any;
-  repId: string;
-  repName: string;
+  createdAt: Timestamp;
+  selectedSlides: number[];
+  requestType?: 'new_doctor' | 'slide_change'; // NEW field
 };
 
-export default function RepRequestsPage() {
-  const { user } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted }: {
+  repId: string;
+  repCity: string;
+  doctors: Doctor[];
+  onSubmitted: () => void;
+}) {
+  const [step, setStep] = useState<'type' | 'details' | 'slides'>('type');
+  const [requestType, setRequestType] = useState<'new_doctor' | 'slide_change'>('new_doctor');
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [proposedDoctor, setProposedDoctor] = useState<Partial<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  const firestore = useFirestore();
 
-  // Form State
-  const [requestType, setRequestType] = useState<string>('');
-  const [requestDetails, setRequestDetails] = useState('');
+  const handleTypeSelect = (type: 'new_doctor' | 'slide_change') => {
+    setRequestType(type);
+    setStep('details');
+  };
 
-  // Fetch Requests
-  const requestsQuery = user?.uid && firestore
-    ? query(collection(firestore, 'requests'), where('repId', '==', user.uid))
-    : null;
-
-  const { data: requests, isLoading } = useCollection<Request>(requestsQuery);
-
-  const handleSubmit = async () => {
-    if (!firestore || !user) return;
-    if (!requestType || !requestDetails) {
-      toast({
-        variant: 'destructive',
-        title: 'Missing Information',
-        description: 'Please select a type and provide details.',
-      });
-      return;
+  const handleNext = () => {
+    if (requestType === 'new_doctor' && doctorName.trim()) {
+      const finalName = doctorName.trim().startsWith('Dr.') ? doctorName.trim() : `Dr. ${doctorName.trim()}`;
+      setProposedDoctor({ name: finalName, city: repCity });
+      setStep('slides');
+    } else if (requestType === 'slide_change' && selectedDoctorId) {
+      const doctor = doctors.find(d => d.id === selectedDoctorId);
+      if (doctor) {
+        setProposedDoctor(doctor);
+        setStep('slides');
+      }
     }
+  };
+
+  const handleSlideSave = async (slides: number[]) => {
+    if (!firestore || !proposedDoctor) return;
 
     setIsSubmitting(true);
+    const requestsCollection = collection(firestore, 'requests');
+
+    const newRequest = requestType === 'new_doctor'
+      ? {
+        repId,
+        doctorName: proposedDoctor.name,
+        doctorCity: proposedDoctor.city,
+        selectedSlides: slides,
+        status: 'pending' as const,
+        requestType: 'new_doctor' as const,
+        createdAt: Timestamp.now()
+      }
+      : {
+        repId,
+        doctorId: selectedDoctorId,
+        selectedSlides: slides,
+        status: 'pending' as const,
+        requestType: 'slide_change' as const,
+        createdAt: Timestamp.now()
+      };
+
     try {
-      await addDoc(collection(firestore, 'requests'), {
-        type: requestType,
-        details: requestDetails, // Plain text description
-        status: 'pending',
-        repId: user.uid,
-        repName: user.displayName || 'Unknown Rep',
-        createdAt: serverTimestamp(),
+      await addDoc(requestsCollection, newRequest).catch(err => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: requestsCollection.path,
+          requestResourceData: newRequest
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw err;
       });
 
       toast({
-        title: 'Request Submitted',
-        description: 'Admin will review your request shortly.',
+        title: "Request Submitted",
+        description: requestType === 'new_doctor'
+          ? "Your proposal to add a new doctor has been sent for admin review."
+          : "Your slide change request has been sent for admin review.",
       });
-      setIsDialogOpen(false);
-      setRequestType('');
-      setRequestDetails('');
-    } catch (error) {
-      console.error('Error submitting request:', error);
+      onSubmitted();
+      handleClose();
+
+    } catch (err) {
+      console.error("Error submitting request:", err);
       toast({
-        variant: 'destructive',
-        title: 'Submission Failed',
-        description: 'Could not submit request. Try again later.',
+        variant: "destructive",
+        title: "Submission Failed",
+        description: "Could not submit your request. Check console for details.",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <div className="flex items-center text-yellow-600 bg-yellow-100 px-2 py-1 rounded text-xs font-medium"><Clock className="w-3 h-3 mr-1" /> Pending</div>;
-      case 'approved':
-        return <div className="flex items-center text-green-600 bg-green-100 px-2 py-1 rounded text-xs font-medium"><CheckCircle className="w-3 h-3 mr-1" /> Approved</div>;
-      case 'rejected':
-        return <div className="flex items-center text-red-600 bg-red-100 px-2 py-1 rounded text-xs font-medium"><XCircle className="w-3 h-3 mr-1" /> Rejected</div>;
-      default:
-        return null;
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(() => {
+      setStep('type');
+      setRequestType('new_doctor');
+      setSelectedDoctorId('');
+      setDoctorName('');
+      setProposedDoctor(null);
+      setIsSubmitting(false);
+    }, 200);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      handleClose();
+    } else {
+      setIsOpen(true);
     }
   };
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'new_doctor': return 'New Doctor';
-      case 'update_slides': return 'Update Slides';
-      default: return 'Other';
-    }
-  }
-
   return (
-    <div className="space-y-6 pb-20">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Change Requests
-        </h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full md:w-auto">
-              <PlusCircle className="mr-2 h-4 w-4" /> Propose Change
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button>
+          <PlusCircle className="mr-2 h-4 w-4" /> Propose Changes
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        {step === 'type' ? (
+          <>
             <DialogHeader>
-              <DialogTitle>Propose a Change</DialogTitle>
+              <DialogTitle>What would you like to do?</DialogTitle>
               <DialogDescription>
-                Submit a request to add a doctor, update slides, or other changes.
+                Choose the type of change you want to propose
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="type">Request Type</Label>
-                <Select value={requestType} onValueChange={setRequestType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new_doctor">Add New Doctor</SelectItem>
-                    <SelectItem value="update_slides">Update Slides</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="details">Details</Label>
-                <Textarea
-                  id="details"
-                  placeholder="e.g. Please add Dr. Smith (Cardiology) in Mumbai..."
-                  value={requestDetails}
-                  onChange={(e) => setRequestDetails(e.target.value)}
-                  rows={4}
-                />
-              </div>
+              <Button
+                variant="outline"
+                className="h-auto py-6 flex-col items-start gap-2"
+                onClick={() => handleTypeSelect('new_doctor')}
+              >
+                <div className="font-semibold">Add New Doctor</div>
+                <div className="text-sm text-muted-foreground">Propose a new doctor for your city</div>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-auto py-6 flex-col items-start gap-2"
+                onClick={() => handleTypeSelect('slide_change')}
+              >
+                <div className="font-semibold">Update Slides for Existing Doctor</div>
+                <div className="text-sm text-muted-foreground">Request slide changes for a current doctor</div>
+              </Button>
+            </div>
+          </>
+        ) : step === 'details' ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {requestType === 'new_doctor' ? 'Propose a New Doctor' : 'Select Doctor'}
+              </DialogTitle>
+              <DialogDescription>
+                {requestType === 'new_doctor'
+                  ? `Enter the name of the new doctor you want to add. They will be assigned to your city, ${repCity}.`
+                  : 'Choose the doctor whose slides you want to update'
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {requestType === 'new_doctor' ? (
+                <div>
+                  <Label htmlFor="doctor-name">Doctor Name</Label>
+                  <Input
+                    id="doctor-name"
+                    placeholder="e.g., Jane Smith"
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="doctor-select">Select Doctor</Label>
+                  <select
+                    id="doctor-select"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={selectedDoctorId}
+                    onChange={(e) => setSelectedDoctorId(e.target.value)}
+                  >
+                    <option value="">Select a doctor...</option>
+                    {doctors.map((doctor) => (
+                      <option key={doctor.id} value={doctor.id}>
+                        {doctor.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <DialogFooter>
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Request
+              <Button variant="outline" onClick={() => setStep('type')}>Back</Button>
+              <Button
+                onClick={handleNext}
+                disabled={requestType === 'new_doctor' ? !doctorName.trim() : !selectedDoctorId}
+              >
+                Next: Select Slides
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </>
+        ) : proposedDoctor ? (
+          <EditSlidesForm
+            doctor={proposedDoctor}
+            onSave={handleSlideSave}
+            isSaving={isSubmitting}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-      {isLoading ? (
-        <div className="flex justify-center p-8">
-          <Loader className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : requests && requests.length > 0 ? (
-        <div className="grid gap-4">
-          {requests.map((request) => (
-            <Card key={request.id}>
-              <CardHeader className="p-4 pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-base font-semibold">
-                    {getTypeLabel(request.type)}
-                  </CardTitle>
-                  {getStatusBadge(request.status)}
-                </div>
-                <CardDescription className="text-xs">
-                  {request.createdAt?.toDate ? formatDistanceToNow(request.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-2">
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{request.details}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card className="text-center p-8 text-muted-foreground">
-          <p>No requests found. Propose a change to get started.</p>
-        </Card>
-      )}
+export default function RepRequestsPage() {
+  const { user, isUserLoading: isAuthLoading } = useUser();
+  const firestore = useFirestore();
+
+  const userProfileRef = useMemoFirebase(
+    () => (user?.uid ? doc(firestore!, 'users', user.uid) : null),
+    [firestore, user?.uid]
+  );
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
+  const requestsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return query(collection(firestore, 'requests'), where('repId', '==', user.uid));
+  }, [firestore, user?.uid]);
+
+  const doctorsQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile?.city) return null;
+    return query(collection(firestore, 'doctors'), where('city', '==', userProfile.city));
+  }, [firestore, userProfile?.city]);
+
+  const { data: requests, isLoading: isLoadingRequests, forceRefetch } = useCollection<Request>(requestsQuery);
+  const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
+
+  const isLoading = isAuthLoading || isProfileLoading || isLoadingRequests || isLoadingDoctors;
+
+  const sortedRequests = useMemo(() => {
+    return requests?.sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime()) || [];
+  }, [requests]);
+
+  // Create a map of doctorId to doctor name for slide change requests
+  const doctorMap = useMemo(() => {
+    return new Map(doctors?.map(d => [d.id, d.name]) || []);
+  }, [doctors]);
+
+  const getStatusBadge = (status: Request['status']) => {
+    switch (status) {
+      case 'pending':
+        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+      case 'approved':
+        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
+      case 'rejected':
+        return <Badge variant="destructive">Rejected</Badge>;
+    }
+  };
+
+  // Get display name for request
+  const getRequestDoctorName = (req: Request) => {
+    if (req.doctorName) {
+      // New doctor proposal
+      return req.doctorName;
+    } else if (req.doctorId) {
+      // Slide change request - lookup doctor name
+      return doctorMap.get(req.doctorId) || 'Unknown Doctor';
+    }
+    return 'N/A';
+  };
+
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="font-headline text-3xl font-bold tracking-tight">
+          My Proposals
+        </h1>
+        {userProfile?.city && user && doctors && (
+          <ProposeChangesDialog
+            repId={user.uid}
+            repCity={userProfile.city}
+            doctors={doctors}
+            onSubmitted={forceRefetch}
+          />
+        )}
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Proposal History</CardTitle>
+          <CardDescription>Track the status of all the new doctor proposals you have submitted.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex h-64 items-center justify-center">
+              <Loader className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-4 text-muted-foreground">Loading proposals...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Doctor Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Proposed Slides</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedRequests.length > 0 ? sortedRequests.map(req => (
+                    <TableRow key={req.id}>
+                      <TableCell className="font-medium">{getRequestDoctorName(req)}</TableCell>
+                      <TableCell>
+                        {req.requestType === 'slide_change' ? (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                            Slide Update
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                            New Doctor
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground max-w-md truncate">
+                        <p className="truncate text-xs" title={req.selectedSlides.join(', ')}>
+                          {req.selectedSlides.join(', ')}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <span title={format(req.createdAt.toDate(), 'PPP p')}>
+                          {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
+                        </span>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(req.status)}</TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                        <div className="flex flex-col items-center justify-center">
+                          <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                          <h3 className="mt-4 text-lg font-semibold">No Proposals Found</h3>
+                          <p className="mt-1 text-sm">
+                            Click "Propose Changes" to submit your first proposal.
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
