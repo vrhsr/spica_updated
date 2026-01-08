@@ -15,6 +15,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarFooter,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
@@ -59,6 +60,42 @@ const navItems = [
   { href: '/admin/presentations', icon: Presentation, label: 'Presentations' },
   { href: '/admin/requests?status=pending', icon: Mail, label: 'Change Requests' },
 ];
+
+// Separate component to use useSidebar hook (must be inside SidebarProvider)
+function SidebarNavMenu({ pathname, pendingCount }: { pathname: string; pendingCount: number }) {
+  const { setOpenMobile, isMobile } = useSidebar();
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  return (
+    <SidebarMenu>
+      {navItems.map((item) => {
+        const isRequestsItem = item.href === '/admin/requests';
+        const showBadge = isRequestsItem && pendingCount > 0;
+
+        return (
+          <SidebarMenuItem key={item.label}>
+            <Link href={item.href} onClick={handleNavClick}>
+              <SidebarMenuButton isActive={pathname.startsWith(item.href)} className="text-base py-3">
+                <item.icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+                {showBadge && (
+                  <div className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm">
+                    {pendingCount}
+                  </div>
+                )}
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
+}
 
 type Request = {
   status: 'pending' | 'approved' | 'rejected';
@@ -170,28 +207,7 @@ export default function AdminLayout({
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarMenu>
-            {navItems.map((item) => {
-              const isRequestsItem = item.href === '/admin/requests';
-              const showBadge = isRequestsItem && pendingCount > 0;
-
-              return (
-                <SidebarMenuItem key={item.label}>
-                  <Link href={item.href}>
-                    <SidebarMenuButton isActive={pathname.startsWith(item.href)} className="text-base py-3">
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium">{item.label}</span>
-                      {showBadge && (
-                        <div className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm">
-                          {pendingCount}
-                        </div>
-                      )}
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              );
-            })}
-          </SidebarMenu>
+          <SidebarNavMenu pathname={pathname} pendingCount={pendingCount} />
         </SidebarContent>
         <SidebarFooter>
           <DropdownMenu>
