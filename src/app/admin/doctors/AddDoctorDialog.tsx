@@ -209,11 +209,11 @@ export function EditSlidesForm({
                   src={slide.url}
                   alt={`Slide ${slide.number}`}
                   className={cn(
-                    'w-full h-full object-cover rounded-md transition-all',
+                    'w-full h-full object-cover rounded-md transition-all border-2',
                     isSelected
-                      ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
-                      : 'opacity-60',
-                    !isMandatory && 'hover:opacity-100'
+                      ? 'ring-4 ring-blue-500 ring-offset-2 ring-offset-background border-blue-500 shadow-lg shadow-blue-500/30'
+                      : 'opacity-50 border-transparent grayscale-[30%]',
+                    !isMandatory && 'hover:opacity-100 hover:grayscale-0'
                   )}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-md" />
