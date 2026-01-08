@@ -352,38 +352,57 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Presentation Status by City - Compact Table */}
+        {/* Presentation Status by City - Responsive: Cards on mobile, Table on desktop */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Presentation Status by City</CardTitle>
             <CardDescription>Overview of PDF generation status</CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 md:p-0">
             {doctorStatusByCity.length > 0 ? (
-              <div className="overflow-x-auto max-w-full">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-6">City</TableHead>
-                      <TableHead className="text-center">Ready</TableHead>
-                      <TableHead className="text-center">Pending</TableHead>
-                      <TableHead className="text-center">Errors</TableHead>
-                      <TableHead className="pr-6 text-right">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {doctorStatusByCity.map((city) => (
-                      <TableRow key={city.city}>
-                        <TableCell className="font-medium pl-6 truncate max-w-[120px]">{city.city}</TableCell>
-                        <TableCell className="text-center text-green-600">{city.updated}</TableCell>
-                        <TableCell className="text-center text-yellow-600">{city.pending}</TableCell>
-                        <TableCell className="text-center text-red-600">{city.error}</TableCell>
-                        <TableCell className="pr-6 text-right">{getStatusBadge(city)}</TableCell>
+              <>
+                {/* Mobile: Stacked cards */}
+                <div className="block md:hidden p-4 space-y-3">
+                  {doctorStatusByCity.map((city) => (
+                    <div key={city.city} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate text-sm">{city.city}</p>
+                        <div className="flex gap-3 text-xs mt-1">
+                          <span className="text-green-600">{city.updated} ✓</span>
+                          {city.pending > 0 && <span className="text-yellow-600">{city.pending} ⏳</span>}
+                          {city.error > 0 && <span className="text-red-600">{city.error} ✗</span>}
+                        </div>
+                      </div>
+                      {getStatusBadge(city)}
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop: Full table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="pl-6">City</TableHead>
+                        <TableHead className="text-center">Ready</TableHead>
+                        <TableHead className="text-center">Pending</TableHead>
+                        <TableHead className="text-center">Errors</TableHead>
+                        <TableHead className="pr-6 text-right">Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {doctorStatusByCity.map((city) => (
+                        <TableRow key={city.city}>
+                          <TableCell className="font-medium pl-6">{city.city}</TableCell>
+                          <TableCell className="text-center text-green-600">{city.updated}</TableCell>
+                          <TableCell className="text-center text-yellow-600">{city.pending}</TableCell>
+                          <TableCell className="text-center text-red-600">{city.error}</TableCell>
+                          <TableCell className="pr-6 text-right">{getStatusBadge(city)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             ) : (
               <div className="text-center text-muted-foreground py-10">
                 No cities found.
