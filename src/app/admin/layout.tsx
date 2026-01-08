@@ -187,20 +187,23 @@ export default function AdminLayout({
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader className="border-b border-sidebar-border p-4" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
-          <Link href="/admin/dashboard" className="flex items-center gap-3 px-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+        <SidebarHeader className="border-b border-sidebar-border" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
+          <Link href="/admin/dashboard" className="flex items-center gap-4 p-4 rounded-lg hover:bg-accent/50 transition-colors">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm border border-primary/10">
               <img
                 src="/icon-192.png"
                 alt="SG HEALTH PHARMA Logo"
-                className="h-8 w-8 object-contain"
+                className="h-10 w-10 object-contain"
               />
             </div>
-            <div className="flex flex-col">
-              <span className="font-headline text-base font-bold leading-none tracking-tight">
-                SG HEALTH PHARMA
+            <div className="flex flex-col gap-0.5">
+              <span className="font-headline text-lg font-bold leading-tight tracking-tight">
+                SG HEALTH
               </span>
-              <span className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
+              <span className="font-headline text-sm font-semibold text-primary/80 leading-tight">
+                PHARMA
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] mt-1 font-medium">
                 Admin Portal
               </span>
             </div>
