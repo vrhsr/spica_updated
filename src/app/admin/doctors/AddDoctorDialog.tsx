@@ -211,9 +211,9 @@ export function EditSlidesForm({
                   className={cn(
                     'w-full h-full object-cover rounded-md transition-all',
                     isSelected
-                      ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-background opacity-100'
-                      : 'opacity-40 grayscale-[20%]',
-                    !isMandatory && 'hover:opacity-80 hover:grayscale-0'
+                      ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-background'
+                      : 'opacity-70',
+                    !isMandatory && 'hover:opacity-100'
                   )}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-md" />
