@@ -324,23 +324,23 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* System Status Summary */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {stats.map((item) => (
           <Card
             key={item.title}
-            className={`group flex flex - col transition - all hover: border - primary / 50 hover: shadow - lg ${item.variant === 'destructive'
+            className={`group flex flex-col transition-all hover:border-primary/50 hover:shadow-lg ${item.variant === 'destructive'
               ? 'border-l-4 border-l-destructive shadow-md ring-1 ring-destructive/20 animate-pulse-subtle'
               : ''
-              } `}
+              }`}
           >
             <Link href={item.href} className="flex h-full flex-col">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="font-headline text-xl font-bold">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-5 px-5">
+                <CardTitle className="font-headline text-base font-semibold text-muted-foreground">
                   {item.title}
                 </CardTitle>
-                <item.icon className={`h-6 w-6 ${item.variant === 'destructive' ? 'text-destructive' : 'text-muted-foreground'}`} />
+                <item.icon className={`h-7 w-7 ${item.variant === 'destructive' ? 'text-destructive' : 'text-muted-foreground/60'}`} />
               </CardHeader>
-              <CardContent className="flex flex-grow items-end justify-between">
+              <CardContent className="flex flex-grow items-end justify-between px-5 pb-5 pt-2">
                 <p className="text-4xl font-bold text-foreground">{item.value}</p>
                 <div className="flex items-center text-sm text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary">
                   View <ArrowRight className="ml-1 h-4 w-4" />
