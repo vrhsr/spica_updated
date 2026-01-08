@@ -351,8 +351,42 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-1">
-        {/* Recent Activity Log - Made full width since we removed the other widget */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Presentation Status by City - Mobile-friendly card layout */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle>Presentation Status by City</CardTitle>
+            <CardDescription>Overview of PDF generation status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {doctorStatusByCity.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {doctorStatusByCity.map((city) => (
+                  <div
+                    key={city.city}
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{city.city}</p>
+                      <div className="flex gap-2 text-xs text-muted-foreground mt-1">
+                        <span className="text-green-600">{city.updated} ready</span>
+                        {city.pending > 0 && <span className="text-yellow-600">{city.pending} pending</span>}
+                        {city.error > 0 && <span className="text-red-600">{city.error} errors</span>}
+                      </div>
+                    </div>
+                    {getStatusBadge(city)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-6">
+                No cities found.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity Log */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
