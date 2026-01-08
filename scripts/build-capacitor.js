@@ -4,15 +4,16 @@
  * Temporarily moves server-side code OUT OF THE PROJECT for static export,
  * then restores it after build.
  * 
- * For Capacitor (rep OFFLINE app only):
- * - API routes are not needed
- * - Admin section is not needed
- * - Server actions are not needed
- * - Requests page is excluded (has admin dependency + requires network)
- * - Dynamic [doctorId] route is excluded (static export limitation)
- *   → Presentations are accessed via offline page with searchParams
+ * For Capacitor mobile app:
+ * - API routes excluded (need server)
+ * - Firebase Admin SDK excluded (need server)
+ * - AI/Genkit excluded (need server)
  * 
- * The Capacitor app focuses on: Dashboard, Sync, Offline PDFs
+ * INCLUDED in mobile build:
+ * - Admin section (works with online connection)
+ * - Representative pages
+ * - Presentation viewing with [doctorId]
+ * - PDF viewer
  */
 
 const fs = require('fs');
@@ -23,22 +24,13 @@ const PROJECT_ROOT = path.join(__dirname, '..');
 const BACKUP_ROOT = path.join(PROJECT_ROOT, '.capacitor-backup'); // Outside src
 
 const FOLDERS_TO_MOVE = [
-    // API routes
+    // API routes (server-side only)
     { src: path.join(PROJECT_ROOT, 'src', 'app', 'api'), backup: path.join(BACKUP_ROOT, 'app-api') },
-    // Admin section (server-side Firebase Admin SDK)
-    { src: path.join(PROJECT_ROOT, 'src', 'app', 'admin'), backup: path.join(BACKUP_ROOT, 'app-admin') },
-    { src: path.join(PROJECT_ROOT, 'src', 'app', 'admin-login'), backup: path.join(BACKUP_ROOT, 'app-admin-login') },
-    // Server actions (Firebase Admin)
+    // Server actions (Firebase Admin - server-side only)
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'actions'), backup: path.join(BACKUP_ROOT, 'lib-actions') },
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'firebaseAdmin.ts'), backup: path.join(BACKUP_ROOT, 'lib-firebaseAdmin.ts') },
-    // AI/Genkit (server-side)
+    // AI/Genkit (server-side only)
     { src: path.join(PROJECT_ROOT, 'src', 'ai'), backup: path.join(BACKUP_ROOT, 'ai') },
-    // Rep requests page (imports from admin, requires network)
-    { src: path.join(PROJECT_ROOT, 'src', 'app', 'rep', 'requests'), backup: path.join(BACKUP_ROOT, 'app-rep-requests') },
-    // Dynamic route [doctorId] (not compatible with static export)
-    { src: path.join(PROJECT_ROOT, 'src', 'app', 'rep', 'present', '[doctorId]'), backup: path.join(BACKUP_ROOT, 'app-rep-present-doctorId') },
-    // PDF viewer (uses API route)
-    { src: path.join(PROJECT_ROOT, 'src', 'app', 'rep', 'pdf'), backup: path.join(BACKUP_ROOT, 'app-rep-pdf') },
 ];
 
 function ensureBackupDir() {
@@ -93,9 +85,9 @@ async function main() {
         moveServerCode();
 
         // Set environment and build
-        console.log('🔨 Building for Capacitor (static export - offline rep app)...');
-        console.log('   Features included: Dashboard, Sync, Offline Page');
-        console.log('   Features excluded: Admin, API, Requests, Dynamic Routes');
+        console.log('🔨 Building for Capacitor (mobile app with online features)...');
+        console.log('   Features included: Admin, Rep Dashboard, Presentations, PDF Viewer');
+        console.log('   Features excluded: API routes (server-side only)');
         console.log('');
 
         execSync('npx next build', {
@@ -114,7 +106,9 @@ async function main() {
 
     } catch (error) {
         console.error('');
-        console.error('❌ Build failed');
+        console.error('❌ Build failed:', error.message);
+        if (error.stdout) console.log(error.stdout.toString());
+        if (error.stderr) console.error(error.stderr.toString());
         process.exit(1);
     } finally {
         // Always restore server code
