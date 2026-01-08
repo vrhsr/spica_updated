@@ -595,7 +595,16 @@ export default function DoctorsPage() {
       </Card>
 
       {/* Edit Slides Dialog */}
-      <Dialog open={!!editDoctor} onOpenChange={(open) => !open && setEditDoctor(null)}>
+      <Dialog
+        open={!!editDoctor}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditDoctor(null);
+            // Fix: Ensure body pointer-events are restored
+            document.body.style.pointerEvents = '';
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           {editDoctor && (
             <EditSlidesForm doctor={editDoctor} onSave={handleEditSlidesSave} isSaving={isSubmitting === `edit - slides - ${editDoctor.id} `} />
