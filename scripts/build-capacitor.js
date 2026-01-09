@@ -4,16 +4,18 @@
  * Temporarily moves server-side code OUT OF THE PROJECT for static export,
  * then restores it after build.
  * 
- * For Capacitor mobile app:
+ * For Capacitor mobile app (Rep-focused):
+ * - Admin section excluded (requires server actions)
  * - API routes excluded (need server)
  * - Firebase Admin SDK excluded (need server)
  * - AI/Genkit excluded (need server)
+ * - Dynamic [doctorId] route excluded (incompatible with static export)
  * 
  * INCLUDED in mobile build:
- * - Admin section (works with online connection)
- * - Representative pages
- * - Presentation viewing with [doctorId]
+ * - Representative pages (dashboard, sync, offline)
+ * - Presentation viewing via /rep/present/view (uses searchParams)
  * - PDF viewer
+ * - Rep login
  */
 
 const fs = require('fs');
@@ -24,8 +26,16 @@ const PROJECT_ROOT = path.join(__dirname, '..');
 const BACKUP_ROOT = path.join(PROJECT_ROOT, '.capacitor-backup'); // Outside src
 
 const FOLDERS_TO_MOVE = [
+    // IMPORTANT: Order matters! Move files that depend on others FIRST
+    // Rep requests page (depends on admin/doctors) - must be moved before admin
+    { src: path.join(PROJECT_ROOT, 'src', 'app', 'rep', 'requests'), backup: path.join(BACKUP_ROOT, 'app-rep-requests') },
+    // Dynamic route [doctorId] - incompatible with static export, use /rep/present/view instead
+    { src: path.join(PROJECT_ROOT, 'src', 'app', 'rep', 'present', '[doctorId]'), backup: path.join(BACKUP_ROOT, 'app-rep-present-doctorId') },
     // API routes (server-side only)
     { src: path.join(PROJECT_ROOT, 'src', 'app', 'api'), backup: path.join(BACKUP_ROOT, 'app-api') },
+    // Admin section (uses server actions for presentation generation)
+    { src: path.join(PROJECT_ROOT, 'src', 'app', 'admin'), backup: path.join(BACKUP_ROOT, 'app-admin') },
+    { src: path.join(PROJECT_ROOT, 'src', 'app', 'admin-login'), backup: path.join(BACKUP_ROOT, 'app-admin-login') },
     // Server actions (Firebase Admin - server-side only)
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'actions'), backup: path.join(BACKUP_ROOT, 'lib-actions') },
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'firebaseAdmin.ts'), backup: path.join(BACKUP_ROOT, 'lib-firebaseAdmin.ts') },

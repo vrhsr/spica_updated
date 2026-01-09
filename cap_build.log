@@ -1,0 +1,26 @@
+﻿
+> nextn@1.0.0 build:capacitor
+> node scripts/build-capacitor.js
+
+≡ƒôª Temporarily moving server-side code for static export...
+node.exe : 
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Use
+rs\Ramana\AppData\Roaming ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo          : 
+    NotSpecified: (:String)   
+  [], RemoteException
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+Γ¥î Build failed: EPERM: 
+operation not permitted, 
+rename 'E:\SPICA PRODUCTION\st
+udio-main\studio-main\src\app\
+admin' -> 'E:\SPICA PRODUCTION
+\studio-main\studio-main\.capa
+citor-backup\app-admin'

@@ -63,10 +63,10 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
 
     // Offline mode should bypass auth for:
     // 1. /rep/offline page (always)
-    // 2. /rep/present/* routes when actually offline OR when ?mode=bypass is set
+    // 2. /rep/present/* routes (always - user already authenticated to reach this point)
     const isBypassMode = searchParams.get('mode') === 'bypass';
     const isOfflineMode = pathname === '/rep/offline' ||
-        (pathname.startsWith('/rep/present/') && (!isOnline || isBypassMode));
+        pathname.startsWith('/rep/present/');
 
     // Check online/offline status
     useEffect(() => {
