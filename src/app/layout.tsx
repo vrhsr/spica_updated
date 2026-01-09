@@ -9,6 +9,7 @@ import { Lora } from 'next/font/google';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useBackButtonHandler } from '@/lib/capacitor-back-button';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-body' });
 const lora = Lora({
@@ -26,6 +27,9 @@ export default function RootLayout({
 }>) {
   const router = useRouter();
   const pathname = usePathname();
+
+  // Initialize Android back button handler for Capacitor app
+  useBackButtonHandler();
 
   // Offline detection and auto-redirect
   useEffect(() => {

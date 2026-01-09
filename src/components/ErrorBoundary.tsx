@@ -152,14 +152,7 @@ export class ErrorBoundary extends Component<Props, State> {
                                 )}
                             </div>
 
-                            {/* Offline Notice */}
-                            {!navigator.onLine && (
-                                <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 p-3 text-center">
-                                    <p className="text-sm text-amber-800">
-                                        You appear to be offline. Some features may not work correctly.
-                                    </p>
-                                </div>
-                            )}
+                            {/* Removed offline banner - will be handled separately */}
                         </CardContent>
                     </Card>
                 </div>
