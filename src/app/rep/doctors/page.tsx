@@ -295,40 +295,44 @@ export default function RepDoctorsPage() {
                 {enrichedPresentations.length > 0 ? (
                   enrichedPresentations.map((p) => (
                     <Card key={p.id} className="overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-bold text-lg">{p.doctorName}</h3>
-                          <p className="text-xs text-muted-foreground">
-                            {p.updatedAt ? (
-                              `Updated ${formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}`
-                            ) : 'Last updated: N/A'}
-                          </p>
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg font-bold">{p.doctorName}</CardTitle>
+                            <CardDescription className="text-xs mt-1">
+                              {p.updatedAt ? (
+                                `Updated ${formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}`
+                              ) : 'Last updated: N/A'}
+                            </CardDescription>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5">
+                            {getStatusBadge(p)}
+                            <OfflineBadge doctorId={p.doctorId} />
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {getStatusBadge(p)}
-                          <OfflineBadge doctorId={p.doctorId} />
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <SaveOfflineButton
+                            doctorId={p.doctorId}
+                            pdfUrl={p.pdfUrl || ''}
+                            doctorName={p.doctorName || 'Unknown'}
+                          />
+                          <OfflineAwareViewButton
+                            doctorId={p.doctorId}
+                            doctorName={p.doctorName || 'Unknown'}
+                            pdfUrl={p.pdfUrl}
+                          />
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-                        <SaveOfflineButton
-                          doctorId={p.doctorId}
-                          pdfUrl={p.pdfUrl || ''}
-                          doctorName={p.doctorName || 'Unknown'}
-                        />
-                        <OfflineAwareViewButton
-                          doctorId={p.doctorId}
-                          doctorName={p.doctorName || 'Unknown'}
-                          pdfUrl={p.pdfUrl}
-                        />
-                      </div>
-                      <Button
-                        variant="default"
-                        className="w-full h-12 text-base font-semibold"
-                        onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
-                      >
-                        <Monitor className="mr-2 h-5 w-5" />
-                        Start Presentation
-                      </Button>
+                        <Button
+                          variant="default"
+                          className="w-full h-11 text-base font-semibold"
+                          onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
+                        >
+                          <Monitor className="mr-2 h-4 w-4" />
+                          Start Presentation
+                        </Button>
+                      </CardContent>
                     </Card>
                   ))
                 ) : (

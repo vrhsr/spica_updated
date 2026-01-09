@@ -41,11 +41,12 @@ export function initializeBackButtonHandler() {
         if (timeSinceLastPress < BACK_PRESS_INTERVAL) {
             App.exitApp();
         } else {
-            // First press - show toast
+            // First press - show toast in the middle
             lastBackPress = currentTime;
             toast({
                 title: 'Press back again to exit',
                 duration: 2000,
+                className: 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
             });
         }
     }).then((handle) => {

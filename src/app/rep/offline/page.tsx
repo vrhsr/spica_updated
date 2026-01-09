@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { listOfflinePresentations, formatBytes } from '@/lib/offline-storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Monitor, HardDrive, ArrowLeft, WifiOff, Search, AlertTriangle, RefreshCw, CheckCircle } from 'lucide-react';
+import { Monitor, HardDrive, ArrowLeft, WifiOff, Search, AlertTriangle, RefreshCw, CheckCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -120,29 +120,29 @@ export default function OfflineDashboardPage() {
                     {filtered.map((p) => {
                         const visited = visitedIds.has(p.doctorId);
                         return (
-                            <Card key={p.doctorId} className={`group hover:border-primary transition-all ${visited ? 'bg-green-50/50 border-green-200' : ''}`}>
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start">
-                                        <div className="space-y-1">
-                                            <CardTitle className="text-lg flex items-center gap-2">
+                            <Card key={p.doctorId} className={`group overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:shadow-md ${visited ? 'bg-green-50/30 border-green-300/50' : 'hover:bg-accent/5'}`}>
+                                <CardHeader className="pb-3">
+                                    <div className="flex justify-between items-start gap-3">
+                                        <div className="flex-1 space-y-1.5">
+                                            <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
                                                 {p.doctorName}
                                                 {visited && (
-                                                    <Badge className="bg-green-600 hover:bg-green-700 h-5 px-1.5 gap-1">
+                                                    <Badge className="bg-green-600 hover:bg-green-700 h-5 px-2 gap-1">
                                                         <CheckCircle className="h-3 w-3" />
                                                         Visited
                                                     </Badge>
                                                 )}
                                             </CardTitle>
-                                            <CardDescription>
+                                            <CardDescription className="text-xs">
                                                 Saved on {format(p.downloadedAt, 'MMM d, yyyy')}
                                             </CardDescription>
                                         </div>
-                                        <Badge variant="outline" className="text-[10px]">
+                                        <Badge variant="outline" className="text-[10px] shrink-0">
                                             {formatBytes(p.fileSize)}
                                         </Badge>
                                     </div>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="pt-3">
                                     <Button asChild className="w-full h-11" variant={visited ? "secondary" : "default"}>
                                         <Link href={`/rep/present/view?id=${p.doctorId}`}>
                                             <Monitor className="mr-2 h-4 w-4" />
@@ -151,7 +151,7 @@ export default function OfflineDashboardPage() {
                                     </Button>
                                 </CardContent>
                             </Card>
-                        )
+                        );
                     })}
                 </div>
             ) : (
