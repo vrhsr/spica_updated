@@ -11,7 +11,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, MapPin, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { saveVisitLog } from '@/lib/visit-logs-store';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,22 +36,14 @@ export function PresentationExitDialog({
     const handleFeedback = async (visited: boolean) => {
         setIsLoading(true);
         try {
-            // Save log (location capture happens inside this function)
+            // Save log (location capture happens silently in the background)
             await saveVisitLog(
                 doctorId,
                 visited ? 'VISITED' : 'NOT_VISITED',
                 doctorName
             );
 
-            if (visited) {
-                toast({
-                    title: "Visit Recorded",
-                    description: "Location captured successfully.",
-                    className: "bg-green-50 border-green-200 text-green-900"
-                });
-            }
-
-            // Proceed to exit
+            // Proceed to exit silently
             onExitConfirmed();
         } catch (error) {
             console.error("Failed to save visit log", error);
@@ -86,13 +78,10 @@ export function PresentationExitDialog({
                         {isLoading ? (
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                         ) : (
-                            <MapPin className="mr-2 h-5 w-5" />
+                            <CheckCircle className="mr-2 h-5 w-5" />
                         )}
                         Yes, Visit Completed
                     </Button>
-                    <p className="text-xs text-center text-muted-foreground -mt-1 mb-1">
-                        * Captures your current location securely
-                    </p>
 
                     <Button
                         size="lg"
