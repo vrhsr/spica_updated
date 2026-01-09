@@ -135,24 +135,19 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
 
         if (!isUserLoading && user && role === 'rep') {
             clearTimeout(timer);
+            setIsTimedOut(false); // Reset timeout state when auth is successful
         } else if (!isUserLoading && (!user || role !== 'rep')) {
             clearTimeout(timer);
-            // Don't redirect if offline - let the offline redirect handle it
-            if (isOnline) {
-                // ADDED: Small delay to avoid flickering during transitions
-                const redirectTimer = setTimeout(() => {
-                    // Check again after delay
-                    if (!user) {
-                        console.log('[Rep Layout] Auth failed after delay - redirecting to login');
-                        router.push('/rep-login');
-                    }
-                }, 1000);
-                return () => clearTimeout(redirectTimer);
+            // FIXED: Only redirect if we're online AND definitively not authenticated
+            // Don't redirect during transition states (when user is still loading or switching)
+            if (isOnline && !isUserLoading && !user) {
+                console.log('[Rep Layout] No user found - redirecting to login');
+                router.push('/rep-login');
             }
         }
 
         return () => clearTimeout(timer);
-    }, [user, role, isUserLoading, router, isOfflineMode, isOnline]);
+    }, [isUserLoading, user, role, isOfflineMode, isOnline, router]);
 
     if (isTimedOut && !isOfflineMode) {
         return (
