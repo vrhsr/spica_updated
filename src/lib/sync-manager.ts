@@ -8,6 +8,7 @@
 
 import { getDB, STORES, SyncIntentRecord } from './indexeddb-utils';
 import { savePDFOffline, hasOfflinePDF, getOfflinePDF } from './offline-pdf-store';
+import { syncVisitLogs } from './visit-logs-store';
 
 export type SyncStatus = 'IDLE' | 'CHECKING' | 'SYNCING' | 'PAUSED' | 'COMPLETED' | 'ERROR';
 
@@ -67,6 +68,11 @@ class SyncManager {
 
         await this.loadState();
         await this.checkForPendingResume();
+
+        // NEW: Sync visit logs on init if online
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+            syncVisitLogs().catch(err => console.warn('[SyncManager] Initial visit log sync failed:', err));
+        }
     }
 
     /**
@@ -137,6 +143,9 @@ class SyncManager {
                 status: 'SYNCING',
                 hasPendingResume: false
             });
+
+            // Sync visit logs when resuming
+            syncVisitLogs().catch(err => console.warn('[SyncManager] Visit log sync on resume failed:', err));
 
             await this.processItems(remaining, intent);
 

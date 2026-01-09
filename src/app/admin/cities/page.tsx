@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { HeartPulse, Users, Loader, PlusCircle, Building, Trash2 } from 'lucide-react';
+import { HeartPulse, Users, UserCog, Loader, PlusCircle, Building, Trash2 } from 'lucide-react';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import {
   collection,
@@ -242,19 +242,19 @@ export default function CitiesPage() {
         </div>
 
         {cityData.length === 0 ? (
-          <Card className="text-center">
+          <Card className="text-center border-2 border-dashed py-12">
             <CardHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
-                <Building className="h-6 w-6 text-muted-foreground" />
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/50">
+                <Building className="h-8 w-8 text-muted-foreground" />
               </div>
             </CardHeader>
             <CardContent>
               <h3 className="text-xl font-semibold">No Cities Found</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Your `/cities` collection in Firestore appears to be empty.
+                Your cities collection is empty.
               </p>
               <p className="text-sm text-muted-foreground">
-                Click the "Add City" button to add your first city.
+                Add your first city to get started.
               </p>
             </CardContent>
           </Card>
@@ -263,29 +263,36 @@ export default function CitiesPage() {
             {cityData.map((city) => {
               const isDeletable = city.doctors === 0 && city.reps === 0;
               return (
-                <Card key={city.id}>
-                  <CardHeader>
+                <Card key={city.id} className="group relative overflow-hidden backdrop-blur-sm bg-card/50 border-2 rounded-2xl transition-all duration-200 hover:shadow-lg hover:border-accent hover:bg-accent/5">
+                  <CardHeader className="pb-2">
                     <CardTitle className="font-headline text-2xl">
                       {city.name}
                     </CardTitle>
+                    <CardDescription className="text-xs">City management hub</CardDescription>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3 rounded-lg border p-4">
-                      <HeartPulse className="h-8 w-8 text-primary" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Doctors</p>
-                        <p className="text-2xl font-bold">{city.doctors}</p>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-2.5">
+                        <div className="p-1.5 rounded-md bg-primary/10">
+                          <HeartPulse className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">Doctors</span>
+                          <span className="font-bold text-lg">{city.doctors}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 rounded-lg border p-4">
-                      <Users className="h-8 w-8 text-primary" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Reps</p>
-                        <p className="text-2xl font-bold">{city.reps}</p>
+                      <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-2.5">
+                        <div className="p-1.5 rounded-md bg-primary/10">
+                          <Users className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-muted-foreground">Reps</span>
+                          <span className="font-bold text-lg">{city.reps}</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-between">
+                  <CardFooter className="flex justify-between border-t bg-muted/20 p-4">
                     <Button asChild>
                       <Link href={`/admin/doctors?city=${city.name}`}>
                         Manage Doctors
@@ -297,6 +304,7 @@ export default function CitiesPage() {
                           <Button
                             variant="destructive"
                             size="icon"
+                            className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-red-200"
                             onClick={() => setCityToDelete(city)}
                             disabled={!isDeletable}
                             aria-label={`Delete city ${city.name}`}
@@ -313,10 +321,11 @@ export default function CitiesPage() {
                     </Tooltip>
                   </CardFooter>
                 </Card>
-              )
+              );
             })}
           </div>
-        )}
+        )
+        }
 
         <AlertDialog open={!!cityToDelete} onOpenChange={(open) => !open && setCityToDelete(null)}>
           <AlertDialogContent>
@@ -333,7 +342,7 @@ export default function CitiesPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-      </div>
-    </TooltipProvider>
+      </div >
+    </TooltipProvider >
   );
 }

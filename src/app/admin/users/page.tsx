@@ -300,7 +300,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Users &amp; Roles Management
+          Users & Roles Management
         </h1>
         <div className="w-full md:w-auto">
           <AddRepDialog
@@ -308,7 +308,7 @@ export default function UsersPage() {
             isLoadingCities={isLoadingCities}
             onRepAdded={fetchUsers}
             triggerButton={
-              <Button className="w-full md:w-auto"><Users className="mr-2 h-4 w-4" /> Add User</Button>
+              <Button className="w-full md:w-auto rounded-xl shadow-md hover:shadow-lg transition-all"><Users className="mr-2 h-4 w-4" /> Add User</Button>
             }
           />
         </div>
@@ -432,7 +432,7 @@ export default function UsersPage() {
                   const canPerformAction = !isCurrentUser && !isKingAdmin;
 
                   return (
-                    <Card key={user.uid} className="overflow-hidden border-none shadow-md">
+                    <Card key={user.uid} className="overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
                       <CardContent className="p-0">
                         {/* Header Section */}
                         <div className="bg-muted/30 p-4 border-b">

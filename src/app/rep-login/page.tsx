@@ -94,7 +94,7 @@ export default function RepLoginPage() {
         );
         break;
       case 'auth/popup-closed-by-user':
-        setError('Sign-in process was cancelled.');
+        setError('Sign-in process was cancelled or blocked. Please ensure popups are allowed and you are not in Incognito mode with third-party cookies blocked.');
         break;
       case 'auth/network-request-failed':
         setError('Network Connection Error. Please check your internet or firewall settings.');
@@ -294,13 +294,24 @@ export default function RepLoginPage() {
 
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full relative overflow-hidden group bg-white hover:bg-gray-50 border-2 h-12 rounded-xl shadow-md hover:shadow-lg transition-all duration-300"
               onClick={handleGoogleLogin}
               disabled={isLoadingPassword || isLoadingGoogle}
             >
-              {isLoadingGoogle && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-              {!isLoadingGoogle && <Chrome className="mr-2 h-5 w-5" />}
-              Sign in with Google
+              {isLoadingGoogle ? (
+                <div className="flex items-center">
+                  <div className="relative mr-3">
+                    <div className="h-5 w-5 rounded-full border-3 border-primary/20"></div>
+                    <div className="absolute top-0 h-5 w-5 animate-spin rounded-full border-3 border-transparent border-t-primary"></div>
+                  </div>
+                  <span className="font-medium">Signing in...</span>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <Chrome className="mr-2 h-5 w-5 text-blue-600" />
+                  <span className="font-semibold">Sign in with Google</span>
+                </div>
+              )}
             </Button>
 
             {error && (

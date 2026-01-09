@@ -366,21 +366,21 @@ export default function DoctorsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           {cityFilter && (
-            <Button variant="outline" size="icon" asChild>
+            <Button variant="outline" size="icon" asChild className="rounded-xl border-2 hover:border-primary/50">
               <Link href="/admin/cities">
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
           )}
-          <h1 className="font-headline text-2xl md:text-3xl font-bold tracking-tight">
-            Manage Doctors {cityFilter && <span className="text-primary">({cityFilter})</span>}
+          <h1 className="font-headline text-3xl font-bold tracking-tight">
+            Manage Doctors {cityFilter && <span className="opacity-70">({cityFilter})</span>}
           </h1>
         </div>
         <AddDoctorDialog
           onDoctorAdded={handleDoctorAdded}
           defaultCity={cityFilter || undefined}
           triggerButton={
-            <Button disabled={!!isSubmitting}>
+            <Button disabled={!!isSubmitting} className="rounded-xl shadow-md hover:shadow-lg transition-all">
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Doctor
             </Button>
@@ -502,7 +502,7 @@ export default function DoctorsPage() {
               {/* Mobile Card View */}
               <div className="md:hidden space-y-4">
                 {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
-                  <Card key={doctor.id} className={`overflow-hidden border-none shadow-md ${!!isSubmitting ? 'opacity-50' : ''}`}>
+                  <Card key={doctor.id} className={`overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md ${!!isSubmitting ? 'opacity-50' : ''}`}>
                     <CardContent className="p-0">
                       <div className="p-4 bg-muted/30">
                         <div className="flex items-start justify-between gap-2">

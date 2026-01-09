@@ -299,7 +299,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Dashboard
+          Admin Dashboard
         </h1>
         <div className="flex flex-col gap-2 md:flex-row">
           <AddDoctorDialog
@@ -328,23 +328,20 @@ export default function AdminDashboardPage() {
         {stats.map((item) => (
           <Card
             key={item.title}
-            className={`group flex flex-col transition-all hover:border-primary/50 hover:shadow-lg ${item.variant === 'destructive'
-              ? 'border-l-4 border-l-destructive shadow-md ring-1 ring-destructive/20 animate-pulse-subtle'
-              : ''
+            className={`group relative overflow-hidden border rounded-lg transition-all duration-200 ${item.variant === 'destructive'
+              ? 'border-destructive/50 shadow-sm'
+              : 'hover:border-accent hover:bg-accent/5 hover:shadow-md'
               }`}
           >
             <Link href={item.href} className="flex h-full flex-col">
-              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 pt-5 px-5">
-                <CardTitle className="font-headline text-base font-semibold text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   {item.title}
                 </CardTitle>
-                <item.icon className={`h-7 w-7 ${item.variant === 'destructive' ? 'text-destructive' : 'text-muted-foreground/60'}`} />
+                <item.icon className={`h-5 w-5 ${item.variant === 'destructive' ? 'text-destructive' : 'text-primary/70'}`} />
               </CardHeader>
-              <CardContent className="flex flex-grow items-end justify-between px-5 pb-5 pt-2">
-                <p className="text-4xl font-bold text-foreground">{item.value}</p>
-                <div className="flex items-center text-sm text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary">
-                  View <ArrowRight className="ml-1 h-4 w-4" />
-                </div>
+              <CardContent>
+                <div className="text-3xl font-bold">{item.value}</div>
               </CardContent>
             </Link>
           </Card>

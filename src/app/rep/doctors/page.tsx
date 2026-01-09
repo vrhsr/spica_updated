@@ -226,77 +226,129 @@ export default function RepDoctorsPage() {
               Failed to load presentations. This may be a security rule issue.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Doctor Name</TableHead>
-                    <TableHead>Last Updated</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {enrichedPresentations.length > 0 ? (
-                    enrichedPresentations.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-medium">
-                          {p.doctorName}
-                        </TableCell>
-                        <TableCell>
-                          {p.updatedAt ? (
-                            <span title={format(p.updatedAt.toDate(), 'PPP p')}>
-                              {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
-                            </span>
-                          ) : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2 items-center">
-                            {getStatusBadge(p)}
-                            <OfflineBadge doctorId={p.doctorId} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right space-x-2 whitespace-nowrap">
-                          <SaveOfflineButton
-                            doctorId={p.doctorId}
-                            pdfUrl={p.pdfUrl || ''}
-                            doctorName={p.doctorName || 'Unknown'}
-                          />
-                          <OfflineAwareViewButton
-                            doctorId={p.doctorId}
-                            doctorName={p.doctorName || 'Unknown'}
-                            pdfUrl={p.pdfUrl}
-                          />
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="h-9"
-                            onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
-                          >
-                            <Monitor className="mr-2 h-4 w-4" />
-                            Present
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
+            <div className="space-y-4">
+              {/* Table view for desktop */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="h-48 text-center text-muted-foreground"
-                      >
-                        <div className="flex flex-col items-center justify-center">
-                          <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                          <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
-                          <p className="mt-1 text-sm">
-                            No presentations are currently assigned for your city.
+                      <TableHead>Doctor Name</TableHead>
+                      <TableHead>Last Updated</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {enrichedPresentations.length > 0 ? (
+                      enrichedPresentations.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-medium">
+                            {p.doctorName}
+                          </TableCell>
+                          <TableCell>
+                            {p.updatedAt ? (
+                              <span title={format(p.updatedAt.toDate(), 'PPP p')}>
+                                {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
+                              </span>
+                            ) : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2 items-center">
+                              {getStatusBadge(p)}
+                              <OfflineBadge doctorId={p.doctorId} />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2 whitespace-nowrap">
+                            <SaveOfflineButton
+                              doctorId={p.doctorId}
+                              pdfUrl={p.pdfUrl || ''}
+                              doctorName={p.doctorName || 'Unknown'}
+                            />
+                            <OfflineAwareViewButton
+                              doctorId={p.doctorId}
+                              doctorName={p.doctorName || 'Unknown'}
+                              pdfUrl={p.pdfUrl}
+                            />
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-9"
+                              onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
+                            >
+                              <Monitor className="mr-2 h-4 w-4" />
+                              Present
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-48 text-center" />
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Card view for mobile */}
+              <div className="md:hidden space-y-4">
+                {enrichedPresentations.length > 0 ? (
+                  enrichedPresentations.map((p) => (
+                    <Card key={p.id} className="overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-lg">{p.doctorName}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            {p.updatedAt ? (
+                              `Updated ${formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}`
+                            ) : 'Last updated: N/A'}
                           </p>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                        <div className="flex flex-col items-end gap-1">
+                          {getStatusBadge(p)}
+                          <OfflineBadge doctorId={p.doctorId} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                        <SaveOfflineButton
+                          doctorId={p.doctorId}
+                          pdfUrl={p.pdfUrl || ''}
+                          doctorName={p.doctorName || 'Unknown'}
+                        />
+                        <OfflineAwareViewButton
+                          doctorId={p.doctorId}
+                          doctorName={p.doctorName || 'Unknown'}
+                          pdfUrl={p.pdfUrl}
+                        />
+                      </div>
+                      <Button
+                        variant="default"
+                        className="w-full h-12 text-base font-semibold"
+                        onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
+                      >
+                        <Monitor className="mr-2 h-5 w-5" />
+                        Start Presentation
+                      </Button>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-muted-foreground">
+                    No doctors found for your search.
+                  </div>
+                )}
+              </div>
+
+              {enrichedPresentations.length === 0 && (
+                <div className="py-24 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center">
+                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                    <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
+                    <p className="mt-1 text-sm">
+                      No presentations are currently assigned for your city.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

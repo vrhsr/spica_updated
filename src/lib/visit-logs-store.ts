@@ -6,6 +6,15 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDB, STORES } from './indexeddb-utils';
 import { Geolocation } from '@capacitor/geolocation';
+import { collection, addDoc, Timestamp, doc, getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+
+// Helper to get firestore instance (avoiding circular deps if any)
+const getFB = () => {
+    const db = getFirestore();
+    const auth = getAuth();
+    return { db, auth };
+};
 
 export async function saveVisitLog(
     doctorId: string,
@@ -39,6 +48,7 @@ export async function saveVisitLog(
         await db.put(STORES.VISIT_LOGS, {
             id: uuidv4(),
             doctorId,
+            doctorName: doctorName || 'Unknown Doctor',
             timestamp: Date.now(),
             status,
             latitude,
@@ -47,6 +57,12 @@ export async function saveVisitLog(
         });
 
         console.log(`[Visit Log] Saved log for ${doctorId}: ${status}`);
+
+        // Try immediate sync if online
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+            syncVisitLogs().catch(err => console.warn('[Visit Log] Immediate sync failed:', err));
+        }
+
         return true;
     } catch (error) {
         console.error('Error saving visit log:', error);
@@ -85,3 +101,53 @@ export async function isVisitedToday(doctorId: string): Promise<boolean> {
         return false;
     }
 }
+
+/**
+ * Syncs unsynced logs from IndexedDB to Firestore
+ */
+export async function syncVisitLogs() {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+    try {
+        const unsynced = await getUnsyncedLogs();
+        if (unsynced.length === 0) return;
+
+        console.log(`[Visit Log] Syncing ${unsynced.length} logs to Firestore...`);
+        const { db, auth } = getFB();
+        if (!auth.currentUser) {
+            console.warn('[Visit Log] No user logged in, skipping sync');
+            return;
+        }
+
+        const visitLogsCol = collection(db, 'visit_logs');
+
+        for (const log of unsynced) {
+            try {
+                // Prepare document data
+                const docData = {
+                    doctorId: log.doctorId,
+                    doctorName: log.doctorName || 'Unknown Doctor',
+                    status: log.status,
+                    latitude: log.latitude,
+                    longitude: log.longitude,
+                    repId: auth.currentUser.uid,
+                    repName: auth.currentUser.displayName || 'Unknown Rep',
+                    createdAt: Timestamp.now(),
+                    timestamp: Timestamp.fromMillis(log.timestamp)
+                };
+
+                // Add to firestore
+                await addDoc(visitLogsCol, docData);
+
+                // Mark as synced locally
+                await markLogAsSynced(log.id);
+            } catch (err) {
+                console.error(`[Visit Log] Failed to sync log ${log.id}:`, err);
+            }
+        }
+        console.log('[Visit Log] Sync completed');
+    } catch (error) {
+        console.error('[Visit Log] Sync process error:', error);
+    }
+}
+

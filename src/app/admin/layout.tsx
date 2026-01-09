@@ -31,6 +31,7 @@ import {
   KeyRound,
   Mail,
   AlertTriangle,
+  MapPin,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -59,6 +60,7 @@ const navItems = [
   { href: '/admin/slides', icon: GalleryThumbnails, label: 'Slides Library' },
   { href: '/admin/presentations', icon: Presentation, label: 'Presentations' },
   { href: '/admin/requests?status=pending', icon: Mail, label: 'Change Requests' },
+  { href: '/admin/visit-logs', icon: MapPin, label: 'Visit Logs' },
 ];
 
 // Separate component to use useSidebar hook (must be inside SidebarProvider)
@@ -188,7 +190,7 @@ export default function AdminLayout({
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader className="border-b border-sidebar-border" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
-          <Link href="/admin/dashboard" className="flex items-center gap-4 p-4 rounded-lg hover:bg-accent/50 transition-colors">
+          <Link href="/admin/dashboard" className="flex items-center gap-4 p-4 rounded-lg transition-colors">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm border border-primary/10">
               <img
                 src="/icon-192.png"
@@ -255,10 +257,6 @@ export default function AdminLayout({
         <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'env(safe-area-inset-top)', minHeight: 'calc(3.5rem + env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">
             <SidebarTrigger className="lg:hidden" />
-            <h2 className="font-headline text-base md:text-lg font-semibold">
-              {navItems.find((item) => pathname.startsWith(item.href))?.label ||
-                'Admin Portal'}
-            </h2>
           </div>
 
           {/* Mobile Logout Button */}

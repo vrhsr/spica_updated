@@ -104,6 +104,26 @@ export async function getStorageUsage(): Promise<number> {
 }
 
 /**
+ * Get device storage estimation
+ */
+export async function getStorageEstimate(): Promise<{ usage: number; quota: number }> {
+    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+        try {
+            const estimate = await navigator.storage.estimate();
+            return {
+                usage: estimate.usage || 0,
+                quota: estimate.quota || 100 * 1024 * 1024, // 100MB fallback quota
+            };
+        } catch (e) {
+            console.error('Error getting storage estimate:', e);
+        }
+    }
+    // Fallback to local calculation if estimate API fails or is unavailable
+    const usage = await getStorageUsage();
+    return { usage, quota: 100 * 1024 * 1024 };
+}
+
+/**
  * Format bytes to human-readable size
  */
 export function formatBytes(bytes: number): string {

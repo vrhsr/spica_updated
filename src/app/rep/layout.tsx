@@ -71,7 +71,15 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     // Check online/offline status
     useEffect(() => {
         const updateOnlineStatus = () => {
-            setIsOnline(navigator.onLine);
+            const online = navigator.onLine;
+            setIsOnline(online);
+
+            // CRITICAL: If we detect offline and we're not already on an offline route,
+            // redirect IMMEDIATELY to prevent loading screen hang
+            if (!online && !pathname.includes('/offline') && !pathname.includes('/present/')) {
+                console.log('[Rep Layout] Offline detected - immediate redirect to /rep/offline');
+                window.location.replace('/rep/offline');
+            }
         };
 
         updateOnlineStatus();
@@ -82,7 +90,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
             window.removeEventListener('online', updateOnlineStatus);
             window.removeEventListener('offline', updateOnlineStatus);
         };
-    }, []);
+    }, [pathname]);
 
     // Automatically redirect to offline mode if offline and not already there
     useEffect(() => {
@@ -92,22 +100,38 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
             import('@/lib/offline-storage').then(({ listOfflinePresentations }) => {
                 listOfflinePresentations().then(presentations => {
                     if (presentations.length > 0) {
-                        // Redirect to offline mode if presentations are available
-                        router.push('/rep/offline');
+                        console.log('[Rep Layout] Offline detected with presentations - replacing to /rep/offline');
+                        router.replace('/rep/offline');
                     }
                 });
             });
         }
     }, [isOnline, isOfflineMode, hasCheckedOffline, router]);
 
+    // SECONDARY FAILSAFE: If offline and NOT in an offline-ready route, redirect.
+    // Moved to useEffect to avoid hard-refresh loops and render-cycle issues.
+    useEffect(() => {
+        if (!isOnline && !isOfflineMode) {
+            const timer = setTimeout(() => {
+                // Double check before redirect
+                if (!navigator.onLine && !pathname.includes('/offline') && !pathname.includes('/present/')) {
+                    console.log('[Rep Layout] Failsafe redirect to /rep/offline');
+                    router.replace('/rep/offline');
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [isOnline, isOfflineMode, pathname, router]);
+
     useEffect(() => {
         if (isOfflineMode) return; // Skip auth check in offline mode
 
         const timer = setTimeout(() => {
             if (isUserLoading || !user || role !== 'rep') {
+                console.log('[Rep Layout] Auth timeout - user:', !!user, 'loading:', isUserLoading, 'role:', role);
                 setIsTimedOut(true);
             }
-        }, 10000); // 10 second timeout
+        }, 15000); // 15 second timeout
 
         if (!isUserLoading && user && role === 'rep') {
             clearTimeout(timer);
@@ -115,7 +139,15 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
             clearTimeout(timer);
             // Don't redirect if offline - let the offline redirect handle it
             if (isOnline) {
-                router.push('/rep-login');
+                // ADDED: Small delay to avoid flickering during transitions
+                const redirectTimer = setTimeout(() => {
+                    // Check again after delay
+                    if (!user) {
+                        console.log('[Rep Layout] Auth failed after delay - redirecting to login');
+                        router.push('/rep-login');
+                    }
+                }, 1000);
+                return () => clearTimeout(redirectTimer);
             }
         }
 
@@ -138,20 +170,6 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
         );
     }
 
-    // CRITICAL FIX: When offline and not on allowed offline routes, redirect immediately
-    // Don't wait for Firebase auth - it will never resolve offline
-    if (!isOnline && !isOfflineMode) {
-        // Redirect to offline mode immediately
-        window.location.href = '/rep/offline';
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <WifiOff className="h-12 w-12 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">You're offline. Redirecting...</p>
-                </div>
-            </div>
-        );
-    }
 
     if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode) {
         return (

@@ -104,7 +104,7 @@ export default function RepDashboardPage() {
         description: 'Add a new doctor or update slides',
         count: '+',
         icon: PlusCircle,
-        href: '/rep/requests',
+        href: '/rep/requests?action=propose',
         color: 'text-accent',
       },
     ];
@@ -138,23 +138,20 @@ export default function RepDashboardPage() {
         {dashboardStats.map((item) => (
           <Card
             key={item.title}
-            className="group flex flex-col transition-all hover:border-primary/50 hover:shadow-lg"
+            className="group relative overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md"
           >
             <Link href={item.href} className="flex h-full flex-col">
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="font-headline text-xl">
-                    {item.title}
-                  </CardTitle>
-                  <CardDescription className="text-xs">{item.description}</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {item.title}
+                </CardTitle>
+                <div className={`p-2 rounded-lg bg-${item.color.replace('text-', '')}/10`}>
+                  <item.icon className={`h-5 w-5 ${item.color}`} />
                 </div>
-                <item.icon className={`h-6 w-6 ${item.color}`} />
               </CardHeader>
-              <CardContent className="flex flex-grow items-end justify-between">
-                <p className={`text-3xl font-bold ${item.count === '+' ? 'text-muted-foreground' : ''}`}>{item.count}</p>
-                <div className="flex items-center text-xs text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary">
-                  View <ArrowRight className="ml-1 h-3 w-3" />
-                </div>
+              <CardContent>
+                <div className="text-3xl font-bold">{item.count}</div>
+                <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
               </CardContent>
             </Link>
           </Card>

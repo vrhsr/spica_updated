@@ -25,6 +25,19 @@ const baseConfig = {
     experimental: {
         turbo: {},
     },
+    async headers() {
+        return [
+            {
+                source: "/(.*)",
+                headers: [
+                    {
+                        key: "Cross-Origin-Opener-Policy",
+                        value: "same-origin-allow-popups",
+                    },
+                ],
+            },
+        ];
+    },
 };
 
 // Capacitor build: Static export (no PWA)

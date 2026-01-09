@@ -245,10 +245,15 @@ export default function AdminRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Change Requests
-        </h1>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">
+            Representative Requests
+          </h1>
+          <p className="text-muted-foreground">
+            Review and approve doctor proposals or slide changes submitted from the field.
+          </p>
+        </div>
       </div>
       <Card className="shadow-sm">
         <CardHeader>

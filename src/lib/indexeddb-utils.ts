@@ -30,6 +30,7 @@ export interface PDFRecord {
 export interface VisitLogRecord {
     id: string; // uuid
     doctorId: string;
+    doctorName: string;
     timestamp: number;
     status: 'VISITED' | 'NOT_VISITED'; // Yes/No
     latitude?: number;

@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
         setError('This sign-in method is not enabled for this project. Please enable it in the Firebase Authentication console.');
         break;
       case 'auth/popup-closed-by-user':
-        setError('Sign-in process was cancelled.');
+        setError('Sign-in process was cancelled or blocked. Please ensure popups are allowed and you are not in Incognito mode with third-party cookies blocked.');
         break;
       default:
         setError('An unexpected error occurred. Please try again.');

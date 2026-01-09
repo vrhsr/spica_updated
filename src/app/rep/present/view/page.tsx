@@ -3,13 +3,23 @@
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, X, Loader, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, X, Loader, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { getOfflinePDF, hasOfflinePDF } from '@/lib/offline-pdf-store';
 import { useToast } from '@/hooks/use-toast';
 import { useOfflineReady } from '@/hooks/useOfflineReady';
 import * as pdfjsLib from 'pdfjs-dist';
 import { App } from '@capacitor/app';
-import { PresentationExitDialog } from '@/components/PresentationExitDialog';
+import { saveVisitLog } from '@/lib/visit-logs-store';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 // Configure PDF.js worker - use local worker file for offline support
 if (typeof window !== 'undefined') {
@@ -34,10 +44,8 @@ function PresentationViewerContent() {
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(false);
     const [isPresenting, setIsPresenting] = useState(false);
-
-    // NEW: Post-presentation feedback state
-    const [showExitDialog, setShowExitDialog] = useState(false);
     const [doctorName, setDoctorName] = useState<string>('');
+    const [showExitDialog, setShowExitDialog] = useState(false);
 
     // Touch gesture handling
     const touchStartX = useRef(0);
@@ -56,13 +64,7 @@ function PresentationViewerContent() {
         let backListener: any;
         const setupBackListener = async () => {
             backListener = await App.addListener('backButton', () => {
-                if (showExitDialog) {
-                    // If dialog is open, let default happen (close app or do nothing? closer to cancel)
-                    setShowExitDialog(false);
-                } else {
-                    // Open exit confirmation
-                    setShowExitDialog(true);
-                }
+                handleClose();
             });
         };
         setupBackListener();
@@ -72,7 +74,7 @@ function PresentationViewerContent() {
             window.removeEventListener('offline', handleOffline);
             if (backListener) backListener.remove();
         };
-    }, [showExitDialog]);
+    }, []);
 
     useEffect(() => {
         // Wait for IndexedDB to be ready before loading
@@ -191,18 +193,34 @@ function PresentationViewerContent() {
         setCurrentPage(p => Math.min(totalPages, p + 1));
     }, [totalPages]);
 
-    // MODIFIED: handleClose now opens the feedback dialog
+    // MODIFIED: handleClose now saves log silently and exits
     const handleClose = () => {
         // Exit fullscreen if active
         if (document.fullscreenElement) {
-            document.exitFullscreen().catch(err => console.warn(err));
+            document.exitFullscreen().then(() => setIsPresenting(false));
+        } else {
             setIsPresenting(false);
         }
-        setShowExitDialog(true);
+
+        // For online presentations, show confirmation dialog
+        if (navigator.onLine) {
+            setShowExitDialog(true);
+        } else {
+            // Offline: redirect without asking (use window.location.replace to clear history)
+            window.location.replace('/rep/offline');
+        }
     };
 
-    const confirmExit = () => {
-        router.push('/rep/offline');
+    const handlePresentationConfirm = async (didPresent: boolean) => {
+        setShowExitDialog(false);
+
+        if (didPresent) {
+            // User confirmed they presented - save visit log (will capture location silently)
+            await saveVisitLog(doctorId, 'VISITED', doctorName);
+        }
+
+        // Use window.location.replace to completely clear history and prevent back button loop
+        window.location.replace('/rep');
     };
 
     const startPresentation = useCallback(() => {
@@ -443,13 +461,34 @@ function PresentationViewerContent() {
                 </div>
             )}
 
-            <PresentationExitDialog
-                open={showExitDialog}
-                onOpenChange={setShowExitDialog}
-                doctorId={doctorId}
-                doctorName={doctorName}
-                onExitConfirmed={confirmExit}
-            />
+            {/* Presentation Confirmation Dialog */}
+            <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+                <AlertDialogContent className="max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-xl">Presentation Complete</AlertDialogTitle>
+                        <AlertDialogDescription className="text-base pt-2">
+                            Did you just present to <span className="font-semibold text-foreground">{doctorName}</span>?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                        <AlertDialogCancel
+                            onClick={() => handlePresentationConfirm(false)}
+                            className="w-full sm:w-auto"
+                        >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            No, Just Viewing
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => handlePresentationConfirm(true)}
+                            className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                        >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Yes, I Presented
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </div>
     );
 }
