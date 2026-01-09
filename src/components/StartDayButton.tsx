@@ -68,7 +68,7 @@ export function StartDayButton({ presentations, doctors }: StartDayButtonProps) 
                     <div className="flex gap-2">
                         <Button
                             size="lg"
-                            className="flex-1 bg-amber-600 hover:bg-amber-700 text-white shadow-lg"
+                            className="flex-1 shadow-lg"
                             onClick={handleResumeSync}
                             disabled={isSyncing}
                         >
@@ -91,7 +91,7 @@ export function StartDayButton({ presentations, doctors }: StartDayButtonProps) 
                 // Normal Start Day button
                 <Button
                     size="lg"
-                    className="w-full bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all active:scale-95"
+                    className="w-full shadow-lg transition-all active:scale-95"
                     onClick={handleStartDay}
                     disabled={isSyncing}
                 >
