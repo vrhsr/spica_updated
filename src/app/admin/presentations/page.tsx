@@ -666,7 +666,6 @@ function PresentationsComponent() {
               doctor={{
                 id: editingPresentation.doctorId,
                 name: editingPresentation.doctorName,
-                city: editingPresentation.city,
                 selectedSlides: editingPresentation.doctorSlides || [],
               }}
               onSave={handleEditSlidesSave}
