@@ -16,6 +16,8 @@
  * - Presentation viewing via /rep/present/view (uses searchParams)
  * - PDF viewer
  * - Rep login
+ * 
+ * NOTE: Admin portal opens in external browser via Browser plugin
  */
 
 const fs = require('fs');
@@ -26,9 +28,6 @@ const PROJECT_ROOT = path.join(__dirname, '..');
 const BACKUP_ROOT = path.join(PROJECT_ROOT, '.capacitor-backup'); // Outside src
 
 const FOLDERS_TO_MOVE = [
-    // IMPORTANT: Order matters! Move files that depend on others FIRST
-    // Rep requests page (depends on admin/doctors) - must be moved before admin
-    { src: path.join(PROJECT_ROOT, 'src', 'app', 'rep', 'requests'), backup: path.join(BACKUP_ROOT, 'app-rep-requests') },
     // Dynamic route [doctorId] - incompatible with static export, use /rep/present/view instead
     { src: path.join(PROJECT_ROOT, 'src', 'app', 'rep', 'present', '[doctorId]'), backup: path.join(BACKUP_ROOT, 'app-rep-present-doctorId') },
     // API routes (server-side only)

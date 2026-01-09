@@ -88,5 +88,15 @@ service cloud.firestore {
       // Only admins can delete requests.
       allow delete: if isAdmin();
     }
+
+    // Rules for the 'visit_logs' collection
+    match /visit_logs/{logId} {
+      // Reps can create logs, but only for themselves.
+      allow create: if isRep() && request.resource.data.repId == request.auth.uid;
+      // TEMPORARY: Allow any authenticated user to read visit logs (debugging custom claims)
+      // TODO: Change back to isAdmin() once custom claims are working
+      allow read, list: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
   }
 }

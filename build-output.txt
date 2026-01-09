@@ -1,0 +1,60 @@
+﻿node.exe :  ΓÜá Invalid 
+next.config.mjs options detected: 
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" 
+"C:\Users\Ramana\AppData\Roaming ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpeci 
+   fied: ( ΓÜá Invalid ne...ions dete  
+  cted: :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCo 
+   mmandError
+ 
+ ΓÜá     Unrecognized key(s) in 
+object: 'serverExternalPackages'
+ ΓÜá See more info here: https://nextjs
+.org/docs/messages/invalid-next-config
+  Γû▓ Next.js 14.2.35
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    ┬╖ turbo
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./temp_requests_original.tsx:34:32
+Type error: Cannot find module 
+'@/app/admin/doctors/AddDoctorDialog' 
+or its corresponding type declarations.
+
+[0m [90m 32 |[39m [36mimport[39m 
+{ errorEmitter } [36mfrom[39m [32m'@
+/firebase/error-emitter'[39m[33m;[39
+m[0m
+[0m [90m 33 |[39m [36mimport[39m 
+{ [33mFirestorePermissionError[39m } 
+[36mfrom[39m [32m'@/firebase/errors'
+[39m[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 34 
+|[39m [36mimport[39m { 
+[33mEditSlidesForm[39m } 
+[36mfrom[39m [32m'@/app/admin/doctor
+s/AddDoctorDialog'[39m[33m;[39m[0m
+[0m [90m    |[39m                   
+             [31m[1m^[22m[39m[0m
+[0m [90m 35 |[39m[0m
+[0m [90m 36 |[39m type 
+[33mDoctor[39m [33m=[39m { 
+id[33m:[39m string[33m;[39m 
+name[33m:[39m string[33m;[39m 
+city[33m:[39m string[33m;[39m 
+selectedSlides[33m:[39m number[] 
+}[33m;[39m[0m
+[0m [90m 37 |[39m type 
+[33mUserProfile[39m [33m=[39m { 
+city[33m:[39m string }[33m;[39m[0m
+Next.js build worker exited with code: 
+1 and signal: null
