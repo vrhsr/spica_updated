@@ -31,23 +31,14 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 function OfflineBypassButton() {
   const [offlineCount, setOfflineCount] = useState(0);
-  const [isCapApp, setIsCapApp] = useState(false);
 
   useEffect(() => {
-    // Check if running in Capacitor
-    setIsCapApp(isCapacitorApp());
-
     const check = async () => {
       const data = await listOfflinePresentations();
       setOfflineCount(data.length);
     };
     check();
   }, []);
-
-  // Only show offline mode in Capacitor app, not in web browser
-  if (!isCapApp) {
-    return null;
-  }
 
   return (
     <div className="mt-6 p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5">
@@ -57,7 +48,7 @@ function OfflineBypassButton() {
       <Button asChild variant="default" className="w-full bg-primary hover:bg-primary/90 h-12 shadow-md">
         <Link href="/rep/offline">
           <Monitor className="mr-2 h-5 w-5" />
-          {offlineCount > 0 ? `Access ${offlineCount} Downloaded s` : 'Access Offline Mode'}
+          {offlineCount > 0 ? `Access ${offlineCount} Downloaded Presentation${offlineCount > 1 ? 's' : ''}` : 'Access Offline Mode'}
         </Link>
       </Button>
       <p className="text-[10px] text-center text-muted-foreground mt-2">
