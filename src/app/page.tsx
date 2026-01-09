@@ -12,11 +12,19 @@ import {
   CardDescription,
   CardContent,
 } from '@/components/ui/card';
+import { isCapacitorApp } from '@/lib/capacitor-utils';
+import { Browser } from '@capacitor/browser';
 
 export default function LandingPage() {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [isCapApp, setIsCapApp] = useState(false);
+
+  // Check if running in Capacitor
+  useEffect(() => {
+    setIsCapApp(isCapacitorApp());
+  }, []);
 
   // Detect online/offline status
   useEffect(() => {
@@ -33,6 +41,19 @@ export default function LandingPage() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Handle Admin Portal click - open in WebView if Capacitor, else navigate normally
+  const handleAdminClick = async (e: React.MouseEvent) => {
+    if (isCapApp) {
+      e.preventDefault();
+      try {
+        await Browser.open({ url: 'https://spicasg.in/admin-login' });
+      } catch (error) {
+        console.error('Failed to open browser:', error);
+      }
+    }
+    // If not Capacitor, let the default Link behavior work
+  };
 
   // Handle Representative card click - redirect to offline mode if offline
   const handleRepClick = (e: React.MouseEvent) => {
@@ -68,7 +89,7 @@ export default function LandingPage() {
           {mobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-gray-100 bg-white">
               <div className="flex flex-col gap-2 px-4">
-                <Link href="/admin-login" onClick={() => setMobileMenuOpen(false)}>
+                <Link href="/admin-login" onClick={(e) => { setMobileMenuOpen(false); handleAdminClick(e); }}>
                   <Button variant="ghost" className="w-full justify-start font-normal">
                     <Shield className="mr-3 h-5 w-5" />
                     Admin Portal
@@ -100,7 +121,7 @@ export default function LandingPage() {
           <div className="grid gap-6 md:grid-cols-2">
             {/* Admin Portal Card */}
             <Card className="group flex flex-col transition-all hover:border-primary/50 hover:shadow-lg bg-white">
-              <Link href="/admin-login" className="flex h-full flex-col">
+              <Link href="/admin-login" onClick={handleAdminClick} className="flex h-full flex-col">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div className="space-y-1">
                     <CardTitle className="text-2xl font-bold">Admin Portal</CardTitle>
