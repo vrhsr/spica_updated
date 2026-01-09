@@ -166,7 +166,7 @@ export default function RepDoctorsPage() {
 
     // Synchronous check using localStorage (via offline-storage lib)
     if (isAvailableOffline(doctorId)) {
-      router.push(`/rep/present/${doctorId}`);
+      router.push(`/rep/present/view?id=${doctorId}`);
     } else {
       toast({
         variant: "destructive",
