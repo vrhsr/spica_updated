@@ -31,6 +31,17 @@ export const createUser = async (input: z.infer<typeof CreateUserInputSchema>) =
   }
   const { name, email, phone, role, city, adminUid } = validation.data;
 
+  // Check for duplicate name
+  const existingUserSnapshot = await adminFirestore
+    .collection('users')
+    .where('name', '==', name)
+    .limit(1)
+    .get();
+
+  if (!existingUserSnapshot.empty) {
+    throw new Error(`A user with the name "${name}" already exists.`);
+  }
+
   const temporaryPassword = generateTemporaryPassword();
 
   // 1. Create the user in Firebase Auth
@@ -138,6 +149,69 @@ export const deleteUser = async (uid: string) => {
   return { success: true };
 }
 
+// ─── Edit User Details ───────────────────────────────────────────────────
+const UpdateUserDetailsSchema = z.object({
+  uid: z.string().min(1, 'UID is required'),
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().optional(),
+});
+
+export const updateUserDetails = async (input: z.infer<typeof UpdateUserDetailsSchema>) => {
+  const validation = UpdateUserDetailsSchema.safeParse(input);
+  if (!validation.success) {
+    throw new Error(`Invalid input: ${validation.error.flatten().fieldErrors}`);
+  }
+  const { uid, name, email, phone } = validation.data;
+
+  // Check for duplicate name (excluding the current user)
+  const existingUserSnapshot = await adminFirestore
+    .collection('users')
+    .where('name', '==', name)
+    .get();
+
+  const isDuplicate = existingUserSnapshot.docs.some((doc) => doc.id !== uid);
+  if (isDuplicate) {
+    throw new Error(`Another user with the name "${name}" already exists.`);
+  }
+
+  // Update Firebase Auth
+  await adminAuth.updateUser(uid, {
+    displayName: name,
+    email: email,
+    phoneNumber: phone || null,
+  });
+
+  // Update Firestore
+  await adminFirestore.collection('users').doc(uid).update({
+    name,
+    email,
+    phone: phone || null,
+  });
+
+  return { success: true };
+}
+
+// ─── Toggle User Status (Suspend/Activate) ───────────────────────────────
+export const toggleUserStatus = async (uid: string, disabled: boolean) => {
+  if (!uid) throw new Error('UID is required');
+  
+  // Disable or Enable the login at the Firebase Auth level
+  await adminAuth.updateUser(uid, { disabled });
+  
+  if (disabled) {
+    // Revoke their current session instantly if suspended
+    await adminAuth.revokeRefreshTokens(uid);
+  }
+
+  // Reflect status in Firestore document for completeness
+  await adminFirestore.collection('users').doc(uid).update({
+    active: !disabled,
+  });
+
+  return { success: true };
+}
+
 /**
  * A server action that lists all users and their custom claims.
  */
@@ -171,6 +245,7 @@ export const listAllUsers = async (): Promise<any[]> => {
         city: userRecord.customClaims?.city || firestoreData?.city,
         creationTime: userRecord.metadata.creationTime,
         createdBy: firestoreData?.createdBy, // Include createdBy from Firestore
+        disabled: userRecord.disabled, // Returns true if the user is suspended
       });
     });
 

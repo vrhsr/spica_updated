@@ -46,6 +46,7 @@ import { useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AddDoctorDialog, EditSlidesForm } from './AddDoctorDialog';
+import { EditDoctorDialog } from './EditDoctorDialog';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
 import { collection, query, where, addDoc, doc, updateDoc, deleteDoc, getDocs, writeBatch, Timestamp } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
@@ -57,7 +58,8 @@ import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentatio
 
 export type Doctor = {
   name: string;
-  city: string;
+  city: string;      // district name (backwards-compatible Firestore field)
+  subCity?: string;  // actual city within the district (new field)
   selectedSlides: number[];
 };
 
@@ -85,6 +87,7 @@ export default function DoctorsPage() {
   const isAdmin = adminRole === 'admin';
 
   const [editDoctor, setEditDoctor] = React.useState<WithId<Doctor> | null>(null);
+  const [doctorToEditDetails, setDoctorToEditDetails] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToDelete, setDoctorToDelete] = React.useState<WithId<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -184,7 +187,8 @@ export default function DoctorsPage() {
     const lowerSearch = searchTerm.toLowerCase();
     return enrichedDoctors.filter(doctor =>
       doctor.name.toLowerCase().includes(lowerSearch) ||
-      doctor.city.toLowerCase().includes(lowerSearch)
+      doctor.city.toLowerCase().includes(lowerSearch) ||
+      (doctor.subCity && doctor.subCity.toLowerCase().includes(lowerSearch))
     );
   }, [enrichedDoctors, searchTerm]);
 
@@ -209,9 +213,22 @@ export default function DoctorsPage() {
   const handleDoctorAdded = async (newDoctor: Omit<Doctor, 'status'>) => {
     if (!firestore || !adminUser) return;
 
-    let tempId: string | null = null;
     try {
       setIsSubmitting('add-doctor');
+
+      // Global duplicate check
+      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', newDoctor.name));
+      const duplicateSnapshot = await getDocs(duplicateQuery);
+      if (!duplicateSnapshot.empty) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Doctor",
+          description: `A doctor named "${newDoctor.name}" already exists in the system.`,
+        });
+        return;
+      }
+
+      let tempId: string | null = null;
       const doctorsCollection = collection(firestore, 'doctors');
       const docRef = await addDoc(doctorsCollection, newDoctor).catch(err => {
         const contextualError = new FirestorePermissionError({
@@ -238,6 +255,51 @@ export default function DoctorsPage() {
         variant: "destructive",
         title: "Failed to Add Doctor",
         description: "Could not save the new doctor. Please check the console for details."
+      });
+    } finally {
+      setIsSubmitting(null);
+    }
+  };
+
+  const handleEditDoctorSave = async (doctorId: string, details: { name: string; city: string; subCity: string }, selectedSlides: number[]) => {
+    if (!firestore || !adminUser) return;
+    
+    try {
+      setIsSubmitting(`edit-details-${doctorId}`);
+
+      // Global duplicate check (ignoring self)
+      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', details.name));
+      const duplicateSnapshot = await getDocs(duplicateQuery);
+      const isDuplicate = duplicateSnapshot.docs.some(doc => doc.id !== doctorId);
+      
+      if (isDuplicate) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Doctor",
+          description: `Cannot rename to "${details.name}" because it already exists in the system.`,
+        });
+        return;
+      }
+
+      const doctorRef = doc(firestore, 'doctors', doctorId);
+      
+      // Update Doctor record
+      await updateDoc(doctorRef, details);
+
+      toast({
+        title: "Doctor Updated",
+        description: `Details for ${details.name} have been updated in the database.`,
+      });
+      
+      setDoctorToEditDetails(null);
+      refetchDoctors();
+      
+    } catch (err: any) {
+      console.error("Error updating doctor:", err);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: err.message || "Could not save doctor changes.",
       });
     } finally {
       setIsSubmitting(null);
@@ -401,10 +463,10 @@ export default function DoctorsPage() {
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search doctors..."
+                placeholder="Search doctors, districts, or cities..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
+                className="pl-9 h-10 shadow-sm border-muted-foreground/20 focus-visible:ring-primary focus-visible:border-primary transition-all bg-card"
               />
             </div>
           </div>
@@ -427,6 +489,7 @@ export default function DoctorsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Doctor Name</TableHead>
+                      <TableHead>District</TableHead>
                       <TableHead>City</TableHead>
                       <TableHead>Assigned Slides</TableHead>
                       <TableHead>Presentation Status</TableHead>
@@ -438,6 +501,7 @@ export default function DoctorsPage() {
                       <TableRow key={doctor.id} className={!!isSubmitting ? 'opacity-50' : ''}>
                         <TableCell className="font-medium">{doctor.name}</TableCell>
                         <TableCell>{doctor.city}</TableCell>
+                        <TableCell>{doctor.subCity || <span className="text-muted-foreground text-xs italic">—</span>}</TableCell>
                         <TableCell className="text-muted-foreground text-xs max-w-xs truncate">{doctor.selectedSlides.join(', ')}</TableCell>
                         <TableCell>{getStatusBadge(doctor)}</TableCell>
                         <TableCell className="text-right">
@@ -468,6 +532,9 @@ export default function DoctorsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => setDoctorToEditDetails(doctor)} disabled={!!isSubmitting}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit Details
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => setEditDoctor(doctor)} disabled={!!isSubmitting}>
                                 <Edit className="mr-2 h-4 w-4" /> Edit Slides
                               </DropdownMenuItem>
@@ -484,7 +551,7 @@ export default function DoctorsPage() {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="h-48 text-center text-muted-foreground">
                           <div className="flex flex-col items-center justify-center">
                             <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                             <h3 className="mt-4 text-lg font-semibold">No Doctors Found</h3>
@@ -509,9 +576,14 @@ export default function DoctorsPage() {
                           <div>
                             <h3 className="font-headline text-lg font-bold text-primary">{doctor.name}</h3>
                             <div className="flex items-center text-sm text-muted-foreground mt-1">
-                              <Building className="mr-1 h-3 w-3" />
-                              {doctor.city}
-                            </div>
+                               <Building className="mr-1 h-3 w-3" />
+                               {doctor.city}
+                               {doctor.subCity && (
+                                 <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                                   {doctor.subCity}
+                                 </span>
+                               )}
+                             </div>
                           </div>
                           {getStatusBadge(doctor)}
                         </div>
@@ -535,9 +607,9 @@ export default function DoctorsPage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                           {/* First Row of Actions */}
-                          {doctor.presentationStatus === 'error' ? (
+                          {doctor.presentationStatus === 'error' && (
                             <Button
                               variant="secondary"
                               size="sm"
@@ -548,28 +620,39 @@ export default function DoctorsPage() {
                                 [...doctor.selectedSlides]
                               )}
                               disabled={!!isSubmitting}
-                              className="w-full"
+                              className="w-full sm:col-span-2"
                             >
                               <RefreshCcw className="mr-2 h-4 w-4" />
                               Retry
                             </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditDoctor(doctor)}
-                              disabled={!!isSubmitting}
-                              className="w-full"
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit Slides
-                            </Button>
                           )}
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDoctorToEditDetails(doctor)}
+                            disabled={!!isSubmitting}
+                            className="w-full"
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Details
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditDoctor(doctor)}
+                            disabled={!!isSubmitting}
+                            className="w-full"
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Slides
+                          </Button>
 
                           <Button
                             variant="destructive"
                             size="sm"
-                            className="w-full bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
+                            className="w-full bg-red-50 text-red-600 hover:bg-red-100 border-red-200 sm:col-span-2"
                             onClick={() => setDoctorToDelete(doctor)}
                             disabled={!!isSubmitting}
                           >
@@ -611,6 +694,14 @@ export default function DoctorsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Doctor Details Dialog */}
+      <EditDoctorDialog
+        doctor={doctorToEditDetails}
+        onClose={() => setDoctorToEditDetails(null)}
+        onSave={handleEditDoctorSave}
+        isSaving={!!isSubmitting && isSubmitting.startsWith('edit-details-')}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!doctorToDelete} onOpenChange={(open) => !open && setDoctorToDelete(null)}>

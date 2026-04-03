@@ -17,12 +17,33 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader, MapPin, ExternalLink, FileQuestion, Calendar, RefreshCcw } from 'lucide-react';
-import { useCollection, WithId } from '@/firebase/firestore/use-collection';
-import { collection, Timestamp } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { formatDistanceToNow, format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Loader,
+    MapPin,
+    ExternalLink,
+    FileQuestion,
+    RefreshCcw,
+    Download,
+    Users,
+    CalendarDays,
+    Activity,
+    TrendingUp,
+    X,
+} from 'lucide-react';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, Timestamp } from 'firebase/firestore';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { formatDistanceToNow, format, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 
 type VisitLog = {
     id: string;
@@ -37,42 +58,174 @@ type VisitLog = {
     longitude?: number;
 };
 
+// ─── Stat Card ─────────────────────────────────────────────────────────────────
+function StatCard({
+    label,
+    value,
+    sub,
+    icon: Icon,
+    color,
+}: {
+    label: string;
+    value: string | number;
+    sub?: string;
+    icon: React.ElementType;
+    color: string;
+}) {
+    return (
+        <Card className="border rounded-xl overflow-hidden">
+            <CardContent className="p-4 flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${color}`}>
+                    <Icon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                    <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                    <p className="text-2xl font-bold leading-tight">{value}</p>
+                    {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+// ─── CSV Export ────────────────────────────────────────────────────────────────
+function exportToCSV(logs: VisitLog[], fromDate: string, toDate: string) {
+    const headers = ['Doctor', 'Representative', 'Date', 'Time', 'Status', 'Latitude', 'Longitude'];
+    const rows = logs.map(log => [
+        log.doctorName || 'Unknown Doctor',
+        log.repName,
+        format(log.timestamp.toDate(), 'yyyy-MM-dd'),
+        format(log.timestamp.toDate(), 'HH:mm:ss'),
+        log.status,
+        log.latitude?.toString() ?? '',
+        log.longitude?.toString() ?? '',
+    ]);
+    const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${cell}"`).join(','))
+        .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const suffix = fromDate && toDate ? `_${fromDate}_to_${toDate}` : '';
+    a.download = `visit_logs${suffix}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 export default function AdminVisitLogsPage() {
     const firestore = useFirestore();
-    const logsCollection = useMemo(() => firestore ? collection(firestore, 'visit_logs') : null, [firestore]);
+
+    // Filters
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+    const [repFilter, setRepFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const logsCollection = useMemoFirebase(
+        () => firestore ? collection(firestore, 'visit_logs') : null,
+        [firestore]
+    );
+    const usersCollection = useMemoFirebase(
+        () => firestore ? collection(firestore, 'users') : null,
+        [firestore]
+    );
 
     const { data: logs, isLoading, forceRefetch, error } = useCollection<VisitLog>(logsCollection);
+    const { data: users } = useCollection<{ id: string; role: string; name?: string; displayName?: string }>(usersCollection);
 
-    const sortedLogs = useMemo(() => {
+    // Build unique rep list from logs (more reliable than users collection)
+    const repList = useMemo(() => {
         if (!logs) return [];
-        return [...logs].sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
+        const map = new Map<string, string>();
+        logs.forEach(l => { if (l.repId && l.repName) map.set(l.repId, l.repName); });
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
     }, [logs]);
 
-    const openInGoogleMaps = (lat: number, lng: number) => {
-        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+    // Filter logs
+    const filteredLogs = useMemo(() => {
+        if (!logs) return [];
+        let result = [...logs].sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime());
+
+        // Date range filter
+        if (fromDate) {
+            const from = startOfDay(parseISO(fromDate));
+            result = result.filter(l => l.timestamp.toDate() >= from);
+        }
+        if (toDate) {
+            const to = endOfDay(parseISO(toDate));
+            result = result.filter(l => l.timestamp.toDate() <= to);
+        }
+
+        // Rep filter
+        if (repFilter !== 'all') {
+            result = result.filter(l => l.repId === repFilter);
+        }
+
+        // Status filter
+        if (statusFilter !== 'all') {
+            result = result.filter(l => l.status === statusFilter);
+        }
+
+        // Text search (doctor name or rep name)
+        if (searchTerm.trim()) {
+            const lower = searchTerm.toLowerCase();
+            result = result.filter(l =>
+                (l.doctorName || '').toLowerCase().includes(lower) ||
+                l.repName.toLowerCase().includes(lower)
+            );
+        }
+
+        return result;
+    }, [logs, fromDate, toDate, repFilter, statusFilter, searchTerm]);
+
+    // Stats from filtered logs
+    const stats = useMemo(() => {
+        const visited = filteredLogs.filter(l => l.status === 'VISITED').length;
+        const uniqueReps = new Set(filteredLogs.map(l => l.repId)).size;
+        const uniqueDoctors = new Set(filteredLogs.map(l => l.doctorId)).size;
+        return { total: filteredLogs.length, visited, uniqueReps, uniqueDoctors };
+    }, [filteredLogs]);
+
+    // Per-rep breakdown
+    const repBreakdown = useMemo(() => {
+        const map = new Map<string, { name: string; total: number; visited: number }>();
+        filteredLogs.forEach(l => {
+            const existing = map.get(l.repId) || { name: l.repName, total: 0, visited: 0 };
+            existing.total++;
+            if (l.status === 'VISITED') existing.visited++;
+            map.set(l.repId, existing);
+        });
+        return Array.from(map.values()).sort((a, b) => b.total - a.total);
+    }, [filteredLogs]);
+
+    const hasFilters = fromDate || toDate || repFilter !== 'all' || statusFilter !== 'all' || searchTerm;
+
+    const clearFilters = () => {
+        setFromDate('');
+        setToDate('');
+        setRepFilter('all');
+        setStatusFilter('all');
+        setSearchTerm('');
     };
 
-    // Handle permission errors
+    const openInGoogleMaps = (lat: number, lng: number) =>
+        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+
     if (error) {
         return (
             <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <h1 className="font-headline text-3xl font-bold tracking-tight">
-                        Visit Logs
-                    </h1>
-                </div>
-                <Card className="shadow-sm border-destructive/50">
-                    <CardContent className="pt-6">
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <FileQuestion className="h-12 w-12 text-destructive mb-4" />
-                            <h3 className="text-lg font-semibold mb-2">Permission Denied</h3>
-                            <p className="text-sm text-muted-foreground max-w-md">
-                                You don't have permission to view visit logs. Please ensure your account has the proper admin role assigned.
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-4">
-                                Error: {error.message || 'Insufficient permissions'}
-                            </p>
-                        </div>
+                <h1 className="font-headline text-3xl font-bold tracking-tight">Visit Logs</h1>
+                <Card className="border-destructive/50">
+                    <CardContent className="pt-6 flex flex-col items-center justify-center py-12 text-center">
+                        <FileQuestion className="h-12 w-12 text-destructive mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">Permission Denied</h3>
+                        <p className="text-sm text-muted-foreground max-w-md">
+                            Your account does not have permission to view visit logs.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">{error.message}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -81,32 +234,171 @@ export default function AdminVisitLogsPage() {
 
     return (
         <div className="space-y-6">
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-headline text-3xl font-bold tracking-tight">
-                        Visit Logs
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Track representative activity and captured location data.
+                    <h1 className="font-headline text-3xl font-bold tracking-tight">Visit Logs</h1>
+                    <p className="text-muted-foreground text-sm mt-1">
+                        Track and export rep activity by date range.
                     </p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl border-2 hover:border-primary/50 transition-all"
-                    onClick={() => forceRefetch()}
-                    disabled={isLoading}
-                >
-                    <RefreshCcw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Refresh
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => forceRefetch()}
+                        disabled={isLoading}
+                    >
+                        <RefreshCcw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
+                    <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => exportToCSV(filteredLogs, fromDate, toDate)}
+                        disabled={filteredLogs.length === 0}
+                    >
+                        <Download className="mr-2 h-4 w-4" />
+                        Export CSV ({filteredLogs.length})
+                    </Button>
+                </div>
             </div>
 
+            {/* ── Filter Bar ── */}
+            <Card className="border-2">
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <CalendarDays className="h-4 w-4 text-primary" />
+                            Filter by Date &amp; Rep
+                        </CardTitle>
+                        {hasFilters && (
+                            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground hover:text-foreground h-7 px-2">
+                                <X className="h-3.5 w-3.5 mr-1" /> Clear all
+                            </Button>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                        {/* From date */}
+                        <div>
+                            <Label htmlFor="from-date" className="text-xs mb-1 block">From Date</Label>
+                            <Input
+                                id="from-date"
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => setFromDate(e.target.value)}
+                                max={toDate || undefined}
+                            />
+                        </div>
+                        {/* To date */}
+                        <div>
+                            <Label htmlFor="to-date" className="text-xs mb-1 block">To Date</Label>
+                            <Input
+                                id="to-date"
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => setToDate(e.target.value)}
+                                min={fromDate || undefined}
+                            />
+                        </div>
+                        {/* Rep filter */}
+                        <div>
+                            <Label className="text-xs mb-1 block">Representative</Label>
+                            <Select value={repFilter} onValueChange={setRepFilter}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All Reps" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Representatives</SelectItem>
+                                    {repList.map(r => (
+                                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {/* Status filter */}
+                        <div>
+                            <Label className="text-xs mb-1 block">Status</Label>
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All Statuses" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Statuses</SelectItem>
+                                    <SelectItem value="VISITED">Visited</SelectItem>
+                                    <SelectItem value="NOT_VISITED">Not Visited</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {/* Search */}
+                        <div>
+                            <Label className="text-xs mb-1 block">Search</Label>
+                            <Input
+                                placeholder="Doctor or rep name..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    {/* Active filter summary */}
+                    {hasFilters && (
+                        <p className="text-xs text-muted-foreground mt-3">
+                            Showing <strong>{filteredLogs.length}</strong> of <strong>{logs?.length ?? 0}</strong> records
+                            {fromDate && ` · From ${format(parseISO(fromDate), 'dd MMM yyyy')}`}
+                            {toDate && ` · To ${format(parseISO(toDate), 'dd MMM yyyy')}`}
+                            {repFilter !== 'all' && ` · Rep: ${repList.find(r => r.id === repFilter)?.name}`}
+                            {statusFilter !== 'all' && ` · Status: ${statusFilter}`}
+                        </p>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* ── Stats Row ── */}
+            {!isLoading && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard label="Total Visits" value={stats.total} icon={Activity} color="bg-primary" sub={hasFilters ? 'in filtered range' : 'all time'} />
+                    <StatCard label="Successful Visits" value={stats.visited} icon={TrendingUp} color="bg-green-500" sub={stats.total > 0 ? `${Math.round((stats.visited / stats.total) * 100)}% success rate` : undefined} />
+                    <StatCard label="Active Reps" value={stats.uniqueReps} icon={Users} color="bg-violet-500" sub="in this view" />
+                    <StatCard label="Doctors Visited" value={stats.uniqueDoctors} icon={CalendarDays} color="bg-amber-500" sub="unique doctors" />
+                </div>
+            )}
+
+            {/* ── Per-Rep Breakdown ── */}
+            {repBreakdown.length > 1 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Rep Performance Summary</CardTitle>
+                        <CardDescription>Breakdown of visits per representative in the selected period.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            {repBreakdown.map(rep => (
+                                <div key={rep.name} className="flex items-center gap-3">
+                                    <p className="w-40 text-sm font-medium truncate">{rep.name}</p>
+                                    <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                                        <div
+                                            className="bg-primary h-full rounded-full transition-all"
+                                            style={{ width: `${repBreakdown[0].total > 0 ? (rep.total / repBreakdown[0].total) * 100 : 0}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground w-24 text-right">
+                                        {rep.visited}/{rep.total} visits
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* ── Main Table ── */}
             <Card className="shadow-sm">
                 <CardHeader>
-                    <CardTitle>Activity History</CardTitle>
+                    <CardTitle>Activity Log</CardTitle>
                     <CardDescription>
-                        Logs are automatically uploaded after each presentation.
+                        Detailed log of every presentation session. Click &quot;View Map&quot; to see the visit location.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -115,49 +407,56 @@ export default function AdminVisitLogsPage() {
                             <Loader className="h-8 w-8 animate-spin text-primary" />
                             <p className="ml-4 text-muted-foreground">Loading visit logs...</p>
                         </div>
-                    ) : sortedLogs.length > 0 ? (
+                    ) : filteredLogs.length > 0 ? (
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Doctor</TableHead>
                                         <TableHead>Representative</TableHead>
-                                        <TableHead>Date & Time</TableHead>
+                                        <TableHead>Date &amp; Time</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead>Location</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sortedLogs.map((log) => (
+                                    {filteredLogs.map((log) => (
                                         <TableRow key={log.id}>
                                             <TableCell className="font-medium">
                                                 {log.doctorName || 'Unknown Doctor'}
                                                 <p className="text-[10px] text-muted-foreground font-normal">ID: {log.doctorId}</p>
                                             </TableCell>
-                                            <TableCell>{log.repName}</TableCell>
+                                            <TableCell>
+                                                <span className="font-medium">{log.repName}</span>
+                                            </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">
-                                                    <span className="font-medium">{format(log.timestamp.toDate(), 'PP')}</span>
-                                                    <span className="text-xs text-muted-foreground">{format(log.timestamp.toDate(), 'pp')}</span>
+                                                    <span className="font-medium">{format(log.timestamp.toDate(), 'dd MMM yyyy')}</span>
+                                                    <span className="text-xs text-muted-foreground">{format(log.timestamp.toDate(), 'hh:mm a')}</span>
                                                     <span className="text-[10px] text-muted-foreground mt-0.5">
                                                         {formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true })}
                                                     </span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={log.status === 'VISITED' ? 'default' : 'secondary'} className="bg-green-100 text-green-800 border-green-200">
+                                                <Badge
+                                                    variant={log.status === 'VISITED' ? 'default' : 'secondary'}
+                                                    className={log.status === 'VISITED'
+                                                        ? 'bg-green-100 text-green-800 border-green-200'
+                                                        : 'bg-gray-100 text-gray-600'}
+                                                >
                                                     {log.status === 'VISITED' ? 'Visited' : 'Not Visited'}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 {log.latitude && log.longitude ? (
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                        <MapPin className="h-3 w-3 text-primary" />
+                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                        <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
                                                         <span>{log.latitude.toFixed(4)}, {log.longitude.toFixed(4)}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground italic">No location captured</span>
+                                                    <span className="text-xs text-muted-foreground italic">No location</span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -166,10 +465,9 @@ export default function AdminVisitLogsPage() {
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() => openInGoogleMaps(log.latitude!, log.longitude!)}
-                                                        title="View on Google Maps"
                                                     >
-                                                        <ExternalLink className="h-4 w-4 mr-2" />
-                                                        View Map
+                                                        <ExternalLink className="h-4 w-4 mr-1.5" />
+                                                        Map
                                                     </Button>
                                                 )}
                                             </TableCell>
@@ -179,10 +477,21 @@ export default function AdminVisitLogsPage() {
                             </Table>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                            <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                            <h3 className="mt-4 text-lg font-semibold">No Visit Logs Yet</h3>
-                            <p className="mt-1 text-sm">Location data will appear here once representatives complete presentations.</p>
+                        <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+                            <FileQuestion className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                            <h3 className="text-lg font-semibold">
+                                {hasFilters ? 'No Results Found' : 'No Visit Logs Yet'}
+                            </h3>
+                            <p className="text-sm mt-1">
+                                {hasFilters
+                                    ? 'Try adjusting your date range or filters.'
+                                    : 'Visit logs will appear here after representatives complete presentations.'}
+                            </p>
+                            {hasFilters && (
+                                <Button variant="outline" size="sm" onClick={clearFilters} className="mt-4">
+                                    <X className="mr-2 h-4 w-4" /> Clear Filters
+                                </Button>
+                            )}
                         </div>
                     )}
                 </CardContent>

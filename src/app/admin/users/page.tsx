@@ -58,7 +58,8 @@ import { AddRepDialog } from '../reps/AddRepDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { listAllUsers, setUserRole, setUserCity, deleteUser } from './actions';
+import { listAllUsers, setUserRole, setUserCity, deleteUser, toggleUserStatus } from './actions';
+import { EditUserDialog } from './EditUserDialog';
 
 
 const RoleUserSchema = z.object({
@@ -68,6 +69,7 @@ const RoleUserSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(['admin', 'rep']).optional(),
   city: z.string().optional(),
+  disabled: z.boolean().optional(),
 });
 export type RoleUser = z.infer<typeof RoleUserSchema>;
 
@@ -101,6 +103,7 @@ export default function UsersPage() {
   const [roleChangeToConfirm, setRoleChangeToConfirm] = useState<RoleChangeConfirmation | null>(null);
   const [cityChangeToConfirm, setCityChangeToConfirm] = useState<CityChangeConfirmation | null>(null);
   const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
+  const [userToEdit, setUserToEdit] = useState<RoleUser | null>(null);
 
   const citiesCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'cities') : null),
@@ -264,6 +267,27 @@ export default function UsersPage() {
     setDeleteConfirmationInput('');
   }
 
+  const handleToggleStatus = async (user: RoleUser) => {
+    startTransition(async () => {
+      try {
+        const newStatus = !user.disabled;
+        await toggleUserStatus(user.uid, newStatus);
+        toast({
+          title: newStatus ? 'User Suspended' : 'User Activated',
+          description: `${user.displayName || user.email} has been ${newStatus ? 'suspended' : 'activated'}.`,
+        });
+        await fetchUsers();
+      } catch (err: any) {
+        console.error(err);
+        toast({
+          variant: 'destructive',
+          title: 'Status Update Failed',
+          description: err.message || 'An unknown error occurred.',
+        });
+      }
+    });
+  };
+
   const getRoleBadge = (role?: 'admin' | 'rep') => {
     if (role === 'admin') {
       return <Badge variant="destructive">Admin</Badge>;
@@ -350,8 +374,13 @@ export default function UsersPage() {
                       const canPerformAction = !isCurrentUser && !isKingAdmin;
 
                       return (
-                        <TableRow key={user.uid}>
-                          <TableCell className="font-medium">{user.displayName || 'N/A'}</TableCell>
+                        <TableRow key={user.uid} className={user.disabled ? 'opacity-60 bg-muted/20' : ''}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {user.displayName || 'N/A'}
+                              {user.disabled && <Badge variant="destructive" className="text-[10px] h-5 px-1.5 cursor-help" title="Suspended Account">Suspended</Badge>}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">{user.email || 'N/A'}</TableCell>
                           <TableCell className="text-muted-foreground">{user.phone || 'N/A'}</TableCell>
                           <TableCell>
@@ -403,8 +432,17 @@ export default function UsersPage() {
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="w-56">
                                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setUserToEdit(user)}>
+                                    <Users className="mr-2 h-4 w-4" />
+                                    Edit Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
+                                    <ShieldQuestion className="mr-2 h-4 w-4" />
+                                    {user.disabled ? 'Activate Account' : 'Suspend Account'}
+                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     className="text-red-500 focus:bg-red-500/10 focus:text-red-600"
@@ -442,7 +480,8 @@ export default function UsersPage() {
                                 <h3 className="font-headline text-lg font-bold truncate">
                                   {user.displayName || 'Unnamed User'}
                                 </h3>
-                                {getRoleBadge(user.role)}
+                                {user.disabled && <Badge variant="destructive" className="text-[10px] h-5 px-1.5 uppercase tracking-widest">Suspended</Badge>}
+                                {!user.disabled && getRoleBadge(user.role)}
                               </div>
                               <div className="text-sm text-muted-foreground break-all">
                                 {user.email || 'No Email'}
@@ -461,8 +500,17 @@ export default function UsersPage() {
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="w-56">
                                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setUserToEdit(user)}>
+                                    <Users className="mr-2 h-4 w-4" />
+                                    Edit Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
+                                    <ShieldQuestion className="mr-2 h-4 w-4" />
+                                    {user.disabled ? 'Activate Account' : 'Suspend Account'}
+                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     className="text-red-500 focus:text-red-600"
@@ -624,6 +672,12 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Edit User Dialog */}
+      <EditUserDialog
+        user={userToEdit}
+        onClose={() => setUserToEdit(null)}
+        onUserUpdated={fetchUsers}
+      />
     </div>
   );
 }

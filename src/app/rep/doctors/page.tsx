@@ -18,7 +18,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader, Search, FileQuestion, Monitor } from 'lucide-react';
+import { Loader, Search, FileQuestion, Monitor, MapPin } from 'lucide-react';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { SaveOfflineButton } from '@/components/SaveOfflineButton';
@@ -47,7 +47,8 @@ type Presentation = {
 type Doctor = {
   id: string;
   name: string;
-  city: string;
+  city: string;      // district name
+  subCity?: string;  // actual city within district
 };
 
 type UserProfile = {
@@ -56,6 +57,7 @@ type UserProfile = {
 
 type EnrichedPresentation = Presentation & {
   doctorName?: string;
+  doctorSubCity?: string; // actual city of the doctor
 };
 
 export default function RepDoctorsPage() {
@@ -97,8 +99,8 @@ export default function RepDoctorsPage() {
   const isLoading = isAuthLoading || isLoadingProfile || isLoadingPresentations || isLoadingDoctors;
 
   const doctorsMap = useMemo(() => {
-    if (!doctors) return new Map<string, string>();
-    return new Map(doctors.map(doc => [doc.id, doc.name]));
+    if (!doctors) return new Map<string, { name: string; subCity?: string }>();
+    return new Map(doctors.map(doc => [doc.id, { name: doc.name, subCity: doc.subCity }]));
   }, [doctors]);
 
   const enrichedPresentations = useMemo((): EnrichedPresentation[] => {
@@ -106,13 +108,16 @@ export default function RepDoctorsPage() {
     const enriched = presentations
       .map(p => ({
         ...p,
-        doctorName: doctorsMap.get(p.doctorId) || 'Unknown Doctor',
+        doctorName: doctorsMap.get(p.doctorId)?.name || 'Unknown Doctor',
+        doctorSubCity: doctorsMap.get(p.doctorId)?.subCity,
       }))
       .sort((a, b) => b.updatedAt.toDate().getTime() - a.updatedAt.toDate().getTime());
 
     if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
       return enriched.filter(p =>
-        p.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
+        p.doctorName.toLowerCase().includes(lower) ||
+        (p.doctorSubCity && p.doctorSubCity.toLowerCase().includes(lower))
       );
     }
     return enriched;
@@ -196,7 +201,7 @@ export default function RepDoctorsPage() {
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by doctor name..."
+              placeholder="Search by doctor or city..."
               className="pl-9"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -233,6 +238,7 @@ export default function RepDoctorsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Doctor Name</TableHead>
+                      <TableHead>City</TableHead>
                       <TableHead>Last Updated</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -244,6 +250,15 @@ export default function RepDoctorsPage() {
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">
                             {p.doctorName}
+                          </TableCell>
+                          <TableCell>
+                            {p.doctorSubCity ? (
+                              <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                                {p.doctorSubCity}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs italic">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             {p.updatedAt ? (
@@ -283,7 +298,7 @@ export default function RepDoctorsPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={4} className="h-48 text-center" />
+                        <TableCell colSpan={5} className="h-48 text-center" />
                       </TableRow>
                     )}
                   </TableBody>
@@ -299,6 +314,11 @@ export default function RepDoctorsPage() {
                         <div className="flex justify-between items-start gap-3">
                           <div className="flex-1">
                             <CardTitle className="text-lg font-bold">{p.doctorName}</CardTitle>
+                              {p.doctorSubCity && (
+                                <span className="inline-flex items-center text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium mt-1">
+                                  <MapPin className="mr-1 h-2.5 w-2.5" />{p.doctorSubCity}
+                                </span>
+                              )}
                             <CardDescription className="text-xs mt-1">
                               {p.updatedAt ? (
                                 `Updated ${formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}`
@@ -348,7 +368,7 @@ export default function RepDoctorsPage() {
                     <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                     <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
                     <p className="mt-1 text-sm">
-                      No presentations are currently assigned for your city.
+                      No presentations are currently assigned for your district.
                     </p>
                   </div>
                 </div>

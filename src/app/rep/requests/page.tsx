@@ -192,7 +192,7 @@ function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen =
                 </div>
                 <div>
                   <div className="font-bold text-base">Add New Doctor</div>
-                  <div className="text-xs text-muted-foreground mt-1 px-2">Propose a new doctor for your city</div>
+                  <div className="text-xs text-muted-foreground mt-1 px-2">Propose a new doctor for your district</div>
                 </div>
               </Button>
               <Button
@@ -218,7 +218,7 @@ function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen =
               </DialogTitle>
               <DialogDescription>
                 {requestType === 'new_doctor'
-                  ? `Enter the name of the new doctor you want to add. They will be assigned to your city, ${repCity}.`
+                  ? `Enter the name of the new doctor you want to add. They will be assigned to your district, ${repCity}.`
                   : 'Choose the doctor whose slides you want to update'
                 }
               </DialogDescription>

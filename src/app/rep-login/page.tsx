@@ -205,15 +205,15 @@ export default function RepLoginPage() {
 
           {/* Right Side: Login Form */}
           <div className="relative flex flex-col justify-center rounded-xl bg-card p-6 sm:p-8">
+            {/* Prominent Admin Login Switch Button */}
             <Button
-              variant="ghost"
-              size="icon"
-              className="absolute left-4 top-4 text-muted-foreground"
+              variant="outline"
+              className="mb-5 w-full flex items-center gap-2 border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 text-primary font-semibold h-11 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
               asChild
             >
-              <Link href="/">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Back</span>
+              <Link href="/admin-login">
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+                Switch to Admin Login
               </Link>
             </Button>
             <div className="text-center">

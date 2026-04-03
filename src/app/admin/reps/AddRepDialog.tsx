@@ -123,8 +123,8 @@ export function AddRepDialog({ cities, isLoadingCities, defaultCity, onRepAdded,
     if (role === 'rep' && !city) {
         toast({
             variant: 'destructive',
-            title: 'City is required for Representatives',
-            description: 'Please select a city for the representative.',
+            title: 'District is required for Representatives',
+            description: 'Please select a district for the representative.',
         })
         return;
     }
@@ -231,10 +231,10 @@ export function AddRepDialog({ cities, isLoadingCities, defaultCity, onRepAdded,
           </div>
            {role === 'rep' && (
             <div>
-              <Label htmlFor="rep-city">City</Label>
+          <Label htmlFor="rep-city">District</Label>
               <Select value={city} onValueChange={(value) => setCity(value)} disabled={!!defaultCity}>
                   <SelectTrigger id="rep-city">
-                      <SelectValue placeholder="Select a city" />
+                      <SelectValue placeholder="Select a district" />
                   </SelectTrigger>
                   <SelectContent>
                       {isLoadingCities && <div className="flex items-center justify-center p-2"><Loader className="h-4 w-4 animate-spin"/></div>}

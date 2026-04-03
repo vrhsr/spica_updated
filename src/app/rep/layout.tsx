@@ -209,7 +209,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                             >
                                 <div className="text-right">
                                     <p className="text-sm font-semibold">{user.displayName || 'Rep User'}</p>
-                                    <p className="text-xs text-muted-foreground">City: {userProfile?.city || 'N/A'}</p>
+                                    <p className="text-xs text-muted-foreground">District: {userProfile?.city || 'N/A'}</p>
                                 </div>
                                 <Avatar>
                                     <AvatarImage

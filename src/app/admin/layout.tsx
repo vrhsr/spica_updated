@@ -56,7 +56,7 @@ const navItems = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/admin/users', icon: ShieldCheck, label: 'Users & Roles' },
   { href: '/admin/doctors', icon: HeartPulse, label: 'Doctors' },
-  { href: '/admin/cities', icon: Building, label: 'Cities' },
+  { href: '/admin/cities', icon: Building, label: 'Districts' },
   { href: '/admin/slides', icon: GalleryThumbnails, label: 'Slides Library' },
   { href: '/admin/presentations', icon: Presentation, label: 'Presentations' },
   { href: '/admin/requests?status=pending', icon: Mail, label: 'Change Requests' },

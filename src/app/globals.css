@@ -65,6 +65,11 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Global fix for Radix UI unmount freezing */
+  body[style] {
+    pointer-events: auto !important;
+  }
 }
 
 @layer utilities {

@@ -46,6 +46,14 @@ service cloud.firestore {
       // Only admins can create, update, or delete cities.
       allow write: if isAdmin();
     }
+
+    // Rules for the 'districts_cities' collection (sub-cities within a district)
+    match /districts_cities/{cityId} {
+      // Any authenticated user can read the list of cities (needed for Add Doctor cascade dropdown).
+      allow get, list: if request.auth != null;
+      // Only admins can create, update, or delete district cities.
+      allow write: if isAdmin();
+    }
     
     // Rules for the 'slides' collection
     match /slides/{slideId} {
