@@ -26,10 +26,10 @@ export function SlidePreviewDialog({
     slideNumbers,
     doctorName
 }: SlidePreviewDialogProps) {
-    // Filter and sort slides based on the provided slide numbers
+    // Filter and sort slides numerically (ascending) so Thank You slide always appears last
     const selectedSlides = allSlides
         .filter(slide => slideNumbers.includes(slide.number))
-        .sort((a, b) => slideNumbers.indexOf(a.number) - slideNumbers.indexOf(b.number));
+        .sort((a, b) => a.number - b.number);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

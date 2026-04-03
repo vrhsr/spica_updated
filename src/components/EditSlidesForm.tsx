@@ -18,6 +18,7 @@ import { Loader } from 'lucide-react';
 export type SlideDoctor = {
     id?: string;
     name?: string;
+    city?: string;
     selectedSlides?: number[];
 };
 
@@ -25,10 +26,12 @@ export function EditSlidesForm({
     doctor,
     onSave,
     isSaving,
+    showCityEdit = false,
 }: {
     doctor: SlideDoctor;
-    onSave: (slides: number[]) => void;
+    onSave: (slides: number[], updatedCity?: string) => void;
     isSaving?: boolean;
+    showCityEdit?: boolean;
 }) {
     const firstSlideNumber = 1;
     const lastSlideNumber = 34;
@@ -44,6 +47,7 @@ export function EditSlidesForm({
 
     const [selectedSlides, setSelectedSlides] = React.useState(getDefaultSlides());
     const [searchTerm, setSearchTerm] = React.useState('');
+    const [editedCity, setEditedCity] = React.useState(doctor.city || '');
 
     const toggleSlide = (slideNumber: number) => {
         // Prevent unselecting the first and last slides
@@ -76,6 +80,21 @@ export function EditSlidesForm({
                     Select the slides to include in the presentation. The first and last slides are mandatory and always included.
                 </DialogDescription>
             </DialogHeader>
+
+            {showCityEdit && (
+                <div className="px-1 mt-2">
+                    <label htmlFor="edit-city" className="text-sm font-medium">
+                        Proposed City
+                    </label>
+                    <Input
+                        id="edit-city"
+                        value={editedCity}
+                        onChange={(e) => setEditedCity(e.target.value.toUpperCase())}
+                        placeholder="e.g. BANGALORE"
+                        className="mt-1 mb-2"
+                    />
+                </div>
+            )}
 
             {/* Search Bar */}
             <div className="px-1">
@@ -135,8 +154,8 @@ export function EditSlidesForm({
                     <Button variant="outline" disabled={isSaving}>Cancel</Button>
                 </DialogClose>
                 <Button
-                    onClick={() => onSave(selectedSlides)}
-                    disabled={selectedSlides.length === 0 || isSaving}
+                    onClick={() => onSave(selectedSlides, showCityEdit ? editedCity : undefined)}
+                    disabled={selectedSlides.length === 0 || isSaving || (showCityEdit && !editedCity.trim())}
                 >
                     {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {isSaving ? 'Saving...' : 'Save and Create Presentation'}

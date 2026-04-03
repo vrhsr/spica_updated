@@ -10,7 +10,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader, PlusCircle, FileQuestion, RefreshCw } from 'lucide-react';
+import { Loader, PlusCircle, FileQuestion, RefreshCw, Eye } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, Timestamp, addDoc, doc } from 'firebase/firestore';
@@ -24,6 +24,13 @@ import {
   DialogClose,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -33,22 +40,25 @@ import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { EditSlidesForm } from '@/components/EditSlidesForm';
+import { SlidePreviewDialog } from '@/components/SlidePreviewDialog';
 
 type Doctor = { id: string; name: string; city: string; selectedSlides: number[] };
-type UserProfile = { city: string };
+type UserProfile = { city: string; district?: string };
 type Request = {
   doctorId?: string;
   doctorName?: string;
   doctorCity?: string;
+  doctorDistrict?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
   selectedSlides: number[];
-  requestType?: 'new_doctor' | 'slide_change'; // NEW field
+  requestType?: 'new_doctor' | 'slide_change';
 };
 
-function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen = false }: {
+function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitted, autoOpen = false }: {
   repId: string;
   repCity: string;
+  repDistrict?: string;
   doctors: Doctor[];
   onSubmitted: () => void;
   autoOpen?: boolean;
@@ -57,11 +67,30 @@ function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen =
   const [requestType, setRequestType] = useState<'new_doctor' | 'slide_change'>('new_doctor');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [doctorName, setDoctorName] = useState('');
+  const [doctorCity, setDoctorCity] = useState(''); // will be set to first city once options load
+  const [isAddingNewCity, setIsAddingNewCity] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
   const [proposedDoctor, setProposedDoctor] = useState<Partial<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+
+  // Fetch cities in the rep's district for the dropdown
+  // Note: repCity IS the district name (e.g., KRISHNAGIRI)
+  const citiesQuery = useMemoFirebase(() => {
+    if (!firestore || !repCity) return null;
+    return query(collection(firestore, 'districts_cities'), where('districtName', '==', repCity));
+  }, [firestore, repCity]);
+  const { data: districtCities } = useCollection<{ name: string; districtName: string }>(citiesQuery);
+  const cityOptions = useMemo(() => districtCities?.map(c => c.name).sort() ?? [], [districtCities]);
+
+  // Auto-select first city once options are loaded
+  useEffect(() => {
+    if (cityOptions.length > 0 && !doctorCity) {
+      setDoctorCity(cityOptions[0]);
+    }
+  }, [cityOptions, doctorCity]);
 
   const handleTypeSelect = (type: 'new_doctor' | 'slide_change') => {
     setRequestType(type);
@@ -71,7 +100,8 @@ function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen =
   const handleNext = () => {
     if (requestType === 'new_doctor' && doctorName.trim()) {
       const finalName = doctorName.trim().startsWith('Dr.') ? doctorName.trim() : `Dr. ${doctorName.trim()}`;
-      setProposedDoctor({ name: finalName, city: repCity });
+      const finalCity = doctorCity.trim().toUpperCase() || repCity;
+      setProposedDoctor({ name: finalName, city: finalCity });
       setStep('slides');
     } else if (requestType === 'slide_change' && selectedDoctorId) {
       const doctor = doctors.find(d => d.id === selectedDoctorId);
@@ -93,6 +123,7 @@ function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen =
         repId,
         doctorName: proposedDoctor.name,
         doctorCity: proposedDoctor.city,
+        doctorDistrict: repDistrict || '',
         selectedSlides: slides,
         status: 'pending' as const,
         requestType: 'new_doctor' as const,
@@ -146,6 +177,9 @@ function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen =
       setRequestType('new_doctor');
       setSelectedDoctorId('');
       setDoctorName('');
+      setDoctorCity(repCity);
+      setIsAddingNewCity(false);
+      setNewCityName('');
       setProposedDoctor(null);
       setIsSubmitting(false);
     }, 200);
@@ -225,31 +259,100 @@ function ProposeChangesDialog({ repId, repCity, doctors, onSubmitted, autoOpen =
             </DialogHeader>
             <div className="space-y-4 py-4">
               {requestType === 'new_doctor' ? (
-                <div>
-                  <Label htmlFor="doctor-name">Doctor Name</Label>
-                  <Input
-                    id="doctor-name"
-                    placeholder="e.g., Jane Smith"
-                    value={doctorName}
-                    onChange={(e) => setDoctorName(e.target.value)}
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="doctor-name">Doctor Name</Label>
+                    <Input
+                      id="doctor-name"
+                      placeholder="e.g., Jane Smith"
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label htmlFor="doctor-city">City</Label>
+                      {!isAddingNewCity && (
+                        <button
+                          type="button"
+                          onClick={() => { setIsAddingNewCity(true); setDoctorCity(''); }}
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          <PlusCircle className="h-3 w-3" /> Add New City
+                        </button>
+                      )}
+                    </div>
+                    {isAddingNewCity ? (
+                      <div className="flex gap-2">
+                        <Input
+                          id="doctor-city-new"
+                          placeholder="Type new city name..."
+                          value={newCityName}
+                          onChange={(e) => setNewCityName(e.target.value)}
+                          autoFocus
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="whitespace-nowrap"
+                          onClick={() => {
+                            if (newCityName.trim()) {
+                              setDoctorCity(newCityName.trim().toUpperCase());
+                            }
+                            setIsAddingNewCity(false);
+                            setNewCityName('');
+                          }}
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setIsAddingNewCity(false); setNewCityName(''); setDoctorCity(repCity); }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Select value={doctorCity} onValueChange={setDoctorCity}>
+                        <SelectTrigger id="doctor-city" className="w-full bg-background border-input">
+                          <SelectValue placeholder="Select a city..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cityOptions.length === 0 && !doctorCity && (
+                            <SelectItem value={repCity}>{repCity}</SelectItem>
+                          )}
+                          {cityOptions.map(city => (
+                            <SelectItem key={city} value={city}>{city}</SelectItem>
+                          ))}
+                          {doctorCity && !cityOptions.includes(doctorCity) && (
+                            <SelectItem value={doctorCity}>{doctorCity} (New)</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {doctorCity && doctorCity !== repCity && (
+                      <p className="text-xs text-amber-600 mt-1">⚠ This is a different city from your assigned city ({repCity}). If it's new, it will be created upon admin approval.</p>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div>
                   <Label htmlFor="doctor-select">Select Doctor</Label>
-                  <select
-                    id="doctor-select"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={selectedDoctorId}
-                    onChange={(e) => setSelectedDoctorId(e.target.value)}
-                  >
-                    <option value="">Select a doctor...</option>
-                    {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.id}>
-                        {doctor.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
+                    <SelectTrigger id="doctor-select" className="w-full mt-1 bg-background border-input">
+                      <SelectValue placeholder="Select a doctor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {doctors.map((doctor) => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          {doctor.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>
@@ -280,6 +383,7 @@ export default function RepRequestsPage() {
   const firestore = useFirestore();
   const searchParams = useSearchParams();
   const [showDialog, setShowDialog] = useState(false);
+  const [previewRequest, setPreviewRequest] = useState<Request | null>(null);
 
   // Auto-open dialog if ?action=propose
   React.useEffect(() => {
@@ -306,6 +410,10 @@ export default function RepRequestsPage() {
 
   const { data: requests, isLoading: isLoadingRequests, forceRefetch } = useCollection<Request>(requestsQuery);
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
+
+  // repCity here is the district name (e.g. KRISHNAGIRI) stored in user profile
+  // Use it directly as the district for querying sub-cities
+  const repDistrict = userProfile?.city; // repCity === districtName
 
   const isLoading = isAuthLoading || isProfileLoading || isLoadingRequests || isLoadingDoctors;
 
@@ -341,6 +449,16 @@ export default function RepRequestsPage() {
     return 'N/A';
   };
 
+  const getRequestDoctorCity = (req: Request) => {
+    if (req.doctorCity) {
+      return req.doctorCity;
+    } else if (req.doctorId) {
+      const doc = doctors?.find(d => d.id === req.doctorId);
+      return doc?.city || 'Unknown';
+    }
+    return 'N/A';
+  };
+
 
   return (
     <div className="space-y-6">
@@ -352,6 +470,7 @@ export default function RepRequestsPage() {
           <ProposeChangesDialog
             repId={user.uid}
             repCity={userProfile.city}
+            repDistrict={repDistrict || userProfile.city}
             doctors={doctors}
             onSubmitted={forceRefetch}
             autoOpen={showDialog}
@@ -373,21 +492,23 @@ export default function RepRequestsPage() {
           ) : (
             <div className="space-y-4">
               {/* Table view for desktop */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden lg:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Doctor Name</TableHead>
+                      <TableHead>City</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>Proposed Slides</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-14">View</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedRequests.length > 0 ? sortedRequests.map(req => (
                       <TableRow key={req.id}>
                         <TableCell className="font-medium">{getRequestDoctorName(req)}</TableCell>
+                        <TableCell>{getRequestDoctorCity(req)}</TableCell>
                         <TableCell>
                           {req.requestType === 'slide_change' ? (
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800">
@@ -399,54 +520,68 @@ export default function RepRequestsPage() {
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-muted-foreground max-w-md truncate">
-                          <p className="truncate text-xs" title={req.selectedSlides.join(', ')}>
-                            {req.selectedSlides.join(', ')}
-                          </p>
-                        </TableCell>
                         <TableCell>
                           <span title={format(req.createdAt.toDate(), 'PPP p')}>
                             {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
                           </span>
                         </TableCell>
                         <TableCell>{getStatusBadge(req.status)}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setPreviewRequest(req)}
+                            title="View Proposed Slides"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-48 text-center" />
+                        <TableCell colSpan={7} className="h-48 text-center" />
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
               </div>
 
-              {/* Card view for mobile */}
-              <div className="md:hidden space-y-4">
+              {/* Card view for mobile and tablet */}
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                 {sortedRequests.length > 0 ? sortedRequests.map(req => (
-                  <Card key={req.id} className="rounded-lg border p-4 space-y-3 transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
-                    <div className="flex justify-between items-start">
+                  <Card key={req.id} className="flex flex-col h-full rounded-lg border p-4 transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
+                    <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="font-bold">{getRequestDoctorName(req)}</h3>
-                        <p className="text-xs text-muted-foreground">
+                        <h3 className="font-bold text-lg">{getRequestDoctorName(req)}</h3>
+                        <p className="text-sm text-muted-foreground font-medium">{getRequestDoctorCity(req)}</p>
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center">
                           {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
                         </p>
                       </div>
-                      {getStatusBadge(req.status)}
+                      <div className="flex flex-col items-end gap-2">
+                        {getStatusBadge(req.status)}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setPreviewRequest(req)}
+                          title="View Proposed Slides"
+                          className="h-10 w-10 mt-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-transparent shadow-sm hover:border-blue-200 bg-white"
+                        >
+                          <Eye className="h-5 w-5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mb-4">
                       {req.requestType === 'slide_change' ? (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-[10px]">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs py-1">
                           Slide Update
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-[10px]">
+                        <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs py-1">
                           New Doctor
                         </Badge>
                       )}
-                    </div>
-                    <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                      <p className="font-semibold mb-1">Proposed Slides:</p>
-                      <p className="line-clamp-2">{req.selectedSlides.join(', ')}</p>
                     </div>
                   </Card>
                 )) : null}
@@ -467,6 +602,13 @@ export default function RepRequestsPage() {
           )}
         </CardContent>
       </Card>
+      
+      <SlidePreviewDialog
+        open={!!previewRequest}
+        onOpenChange={(open) => !open && setPreviewRequest(null)}
+        slideNumbers={previewRequest?.selectedSlides || []}
+        doctorName={previewRequest ? getRequestDoctorName(previewRequest) : ''}
+      />
     </div>
   );
 }

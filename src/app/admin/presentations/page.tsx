@@ -19,11 +19,11 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit } from 'lucide-react';
+import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit, PlusCircle, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
 import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, doc, updateDoc, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, Timestamp, getDocs, where, addDoc, deleteDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
@@ -32,7 +32,17 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { EditSlidesForm } from '../doctors/AddDoctorDialog';
+import { AddDoctorDialog, EditSlidesForm } from '../doctors/AddDoctorDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 
 type Presentation = {
@@ -48,12 +58,15 @@ type Presentation = {
 type Doctor = {
   id: string;
   name: string;
-  city: string;
+  city: string; // This is the District
+  subCity?: string; // This is the Actual City
   selectedSlides: number[];
 };
 
 type EnrichedPresentation = WithId<Presentation> & {
   doctorName?: string;
+  doctorCity?: string;
+  doctorDistrict?: string;
   doctorSlides?: number[];
   status: 'ready' | 'pending' | 'failed' | 'generating' | 'unknown';
 };
@@ -70,6 +83,7 @@ function PresentationsComponent() {
   const [isTransitioning, startTransition] = useTransition();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [editingPresentation, setEditingPresentation] = useState<EnrichedPresentation | null>(null);
+  const [presentationToDelete, setPresentationToDelete] = useState<EnrichedPresentation | null>(null);
 
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
@@ -94,7 +108,7 @@ function PresentationsComponent() {
 
   const doctorsMap = useMemo(() => {
     if (!doctors) return new Map<string, Omit<Doctor, 'id'>>();
-    return new Map(doctors.map(doc => [doc.id, { name: doc.name, city: doc.city, selectedSlides: doc.selectedSlides }]));
+    return new Map(doctors.map(doc => [doc.id, { name: doc.name, city: doc.city, subCity: doc.subCity, selectedSlides: doc.selectedSlides }]));
   }, [doctors]);
 
   const { availableCities, availableStatuses } = useMemo(() => {
@@ -150,6 +164,8 @@ function PresentationsComponent() {
       return {
         ...p,
         doctorName: doctorInfo?.name || 'Unknown Doctor',
+        doctorCity: doctorInfo?.subCity || 'Unknown City',
+        doctorDistrict: doctorInfo?.city || p.city || 'Unknown District',
         doctorSlides: doctorInfo?.selectedSlides || [],
         status,
       }
@@ -248,6 +264,65 @@ function PresentationsComponent() {
     }
   }
 
+  const handleDoctorAdded = async (newDoctor: Omit<Doctor, 'status'>) => {
+    if (!firestore || !adminUser) return;
+
+    try {
+      setGeneratingId(`add-${Date.now()}`); // Use a temporary generating ID or just lock UI
+
+      // Global duplicate check
+      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', newDoctor.name));
+      const duplicateSnapshot = await getDocs(duplicateQuery);
+      if (!duplicateSnapshot.empty) {
+        toast({
+          variant: "destructive",
+          title: "Duplicate Doctor",
+          description: `A doctor named "${newDoctor.name}" already exists in the system.`,
+        });
+        return;
+      }
+
+      const doctorsCollection = collection(firestore, 'doctors');
+      const docRef = await addDoc(doctorsCollection, newDoctor).catch(err => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: doctorsCollection.path,
+          requestResourceData: newDoctor
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw err;
+      });
+      
+      toast({
+        title: "Doctor Added & Generating...",
+        description: `${newDoctor.name} successfully added! The presentation is now generating in the background.`,
+      });
+      refetchDoctors();
+
+      // Trigger presentation generation asynchronously
+      generateAndUpsertPresentation({
+        doctorId: docRef.id,
+        doctorName: newDoctor.name,
+        city: newDoctor.city,
+        selectedSlides: newDoctor.selectedSlides || [],
+        adminUid: adminUser.uid,
+      }).then((result) => {
+        if ('error' in result) {
+          toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
+        } else {
+          toast({ title: 'Presentation Ready', description: `PDF for ${newDoctor.name} is available for download.` });
+        }
+        forceRefetch();
+      });
+
+    } catch (err: any) {
+      console.error("Error adding doctor:", err);
+      toast({ variant: "destructive", title: "Error", description: err.message || "Failed to add new doctor. Check console." });
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
   const handleEditSlidesSave = async (slides: number[]) => {
     if (!editingPresentation || !firestore || !adminUser) return;
 
@@ -288,6 +363,40 @@ function PresentationsComponent() {
     });
   }
 
+  const handleDeletePresentation = async () => {
+    if (!firestore || !presentationToDelete) return;
+
+    try {
+      setGeneratingId(`delete-${presentationToDelete.id}`);
+      const presentationRef = doc(firestore, 'presentations', presentationToDelete.id);
+      
+      await deleteDoc(presentationRef).catch(err => {
+        const contextualError = new FirestorePermissionError({
+          operation: 'delete',
+          path: presentationRef.path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw err;
+      });
+
+      toast({
+        title: 'Presentation Deleted',
+        description: `The presentation for ${presentationToDelete.doctorName} has been deleted.`,
+      });
+      forceRefetch();
+    } catch (err: any) {
+      console.error("Error deleting presentation:", err);
+      toast({
+        variant: "destructive",
+        title: "Delete Failed",
+        description: err.message || "Could not delete presentation.",
+      });
+    } finally {
+      setGeneratingId(null);
+      setPresentationToDelete(null);
+    }
+  };
+
 
   if (isUserLoading) {
     return (
@@ -318,6 +427,14 @@ function PresentationsComponent() {
           Manage Presentations
         </h1>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+          <AddDoctorDialog 
+            onDoctorAdded={handleDoctorAdded} 
+            triggerButton={
+              <Button className="w-full sm:w-auto shadow-md">
+                <PlusCircle className="mr-2 h-4 w-4" /> Create Presentation
+              </Button>
+            } 
+          />
           <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -367,16 +484,17 @@ function PresentationsComponent() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Doctor Name</TableHead>
+                      <TableHead>City</TableHead>
                       <TableHead>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="-ml-4">
-                              City {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{cityFilter}</span>}
+                              District {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{cityFilter}</span>}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
-                            <DropdownMenuLabel>Filter by City</DropdownMenuLabel>
+                            <DropdownMenuLabel>Filter by District</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuCheckboxItem checked={!cityFilter} onSelect={() => handleFilterChange('city', null)}>
                               All Cities
@@ -431,7 +549,8 @@ function PresentationsComponent() {
                           <TableCell className="font-medium">
                             {presentation.doctorName}
                           </TableCell>
-                          <TableCell>{presentation.city}</TableCell>
+                          <TableCell className="text-muted-foreground">{presentation.doctorCity}</TableCell>
+                          <TableCell>{presentation.doctorDistrict}</TableCell>
                           <TableCell>
                             {presentation.updatedAt ? (
                               <span title={format(presentation.updatedAt.toDate(), 'PPP p')}>
@@ -507,6 +626,14 @@ function PresentationsComponent() {
                                 >
                                   <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setPresentationToDelete(presentation)}
+                                  disabled={isTransitioning || !!generatingId}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Presentation
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -548,8 +675,10 @@ function PresentationsComponent() {
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <h3 className="font-headline text-lg font-bold text-primary">{presentation.doctorName}</h3>
-                              <div className="flex items-center text-sm text-muted-foreground mt-1 gap-2">
-                                <span>{presentation.city}</span>
+                              <div className="flex items-center text-sm text-muted-foreground mt-1 gap-2 flex-wrap">
+                                <span className="font-medium">{presentation.doctorCity}</span>
+                                <span>•</span>
+                                <span>{presentation.doctorDistrict}</span>
                                 <span>•</span>
                                 <span>{presentation.updatedAt ? formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}</span>
                               </div>
@@ -631,6 +760,14 @@ function PresentationsComponent() {
                                 >
                                   <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setPresentationToDelete(presentation)}
+                                  disabled={isTransitioning || !!generatingId}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Presentation
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -674,6 +811,33 @@ function PresentationsComponent() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!presentationToDelete} onOpenChange={(open) => !open && setPresentationToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Presentation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the presentation for <strong>{presentationToDelete?.doctorName}</strong>?
+              This action cannot be undone, and the Doctor's record will show "Not Generated" until a new presentation is made.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!generatingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault(); // Prevent closing until done
+                handleDeletePresentation();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!generatingId}
+            >
+              {generatingId === `delete-${presentationToDelete?.id}` ? <Loader className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

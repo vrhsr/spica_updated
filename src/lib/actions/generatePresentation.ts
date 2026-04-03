@@ -102,15 +102,39 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
 
         for (const slide of slidesToAdd) {
             let imgBytes;
+            let response = null;
+            let lastFetchError = null;
+
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    response = await fetch(slide.url, {
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        break; // Success, exit retry loop
+                    }
+                } catch (fetchError: any) {
+                    lastFetchError = fetchError;
+                }
+                
+                // If not successful, wait 500ms before retrying
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
             try {
-                const response = await fetch(slide.url);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch image for slide ${slide.number} with status ${response.status}`);
+                if (!response || !response.ok) {
+                    throw lastFetchError || new Error(`Status ${response?.status}`);
                 }
                 imgBytes = await response.arrayBuffer();
-            } catch (fetchError: any) {
-                console.error(`Failed to fetch image for slide ${slide.number} from ${slide.url}`, fetchError);
-                throw new Error(`Could not download image for slide number ${slide.number}. URL may be invalid or blocked. Original error: ${fetchError.message}`);
+            } catch (finalError: any) {
+                console.error(`Failed to fetch image for slide ${slide.number} from ${slide.url}`, finalError);
+                throw new Error(`Could not download image for slide number ${slide.number}. URL may be invalid or blocked. Original error: ${finalError.message}`);
             }
 
             let img;

@@ -19,9 +19,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader, Check, X, FileQuestion, MessageSquareQuote, Eye } from 'lucide-react';
+import { Loader, Check, X, FileQuestion, MessageSquareQuote, Eye, Edit } from 'lucide-react';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
-import { collection, doc, updateDoc, Timestamp, writeBatch, addDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, Timestamp, writeBatch, addDoc, getDocs, query as fsQuery, where } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -30,6 +30,8 @@ import { listAllUsers } from '../users/actions';
 import useSWR from 'swr';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
 import { SlidePreviewDialog } from '@/components/SlidePreviewDialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { EditSlidesForm } from '@/components/EditSlidesForm';
 
 type Request = {
   repId: string;
@@ -38,6 +40,7 @@ type Request = {
   // For new doctor proposals
   doctorName?: string;
   doctorCity?: string;
+  doctorDistrict?: string;
   selectedSlides: number[];
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
@@ -50,6 +53,7 @@ type EnrichedRequest = WithId<Request> & {
   doctorNameDisplay: string;
   doctorCityDisplay: string;
   repName?: string;
+  repDistrict?: string;
   requestType: 'New Doctor' | 'Slide Change';
 };
 
@@ -60,6 +64,7 @@ export default function AdminRequestsPage() {
   const [isSubmitting, startTransition] = useTransition();
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [previewRequest, setPreviewRequest] = useState<EnrichedRequest | null>(null);
+  const [editingRequest, setEditingRequest] = useState<EnrichedRequest | null>(null);
 
   // Get search params for filtering
   const searchParams = useSearchParams();
@@ -99,6 +104,7 @@ export default function AdminRequestsPage() {
           doctorNameDisplay: req.doctorName || doctor?.name || 'Unknown Doctor',
           doctorCityDisplay: req.doctorCity || doctor?.city || 'Unknown City',
           repName: userMap.get(req.repId)?.displayName || 'Unknown Rep',
+          repDistrict: userMap.get(req.repId)?.city || 'Unknown District',
           requestType: (isNewDoctorRequest ? 'New Doctor' : 'Slide Change') as 'New Doctor' | 'Slide Change'
         };
       })
@@ -126,22 +132,37 @@ export default function AdminRequestsPage() {
           }
           const doctorsCollection = collection(firestore, 'doctors');
 
-          // 1. Create the new doctor doc
+          // 1. Extract correct District and City
+          const districtName = (request as any).doctorDistrict || request.repDistrict || '';
+          const cityName = request.doctorCity.trim().toUpperCase();
+
+          // 2. Create the new doctor doc
           const newDoctorData = {
             name: request.doctorName,
-            city: request.doctorCity,
+            city: districtName, // District
+            subCity: cityName,  // Actual City
             selectedSlides: request.selectedSlides,
           };
           const newDoctorRef = await addDoc(doctorsCollection, newDoctorData);
 
-          // 2. Mark the request as 'approved'
-          await updateDoc(requestRef, { status: 'approved' });
+          // 3. Auto-create the city in districts_cities if it doesn't already exist
+          const citiesRef = collection(firestore, 'districts_cities');
+          const existingCitySnap = await getDocs(
+            fsQuery(citiesRef, where('name', '==', cityName), where('districtName', '==', districtName))
+          );
+          if (existingCitySnap.empty && cityName !== districtName.toUpperCase()) {
+            await addDoc(citiesRef, { name: cityName, districtName });
+            console.log(`Auto-created city "${cityName}" under district "${districtName}"`);
+          }
 
-          // 3. Trigger presentation generation
+          // 4. Mark the request as 'approved' and persist final slide selection
+          await updateDoc(requestRef, { status: 'approved', selectedSlides: request.selectedSlides });
+
+          // 5. Trigger presentation generation
           const result = await generateAndUpsertPresentation({
             doctorId: newDoctorRef.id,
             doctorName: request.doctorName,
-            city: request.doctorCity,
+            city: districtName, // Presentation generator takes district for backwards compatibility
             selectedSlides: request.selectedSlides,
             adminUid: adminUser.uid,
           });
@@ -163,8 +184,8 @@ export default function AdminRequestsPage() {
           const doctorRef = doc(firestore, 'doctors', request.doctorId!);
           batch.update(doctorRef, { selectedSlides: request.selectedSlides });
 
-          // 2. Mark the request as 'approved'
-          batch.update(requestRef, { status: 'approved' });
+          // 2. Mark the request as 'approved' and persist final slide selection
+          batch.update(requestRef, { status: 'approved', selectedSlides: request.selectedSlides });
 
           // Commit the batch write
           await batch.commit();
@@ -312,11 +333,12 @@ export default function AdminRequestsPage() {
                     <TableRow>
                       <TableHead>Request Type</TableHead>
                       <TableHead>Doctor</TableHead>
-                      <TableHead>City</TableHead>
-                      <TableHead>Requested By</TableHead>
-                      <TableHead>Proposed Slides</TableHead>
+                      <TableHead>Proposed City</TableHead>
+                      <TableHead>Representative</TableHead>
+                      <TableHead>District</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-14">View</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -325,35 +347,50 @@ export default function AdminRequestsPage() {
                       filteredRequests.map(req => (
                         <TableRow key={req.id}>
                           <TableCell className="font-medium">
-                            <Badge variant={req.requestType === 'New Doctor' ? 'secondary' : 'outline'}>
-                              {req.requestType}
-                            </Badge>
+                            {req.requestType === 'New Doctor' ? (
+                              <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100">
+                                {req.requestType}
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                                {req.requestType}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="font-medium">{req.doctorNameDisplay}</TableCell>
                           <TableCell className="text-muted-foreground">{req.doctorCityDisplay}</TableCell>
                           <TableCell className="text-muted-foreground">{req.repName}</TableCell>
-                          <TableCell className="max-w-xs text-muted-foreground">
-                            <p className="truncate text-xs" title={req.selectedSlides.join(', ')}>
-                              {req.selectedSlides.join(', ')}
-                            </p>
-                          </TableCell>
+                          <TableCell className="text-muted-foreground font-medium">{req.repDistrict}</TableCell>
                           <TableCell className="text-muted-foreground">
                             <span title={format(req.createdAt.toDate(), 'PPP p')}>
                               {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
                             </span>
                           </TableCell>
                           <TableCell>{getStatusBadge(req.status)}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setPreviewRequest(req)}
+                              disabled={isSubmitting}
+                              title="View Slides"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                           <TableCell className="text-right">
                             {req.status === 'pending' ? (
-                              <div className="flex justify-end gap-2">
+                              <div className="flex justify-end items-center gap-2">
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="outline"
-                                  onClick={() => setPreviewRequest(req)}
+                                  onClick={() => setEditingRequest(req)}
                                   disabled={isSubmitting}
+                                  title="Edit slides before approving"
+                                  className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
                                 >
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Slides
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"
@@ -381,7 +418,7 @@ export default function AdminRequestsPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
+                        <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
                           <div className="flex flex-col items-center justify-center">
                             <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
                             <h3 className="mt-4 text-lg font-semibold">No Requests Found</h3>
@@ -403,28 +440,23 @@ export default function AdminRequestsPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <Badge variant={req.requestType === 'New Doctor' ? 'secondary' : 'outline'} className="text-xs">
-                                {req.requestType}
-                              </Badge>
+                              {req.requestType === 'New Doctor' ? (
+                                <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-xs py-0.5">
+                                  {req.requestType}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs py-0.5">
+                                  {req.requestType}
+                                </Badge>
+                              )}
                               {getStatusBadge(req.status)}
                             </div>
                             <p className="font-semibold">{req.doctorNameDisplay}</p>
                             <p className="text-sm text-muted-foreground">{req.doctorCityDisplay}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              By: {req.repName} • {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
+                            <p className="text-sm text-muted-foreground mt-1">Rep: <span className="font-medium">{req.repName}</span> ({req.repDistrict})</p>
+                            <p className="text-xs text-muted-foreground/80 flex items-center justify-between mt-1">
+                              {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
                             </p>
-                            {/* Slides display moved to dedicated section below for better wrapping */}
-                          </div>
-                        </div>
-
-                        <div className="mt-2">
-                          <p className="text-xs font-semibold text-muted-foreground mb-1">Requested Slides:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {req.selectedSlides.map(slide => (
-                              <Badge key={slide} variant="secondary" className="text-[10px] px-1 h-5">
-                                {slide}
-                              </Badge>
-                            ))}
                           </div>
                         </div>
 
@@ -482,6 +514,42 @@ export default function AdminRequestsPage() {
         slideNumbers={previewRequest?.selectedSlides || []}
         doctorName={previewRequest?.doctorNameDisplay}
       />
+
+      {/* Edit Slides Dialog - admin can modify proposed slides before approving */}
+      <Dialog open={!!editingRequest} onOpenChange={(open) => !open && setEditingRequest(null)}>
+        <DialogContent className="max-w-2xl">
+          {editingRequest && (
+            <EditSlidesForm
+              doctor={{
+                name: editingRequest.doctorNameDisplay,
+                city: editingRequest.doctorCity,
+                selectedSlides: editingRequest.selectedSlides,
+              }}
+              showCityEdit={editingRequest.requestType === 'New Doctor'}
+              onSave={async (newSlides, updatedCity) => {
+                if (!editingRequest) return;
+                
+                // Close the dialog immediately
+                setEditingRequest(null);
+                
+                // Notify user
+                toast({
+                  title: 'Saving changes...',
+                  description: 'Applying your edits and generating the final presentation.',
+                });
+
+                // Directly pass to the approve handler to save edits, approve, and generate!
+                handleApproveRequest({
+                  ...editingRequest,
+                  selectedSlides: newSlides,
+                  doctorCity: updatedCity || editingRequest.doctorCity
+                });
+              }}
+              isSaving={isSubmitting}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

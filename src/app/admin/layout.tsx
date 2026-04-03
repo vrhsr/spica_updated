@@ -76,13 +76,14 @@ function SidebarNavMenu({ pathname, pendingCount }: { pathname: string; pendingC
   return (
     <SidebarMenu>
       {navItems.map((item) => {
-        const isRequestsItem = item.href === '/admin/requests';
+        const isRequestsItem = item.href.startsWith('/admin/requests');
         const showBadge = isRequestsItem && pendingCount > 0;
+        const hrefPath = item.href.split('?')[0]; // Strip query params for active check
 
         return (
           <SidebarMenuItem key={item.label}>
             <Link href={item.href} onClick={handleNavClick}>
-              <SidebarMenuButton isActive={pathname.startsWith(item.href)} className="text-base py-3">
+              <SidebarMenuButton isActive={pathname.startsWith(hrefPath)} className="text-base py-3">
                 <item.icon className="h-5 w-5" />
                 <span className="font-medium">{item.label}</span>
                 {showBadge && (

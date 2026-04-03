@@ -20,10 +20,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion, Search, Building } from 'lucide-react';
+import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion, Search, Building, Eye } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -76,6 +77,7 @@ type Presentation = {
 type EnrichedDoctor = WithId<Doctor> & {
   presentationStatus?: 'ready' | 'pending' | 'error' | 'generating' | 'not-generated';
   presentationError?: string;
+  presentationPdfUrl?: string;
 };
 
 export default function DoctorsPage() {
@@ -90,7 +92,9 @@ export default function DoctorsPage() {
   const [doctorToEditDetails, setDoctorToEditDetails] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToDelete, setDoctorToDelete] = React.useState<WithId<Doctor> | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null);
+  const [generatingDoctors, setGeneratingDoctors] = React.useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [pdfToView, setPdfToView] = React.useState<string | null>(null);
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -125,7 +129,7 @@ export default function DoctorsPage() {
       return;
     }
 
-    setIsSubmitting(`generate - ${doctorId} `);
+    setGeneratingDoctors(prev => new Set(prev).add(doctorId));
     try {
       const result = await generateAndUpsertPresentation({
         doctorId,
@@ -151,7 +155,11 @@ export default function DoctorsPage() {
       // Force a refetch even on failure to get the error state from the DB
       refetchPresentations();
     } finally {
-      setIsSubmitting(null);
+      setGeneratingDoctors(prev => {
+        const next = new Set(prev);
+        next.delete(doctorId);
+        return next;
+      });
     }
   }
 
@@ -169,7 +177,7 @@ export default function DoctorsPage() {
       }
 
       // Override status if currently submitting for this doctor
-      if (isSubmitting === `generate - ${doctor.id}` || isSubmitting === `edit - slides - ${doctor.id} ` || isSubmitting === `add - ${doctor.id} `) {
+      if (generatingDoctors.has(doctor.id) || isSubmitting === `edit-slides-${doctor.id}` || isSubmitting === `add-${doctor.id}`) {
         status = 'generating';
       }
 
@@ -177,9 +185,10 @@ export default function DoctorsPage() {
         ...doctor,
         presentationStatus: status,
         presentationError: presentation?.error,
+        presentationPdfUrl: presentation?.pdfUrl,
       };
     });
-  }, [doctors, presentations, isSubmitting]);
+  }, [doctors, presentations, isSubmitting, generatingDoctors]);
 
   // Filter doctors by search term
   const filteredDoctors = React.useMemo(() => {
@@ -240,14 +249,18 @@ export default function DoctorsPage() {
         throw err;
       });
       tempId = docRef.id;
-      setIsSubmitting(`add - ${tempId} `);
+      
       toast({
-        title: "Doctor Added",
-        description: `${newDoctor.name} has been successfully added.Generating presentation...`,
+        title: "Doctor Added & Saving...",
+        description: `${newDoctor.name} successfully added! The presentation is now generating in the background.`,
       });
       refetchDoctors();
-      // Now generate the presentation immediately
-      await handleGeneration(docRef.id, newDoctor.name, newDoctor.city, newDoctor.selectedSlides);
+
+      // Clear lock immediately so the dialog can close
+      setIsSubmitting(null);
+
+      // Now generate the presentation immediately in background
+      handleGeneration(docRef.id, newDoctor.name, newDoctor.city, newDoctor.selectedSlides).catch(console.error);
 
     } catch (err) {
       console.error("Error adding doctor:", err);
@@ -256,7 +269,6 @@ export default function DoctorsPage() {
         title: "Failed to Add Doctor",
         description: "Could not save the new doctor. Please check the console for details."
       });
-    } finally {
       setIsSubmitting(null);
     }
   };
@@ -309,12 +321,10 @@ export default function DoctorsPage() {
   const handleEditSlidesSave = async (slides: number[]) => {
     if (!editDoctor || !firestore) return;
 
-    const originalDoctorId = editDoctor.id;
     try {
-      setIsSubmitting(`edit - slides - ${originalDoctorId} `);
       const doctorRef = doc(firestore, 'doctors', editDoctor.id);
 
-      // We set `dirty: true` here so the UI can show a pending state immediately
+      // Save new slides to firestore
       const updatedData = { selectedSlides: slides };
       await updateDoc(doctorRef, updatedData);
 
@@ -327,18 +337,17 @@ export default function DoctorsPage() {
       }
 
       toast({
-        title: "Slides Updated",
-        description: `Slides for ${editDoctor.name} have been updated.Regenerating presentation...`,
+        title: "Slides Saved",
+        description: `Generating updated presentation for ${editDoctor.name} in background...`,
       });
-      setEditDoctor(null); // Close dialog on success before generation
+      
+      // Release lock so dialog will close
+      setEditDoctor(null);
       refetchDoctors();
-      refetchPresentations(); // refetch to show dirty state
-      await handleGeneration(
-        editDoctor.id,
-        editDoctor.name,
-        editDoctor.city,
-        [...slides] // ensure clean copy
-      );
+      refetchPresentations();
+
+      // Re-generate presentation in background without blocking
+      handleGeneration(editDoctor.id, editDoctor.name, editDoctor.city, [...slides]).catch(console.error);
 
     } catch (err) {
       console.error("Error updating slides:", err);
@@ -347,11 +356,7 @@ export default function DoctorsPage() {
         title: "Failed to Update Slides",
         description: "Could not save slide changes. Please check the console for details."
       });
-    } finally {
-      setIsSubmitting(null);
-      if (editDoctor && originalDoctorId === editDoctor.id) {
-        setEditDoctor(null);
-      }
+      setEditDoctor(null);
     }
   }
 
@@ -493,7 +498,8 @@ export default function DoctorsPage() {
                       <TableHead>City</TableHead>
                       <TableHead>Assigned Slides</TableHead>
                       <TableHead>Presentation Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="w-16">View</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -502,51 +508,78 @@ export default function DoctorsPage() {
                         <TableCell className="font-medium">{doctor.name}</TableCell>
                         <TableCell>{doctor.city}</TableCell>
                         <TableCell>{doctor.subCity || <span className="text-muted-foreground text-xs italic">—</span>}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs max-w-xs truncate">{doctor.selectedSlides.join(', ')}</TableCell>
+                        <TableCell className="text-muted-foreground text-[11px] max-w-[140px] truncate" title={doctor.selectedSlides.join(', ')}>
+                          {doctor.selectedSlides.length <= 5 
+                            ? doctor.selectedSlides.join(', ') 
+                            : `${doctor.selectedSlides.slice(0, 5).join(', ')}... +${doctor.selectedSlides.length - 5} more`}
+                        </TableCell>
                         <TableCell>{getStatusBadge(doctor)}</TableCell>
-                        <TableCell className="text-right">
-                          {doctor.presentationStatus === 'error' && (
+                        <TableCell>
+                          {doctor.presentationStatus === 'ready' && doctor.presentationPdfUrl ? (
                             <Button
-                              variant="secondary"
-                              size="sm"
-                              className="mr-2"
-                              onClick={() => handleGeneration(
-                                doctor.id,
-                                doctor.name,
-                                doctor.city,
-                                [...doctor.selectedSlides]
-                              )
-                              }
-                              disabled={!!isSubmitting}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setPdfToView(doctor.presentationPdfUrl!)}
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title="View Presentation"
                             >
-                              <RefreshCcw className="mr-2 h-4 w-4" />
-                              Retry
+                              <Eye className="h-4 w-4" />
                             </Button>
+                          ) : (
+                            <span className="text-muted-foreground italic text-xs ml-2">-</span>
                           )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0" disabled={!!isSubmitting}>
-                                <span className="sr-only">Open menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => setDoctorToEditDetails(doctor)} disabled={!!isSubmitting}>
-                                <Edit className="mr-2 h-4 w-4" /> Edit Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setEditDoctor(doctor)} disabled={!!isSubmitting}>
-                                <Edit className="mr-2 h-4 w-4" /> Edit Slides
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-red-500 focus:bg-red-500/10 focus:text-red-600"
-                                onClick={() => setDoctorToDelete(doctor)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end items-center gap-2">
+                            {doctor.presentationStatus === 'error' && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleGeneration(
+                                  doctor.id,
+                                  doctor.name,
+                                  doctor.city,
+                                  [...doctor.selectedSlides]
+                                )
+                                }
                                 disabled={!!isSubmitting}
                               >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete Doctor
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                <RefreshCcw className="mr-2 h-4 w-4" />
+                                Retry
+                              </Button>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setEditDoctor(doctor)}
+                              disabled={!!isSubmitting}
+                              title="Edit Assigned Slides"
+                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0" disabled={!!isSubmitting}>
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => setDoctorToEditDetails(doctor)} disabled={!!isSubmitting}>
+                                  <Edit className="mr-2 h-4 w-4" /> Edit Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-red-500 focus:bg-red-500/10 focus:text-red-600"
+                                  onClick={() => setDoctorToDelete(doctor)}
+                                  disabled={!!isSubmitting}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Doctor
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )) : (
@@ -595,13 +628,20 @@ export default function DoctorsPage() {
                             Assigned Slides ({doctor.selectedSlides.length})
                           </p>
                           <div className="flex flex-wrap gap-1.5">
-                            {doctor.selectedSlides.length > 0 ? (
-                              doctor.selectedSlides.map(slideId => (
-                                <Badge key={slideId} variant="secondary" className="text-xs font-normal">
-                                  Slide {slideId}
+                          {doctor.selectedSlides.length > 0 ? (
+                            <>
+                              {doctor.selectedSlides.slice(0, 8).map(slideId => (
+                                <Badge key={slideId} variant="secondary" className="text-[10px] font-normal px-1.5 py-0">
+                                  {slideId}
                                 </Badge>
-                              ))
-                            ) : (
+                              ))}
+                              {doctor.selectedSlides.length > 8 && (
+                                <Badge variant="outline" className="text-[10px] text-muted-foreground px-1.5 py-0">
+                                  +{doctor.selectedSlides.length - 8} more
+                                </Badge>
+                              )}
+                            </>
+                          ) : (
                               <span className="text-sm text-muted-foreground italic">No slides assigned</span>
                             )}
                           </div>
@@ -609,6 +649,18 @@ export default function DoctorsPage() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                           {/* First Row of Actions */}
+                          {doctor.presentationStatus === 'ready' && doctor.presentationPdfUrl && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => setPdfToView(doctor.presentationPdfUrl!)}
+                              className="w-full sm:col-span-2 bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Presentation
+                            </Button>
+                          )}
+                          
                           {doctor.presentationStatus === 'error' && (
                             <Button
                               variant="secondary"
@@ -721,8 +773,24 @@ export default function DoctorsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View PDF Dialog */}
+      <Dialog open={!!pdfToView} onOpenChange={(open) => !open && setPdfToView(null)}>
+        <DialogContent className="max-w-5xl w-full h-[85vh] p-0 flex flex-col">
+          <div className="p-4 border-b flex-shrink-0 flex items-center justify-between">
+            <DialogTitle>View Presentation</DialogTitle>
+          </div>
+          <div className="flex-1 w-full bg-muted/20 relative rounded-b-lg overflow-hidden">
+            {pdfToView && (
+              <iframe
+                src={`${pdfToView}#toolbar=0&navpanes=0`}
+                className="w-full h-full border-0 absolute inset-0"
+                title="Presentation PDF"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-
