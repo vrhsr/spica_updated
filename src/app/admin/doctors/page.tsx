@@ -489,7 +489,7 @@ export default function DoctorsPage() {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden lg:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -556,17 +556,19 @@ export default function DoctorsPage() {
                               title="Edit Assigned Slides"
                               className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-4 w-4" /><span className="sr-only">Edit Details</span>
                             </Button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0" disabled={!!isSubmitting}>
-                                  <span className="sr-only">Open menu</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 ml-1 text-muted-foreground hover:bg-muted"
+                                >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => setDoctorToEditDetails(doctor)} disabled={!!isSubmitting}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit Details
                                 </DropdownMenuItem>
@@ -600,54 +602,50 @@ export default function DoctorsPage() {
               </div>
 
               {/* Mobile Card View */}
-              <div className="md:hidden space-y-4">
-                {enrichedDoctors && enrichedDoctors.length > 0 ? enrichedDoctors.map((doctor) => (
-                  <Card key={doctor.id} className={`overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md ${!!isSubmitting ? 'opacity-50' : ''}`}>
-                    <CardContent className="p-0">
-                      <div className="p-4 bg-muted/30">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="font-headline text-lg font-bold text-primary">{doctor.name}</h3>
-                            <div className="flex items-center text-sm text-muted-foreground mt-1">
-                               <Building className="mr-1 h-3 w-3" />
-                               {doctor.city}
-                               {doctor.subCity && (
-                                 <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                                   {doctor.subCity}
-                                 </span>
-                               )}
-                             </div>
-                          </div>
-                          {getStatusBadge(doctor)}
+              <div className="lg:hidden grid gap-3 grid-cols-1 sm:grid-cols-2">
+                {filteredDoctors && filteredDoctors.length > 0 ? filteredDoctors.map((doctor) => (
+                  <Card key={doctor.id} className={`overflow-hidden border rounded-xl transition-all duration-200 hover:border-primary/40 hover:shadow-md ${!!isSubmitting ? 'opacity-50' : ''}`}>
+                    <CardContent className="p-0 flex flex-col h-full">
+                      <div className="p-3 bg-muted/20 border-b flex items-start justify-between gap-2 border-primary/5">
+                        <div className="flex-1">
+                          <h3 className="font-headline text-[1.05rem] font-bold text-primary leading-tight">{doctor.name}</h3>
+                          <div className="flex items-center text-xs text-muted-foreground mt-1 flex-wrap gap-1">
+                             <Building className="h-3 w-3 flex-shrink-0" />
+                             <span>{doctor.city}</span>
+                             {doctor.subCity && (
+                               <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium ml-0.5">
+                                 {doctor.subCity}
+                               </span>
+                             )}
+                           </div>
                         </div>
+                        <div className="flex-shrink-0">{getStatusBadge(doctor)}</div>
                       </div>
 
-                      <div className="p-4 space-y-3">
-                        <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                      <div className="p-3 flex-1 flex flex-col">
+                        <div className="mb-auto">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
                             Assigned Slides ({doctor.selectedSlides.length})
                           </p>
-                          <div className="flex flex-wrap gap-1.5">
                           {doctor.selectedSlides.length > 0 ? (
-                            <>
-                              {doctor.selectedSlides.slice(0, 8).map(slideId => (
-                                <Badge key={slideId} variant="secondary" className="text-[10px] font-normal px-1.5 py-0">
+                            <div className="flex flex-wrap gap-1">
+                              {doctor.selectedSlides.slice(0, 6).map(slideId => (
+                                <Badge key={slideId} variant="secondary" className="text-[10px] font-normal px-1 py-0 h-4">
                                   {slideId}
                                 </Badge>
                               ))}
-                              {doctor.selectedSlides.length > 8 && (
-                                <Badge variant="outline" className="text-[10px] text-muted-foreground px-1.5 py-0">
-                                  +{doctor.selectedSlides.length - 8} more
+                              {doctor.selectedSlides.length > 6 && (
+                                <Badge variant="outline" className="text-[10px] text-muted-foreground px-1 py-0 h-4">
+                                  +{doctor.selectedSlides.length - 6} more
                                 </Badge>
                               )}
-                            </>
+                            </div>
                           ) : (
-                              <span className="text-sm text-muted-foreground italic">No slides assigned</span>
+                              <span className="text-xs text-muted-foreground italic">No slides assigned</span>
                             )}
-                          </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div className="grid grid-cols-1 gap-2 pt-3 mt-3 border-t">
                           {/* First Row of Actions */}
                           {doctor.presentationStatus === 'ready' && doctor.presentationPdfUrl && (
                             <Button

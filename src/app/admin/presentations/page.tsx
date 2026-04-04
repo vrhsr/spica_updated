@@ -19,7 +19,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit, PlusCircle, Trash2 } from 'lucide-react';
+import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit, PlusCircle, Trash2, Clock, Check, Copy } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
 import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
@@ -84,6 +84,28 @@ function PresentationsComponent() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [editingPresentation, setEditingPresentation] = useState<EnrichedPresentation | null>(null);
   const [presentationToDelete, setPresentationToDelete] = useState<EnrichedPresentation | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [viewPresentation, setViewPresentation] = useState<EnrichedPresentation | null>(null);
+
+  const handleCopyLink = async (url: string | undefined) => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(url);
+      toast({
+        title: "Link Copied",
+        description: "Presentation link copied to clipboard.",
+        duration: 2000,
+      });
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      toast({
+        title: "Copy Failed",
+        description: "Could not copy link to clipboard.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
@@ -178,8 +200,11 @@ function PresentationsComponent() {
       enriched = enriched.filter(p => p.city === cityFilter);
     }
     if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
       enriched = enriched.filter(p =>
-        (p.doctorName && p.doctorName.toLowerCase().includes(searchTerm.toLowerCase()))
+        (p.doctorName && p.doctorName.toLowerCase().includes(lowerSearch)) ||
+        (p.doctorCity && p.doctorCity.toLowerCase().includes(lowerSearch)) ||
+        (p.doctorDistrict && p.doctorDistrict.toLowerCase().includes(lowerSearch))
       );
     }
     return enriched.sort((a, b) => b.updatedAt.toDate().getTime() - a.updatedAt.toDate().getTime());
@@ -477,9 +502,9 @@ function PresentationsComponent() {
               Failed to load presentations. This may be a security rule issue. Check the console.
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden lg:block overflow-x-auto bg-card rounded-xl border shadow-sm">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -580,7 +605,7 @@ function PresentationsComponent() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.open(presentation.pdfUrl, '_blank')}
+                                onClick={() => setViewPresentation(presentation)}
                                 disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
                               >
                                 <Eye className="mr-2 h-4 w-4" />
@@ -642,7 +667,7 @@ function PresentationsComponent() {
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={5}
+                          colSpan={6}
                           className="h-48 text-center text-muted-foreground"
                         >
                           <div className="flex flex-col items-center justify-center">
@@ -666,43 +691,43 @@ function PresentationsComponent() {
               </div>
 
               {/* Mobile Card View */}
-              <div className="md:hidden space-y-4">
+              <div className="lg:hidden grid gap-3 grid-cols-1 sm:grid-cols-2">
                 {enrichedPresentations.length > 0 ? (
                   enrichedPresentations.map((presentation) => (
-                    <Card key={presentation.id} className={`overflow-hidden border-none shadow-md ${(isTransitioning || !!generatingId) ? 'opacity-50' : ''}`}>
-                      <CardContent className="p-0">
-                        <div className="bg-muted/30 p-4 border-b">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="font-headline text-lg font-bold text-primary">{presentation.doctorName}</h3>
-                              <div className="flex items-center text-sm text-muted-foreground mt-1 gap-2 flex-wrap">
-                                <span className="font-medium">{presentation.doctorCity}</span>
-                                <span>•</span>
-                                <span>{presentation.doctorDistrict}</span>
-                                <span>•</span>
-                                <span>{presentation.updatedAt ? formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}</span>
-                              </div>
+                    <Card key={presentation.id} className={`overflow-hidden border rounded-xl shadow-sm transition-all duration-200 ${(isTransitioning || !!generatingId) ? 'opacity-50' : ''}`}>
+                      <CardContent className="p-0 flex flex-col h-full">
+                        <div className="bg-muted/10 p-3 border-b flex items-start justify-between gap-2 border-primary/5">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-headline text-[1.05rem] font-bold text-primary truncate leading-tight">{presentation.doctorName}</h3>
+                            <div className="flex items-center text-xs text-muted-foreground mt-1 gap-1 flex-wrap">
+                              <span className="font-medium bg-primary/5 text-primary/80 px-1.5 py-0.5 rounded">{presentation.doctorCity}</span>
+                              <span className="text-muted-foreground/30">•</span>
+                              <span>{presentation.doctorDistrict}</span>
                             </div>
-                            <div className="shrink-0">
-                              {getStatusBadge(presentation)}
+                            <div className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1 opacity-70">
+                              <Clock className="w-3 h-3" />
+                              {presentation.updatedAt ? formatDistanceToNow(presentation.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}
                             </div>
+                          </div>
+                          <div className="shrink-0">
+                            {getStatusBadge(presentation)}
                           </div>
                         </div>
 
-                        <div className="p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 grid gap-2 mt-auto">
+                          <div className="grid grid-cols-2 gap-2">
                             {presentation.status === 'pending' || presentation.status === 'failed' ? (
                               <Button
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => handleGenerate(presentation)}
                                 disabled={isTransitioning || !!generatingId}
-                                className="w-full"
+                                className="w-full text-xs h-8"
                               >
                                 {generatingId === presentation.id ? (
-                                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                                  <Loader className="mr-1.5 h-3 w-3 animate-spin" />
                                 ) : (
-                                  <RefreshCcw className="mr-2 h-4 w-4" />
+                                  <RefreshCcw className="mr-1.5 h-3 w-3" />
                                 )}
                                 Generate
                               </Button>
@@ -710,11 +735,11 @@ function PresentationsComponent() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.open(presentation.pdfUrl, '_blank')}
+                                className="w-full text-xs h-8"
+                                onClick={() => setViewPresentation(presentation)}
                                 disabled={!presentation.pdfUrl || isTransitioning || !!generatingId}
-                                className="w-full"
                               >
-                                <Eye className="mr-2 h-4 w-4" />
+                                <Eye className="mr-1.5 h-3 w-3" />
                                 View PDF
                               </Button>
                             )}
@@ -723,50 +748,53 @@ function PresentationsComponent() {
                               size="sm"
                               onClick={() => setEditingPresentation(presentation)}
                               disabled={isTransitioning || !!generatingId}
-                              className="w-full"
+                              className="w-full text-xs h-8"
                             >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit Slides
+                              <Edit className="mr-1.5 h-3 w-3" />
+                              Edit Info
                             </Button>
                           </div>
 
-                          <div className="flex justify-end pt-1">
+                          <div className="flex gap-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="w-full text-muted-foreground" disabled={isTransitioning || !!generatingId}>
-                                  <MoreHorizontal className="mr-2 h-4 w-4" /> More Actions
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full text-xs h-8 text-muted-foreground hover:bg-muted/50 border"
+                                  disabled={isTransitioning || !!generatingId}
+                                >
+                                  <MoreHorizontal className="mr-1.5 h-3 w-3" />
+                                  More Actions
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    if (presentation.pdfUrl) {
-                                      const link = document.createElement('a');
-                                      link.href = presentation.pdfUrl;
-                                      link.setAttribute('download', `${presentation.doctorName?.replace(/ /g, '_')}_presentation.pdf`);
-                                      document.body.appendChild(link);
-                                      link.click();
-                                      document.body.removeChild(link);
-                                    }
-                                  }}
-                                  disabled={!presentation.pdfUrl}
-                                >
-                                  <Download className="mr-2 h-4 w-4" /> Download PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleRegenerate(presentation)}
-                                  disabled={presentation.dirty || isTransitioning || !!generatingId}
-                                >
-                                  <RefreshCcw className="mr-2 h-4 w-4" /> Mark for Regeneration
+                              <DropdownMenuContent align="end" className="w-48">
+                                {presentation.status === 'ready' && (
+                                  <DropdownMenuItem onClick={() => handleRegenerate(presentation)}>
+                                    <RefreshCcw className="mr-2 h-4 w-4" />
+                                    Force Regenerate
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => window.open(presentation.pdfUrl, '_blank')} disabled={!presentation.pdfUrl}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Open in New Tab
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onClick={() => setPresentationToDelete(presentation)}
-                                  disabled={isTransitioning || !!generatingId}
-                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleCopyLink(presentation.pdfUrl)}
+                                  disabled={!presentation.pdfUrl}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Presentation
+                                  {copiedId === presentation.pdfUrl ? (
+                                    <Check className="mr-2 h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <Copy className="mr-2 h-4 w-4" />
+                                  )}
+                                  Copy Public Link
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setPresentationToDelete(presentation)} className="text-red-500 focus:text-red-600 focus:bg-red-50">
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete Presentation
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -776,24 +804,33 @@ function PresentationsComponent() {
                     </Card>
                   ))
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                    <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
-                    <p className="mt-1 text-sm">
-                      {isAnyFilterActive
-                        ? `No presentations match your current filters.`
-                        : "Assign slides to a doctor to create a presentation."}
+                  <div className="col-span-full py-12 px-4 text-center border-2 border-dashed rounded-xl border-muted bg-muted/5 text-muted-foreground">
+                    <FileQuestion className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                    <h3 className="text-sm font-semibold">No Presentations</h3>
+                    <p className="text-xs mt-1">
+                      {isAnyFilterActive ? 'Clear filters to see results.' : 'No presentations found.'}
                     </p>
-                    {isAnyFilterActive && (
-                      <Button variant="link" onClick={() => router.push(pathname)}>Clear All Filters</Button>
-                    )}
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      {/* View PDF Dialog */}
+      <Dialog open={!!viewPresentation} onOpenChange={(open) => !open && setViewPresentation(null)}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 w-full sm:w-[90vw]">
+          {viewPresentation?.pdfUrl ? (
+            <iframe src={`${viewPresentation.pdfUrl}#toolbar=0`} className="w-full h-full rounded-md border" title="Presentation PDF" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground flex-col bg-muted/20 rounded-md border">
+              <FileQuestion className="h-10 w-10 opacity-50 mb-2" />
+              <p>No PDF available to display</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Slides Dialog */}
       <Dialog open={!!editingPresentation} onOpenChange={(open) => !open && setEditingPresentation(null)}>

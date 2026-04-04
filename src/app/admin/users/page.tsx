@@ -45,11 +45,18 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader, Users, ShieldQuestion, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Loader, Users, ShieldQuestion, MoreHorizontal, Trash2, Building } from 'lucide-react';
 import { z } from 'zod';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection } from 'firebase/firestore';
@@ -359,11 +366,10 @@ export default function UsersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Display Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>City</TableHead>
+                      <TableHead>User Details</TableHead>
+                      <TableHead>Contact Info</TableHead>
+                      <TableHead>Role & Permissions</TableHead>
+                      <TableHead>District</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -375,53 +381,38 @@ export default function UsersPage() {
 
                       return (
                         <TableRow key={user.uid} className={user.disabled ? 'opacity-60 bg-muted/20' : ''}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {user.displayName || 'N/A'}
-                              {user.disabled && <Badge variant="destructive" className="text-[10px] h-5 px-1.5 cursor-help" title="Suspended Account">Suspended</Badge>}
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold shadow-sm">
+                                {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-foreground flex items-center gap-2">
+                                  {user.displayName || 'N/A'}
+                                  {user.disabled && <Badge variant="destructive" className="text-[10px] h-4 px-1.5 cursor-help uppercase tracking-widest leading-none">Suspended</Badge>}
+                                </div>
+                                <div className="text-sm text-muted-foreground">{user.email || 'N/A'}</div>
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{user.email || 'N/A'}</TableCell>
-                          <TableCell className="text-muted-foreground">{user.phone || 'N/A'}</TableCell>
                           <TableCell>
-                            <Select
-                              value={user.role || ''}
-                              onValueChange={(value: 'admin' | 'rep') =>
-                                initiateRoleChange(user.uid, value, user.displayName || user.email || 'this user')
-                              }
-                              disabled={!canPerformAction || isSubmitting}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select role...">
-                                  {getRoleBadge(user.role)}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="rep">Representative</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            {user.phone ? (
+                              <div className="text-sm">{user.phone}</div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground italic">No phone</span>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={user.city || ''}
-                              onValueChange={(value: string) =>
-                                initiateCityChange(user.uid, value, user)
-                              }
-                              disabled={user.role !== 'rep' || isLoadingCities || !canPerformAction || isSubmitting}
-                            >
-                              <SelectTrigger className="w-40">
-                                <SelectValue placeholder={user.role !== 'rep' ? "N/A" : "Select city..."} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {isLoadingCities ? (
-                                  <div className="flex items-center justify-center p-2"><Loader className="h-4 w-4 animate-spin" /></div>
-                                ) : cities?.map(city => (
-                                  <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
-                                ))
-                                }
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1 items-start">
+                              {getRoleBadge(user.role)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {user.role === 'rep' ? (
+                              <div className="font-medium text-foreground text-sm">{user.city || 'Unassigned'}</div>
+                            ) : (
+                              <span className="text-muted-foreground italic text-sm">-</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             {canPerformAction && (
@@ -439,8 +430,9 @@ export default function UsersPage() {
                                     <Users className="mr-2 h-4 w-4" />
                                     Edit Details
                                   </DropdownMenuItem>
+
                                   <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
-                                    <ShieldQuestion className="mr-2 h-4 w-4" />
+                                    {user.disabled ? <Users className="mr-2 h-4 w-4" /> : <ShieldQuestion className="mr-2 h-4 w-4" />}
                                     {user.disabled ? 'Activate Account' : 'Suspend Account'}
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
@@ -473,15 +465,17 @@ export default function UsersPage() {
                     <Card key={user.uid} className="overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
                       <CardContent className="p-0">
                         {/* Header Section */}
-                        <div className="bg-muted/30 p-4 border-b">
+                        <div className="bg-muted/10 p-4 border-b">
                           <div className="flex items-start justify-between gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold shadow-sm">
+                              {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email?.charAt(0).toUpperCase()}
+                            </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="font-headline text-lg font-bold truncate">
                                   {user.displayName || 'Unnamed User'}
                                 </h3>
                                 {user.disabled && <Badge variant="destructive" className="text-[10px] h-5 px-1.5 uppercase tracking-widest">Suspended</Badge>}
-                                {!user.disabled && getRoleBadge(user.role)}
                               </div>
                               <div className="text-sm text-muted-foreground break-all">
                                 {user.email || 'No Email'}
@@ -491,6 +485,14 @@ export default function UsersPage() {
                                   {user.phone}
                                 </div>
                               )}
+                              {user.role === 'rep' && (
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {user.city || 'Unassigned District'}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 mt-2">
+                                {!user.disabled && getRoleBadge(user.role)}
+                              </div>
                             </div>
 
                             {canPerformAction && (
@@ -507,8 +509,11 @@ export default function UsersPage() {
                                     <Users className="mr-2 h-4 w-4" />
                                     Edit Details
                                   </DropdownMenuItem>
+
+
+
                                   <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
-                                    <ShieldQuestion className="mr-2 h-4 w-4" />
+                                    {user.disabled ? <Users className="mr-2 h-4 w-4" /> : <ShieldQuestion className="mr-2 h-4 w-4" />}
                                     {user.disabled ? 'Activate Account' : 'Suspend Account'}
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
@@ -525,70 +530,6 @@ export default function UsersPage() {
                           </div>
                         </div>
 
-                        {/* Controls Section */}
-                        <div className="p-4 space-y-4">
-                          <div className="grid grid-cols-1 gap-4">
-                            <div>
-                              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                                Role Assignment
-                              </Label>
-                              <Select
-                                value={user.role || ''}
-                                onValueChange={(value: 'admin' | 'rep') =>
-                                  initiateRoleChange(user.uid, value, user.displayName || user.email || 'this user')
-                                }
-                                disabled={!canPerformAction || isSubmitting}
-                              >
-                                <SelectTrigger className="w-full bg-background">
-                                  <SelectValue placeholder="Select role...">
-                                    <div className="flex items-center gap-2">
-                                      {user.role === 'admin' && <ShieldQuestion className="h-4 w-4 text-destructive" />}
-                                      {user.role === 'rep' && <Users className="h-4 w-4 text-blue-600" />}
-                                      <span>{user.role === 'admin' ? 'Admin' : user.role === 'rep' ? 'Representative' : 'Not Set'}</span>
-                                    </div>
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="admin">
-                                    <div className="flex items-center gap-2">
-                                      <ShieldQuestion className="h-4 w-4 text-destructive" /> <span>Admin</span>
-                                    </div>
-                                  </SelectItem>
-                                  <SelectItem value="rep">
-                                    <div className="flex items-center gap-2">
-                                      <Users className="h-4 w-4 text-blue-600" /> <span>Representative</span>
-                                    </div>
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div>
-                              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                                City
-                              </Label>
-                              <Select
-                                value={user.city || ''}
-                                onValueChange={(value: string) =>
-                                  initiateCityChange(user.uid, value, user)
-                                }
-                                disabled={user.role !== 'rep' || isLoadingCities || !canPerformAction || isSubmitting}
-                              >
-                                <SelectTrigger className="w-full bg-background">
-                                  <SelectValue placeholder={user.role !== 'rep' ? "N/A" : "Select city..."} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {isLoadingCities ? (
-                                    <div className="flex items-center justify-center p-2"><Loader className="h-4 w-4 animate-spin" /></div>
-                                  ) : cities?.map(city => (
-                                    <SelectItem key={city.id} value={city.name}>{city.name}</SelectItem>
-                                  ))
-                                  }
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        </div>
                       </CardContent>
                     </Card>
                   );
@@ -675,6 +616,7 @@ export default function UsersPage() {
       {/* Edit User Dialog */}
       <EditUserDialog
         user={userToEdit}
+        cities={cities || []}
         onClose={() => setUserToEdit(null)}
         onUserUpdated={fetchUsers}
       />

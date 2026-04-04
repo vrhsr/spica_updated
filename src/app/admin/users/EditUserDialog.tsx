@@ -15,15 +15,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader, AlertTriangle } from 'lucide-react';
-import { updateUserDetails } from './actions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { updateUserDetails, setUserCity, setUserRole } from './actions';
 import { RoleUser } from './page'; // Ensure this type is exported from page.tsx or moved to a shared types file
 
 export function EditUserDialog({
   user,
+  cities = [],
   onClose,
   onUserUpdated
 }: {
   user: RoleUser | null;
+  cities?: { id: string, name: string }[];
   onClose: () => void;
   onUserUpdated: () => void;
 }) {
@@ -31,6 +34,8 @@ export function EditUserDialog({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [city, setCity] = useState('');
+  const [role, setRole] = useState<'admin' | 'rep'>('rep');
   
   const [isSubmitting, startTransition] = useTransition();
   const { toast } = useToast();
@@ -41,6 +46,8 @@ export function EditUserDialog({
       setName(user.displayName || '');
       setPhone(user.phone || '');
       setEmail(user.email || '');
+      setCity(user.city || '');
+      setRole(user.role || 'rep');
       setIsOpen(true);
     } else {
       setIsOpen(false);
@@ -81,6 +88,17 @@ export function EditUserDialog({
           email: email.trim(),
           phone: phone.trim() || undefined,
         });
+
+        // Handle role change safely
+        if (role !== user.role) {
+          await setUserRole(user.uid, role);
+        }
+
+        // Handle city change for rep
+        if (role === 'rep' && city !== user.city) {
+          if (!city) throw new Error("City/District cannot be empty for a rep");
+          await setUserCity(user.uid, city);
+        }
         
         toast({
           title: 'User Updated',
@@ -153,6 +171,43 @@ export function EditUserDialog({
               disabled={isSubmitting}
             />
           </div>
+
+          {/* Role Field */}
+          <div className="grid gap-2">
+            <Label>Role</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as 'admin' | 'rep')} disabled={isSubmitting}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="rep">Representative</SelectItem>
+              </SelectContent>
+            </Select>
+            {role === 'admin' && user?.role !== 'admin' && (
+              <p className="text-xs text-amber-600 flex items-start gap-1 mt-1 font-medium bg-amber-50 p-1.5 rounded">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Warning: Assigning the Admin role grants this user critical system access.
+              </p>
+            )}
+          </div>
+
+          {/* District Field for Reps Only */}
+          {role === 'rep' && (
+            <div className="grid gap-2">
+              <Label>District</Label>
+              <Select value={city} onValueChange={setCity} disabled={isSubmitting}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select District" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64 mb-10 overflow-y-auto w-full max-w-none">
+                  {cities.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

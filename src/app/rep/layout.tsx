@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { LogOut, Stethoscope, Loader, PlusCircle, AlertTriangle, WifiOff } from 'lucide-react';
+import { LogOut, Stethoscope, Loader, PlusCircle, AlertTriangle, WifiOff, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     DropdownMenu,
@@ -239,9 +239,54 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                     </Badge>
                 ) : null}
             </header>
-            <main className="flex-1 px-4 md:px-6 lg:px-8">
-                {children}
-            </main>
+
+        <main className="flex-1 px-4 md:px-6 lg:px-8 pt-4">
+            {children}
+        </main>
+
+        {/* Bottom Tab Bar — shown only when online and authenticated */}
+        {user && !isOfflineMode && (
+            <nav
+                className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur-sm"
+                style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
+                <div className="flex items-center justify-around h-16 max-w-screen-lg mx-auto">
+                    <Link
+                        href="/rep"
+                        className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors ${
+                            pathname === '/rep'
+                                ? 'text-primary'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <LayoutDashboard className="h-5 w-5" />
+                        <span className="text-[10px] font-medium">Dashboard</span>
+                    </Link>
+                    <Link
+                        href="/rep/doctors"
+                        className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors ${
+                            pathname === '/rep/doctors'
+                                ? 'text-primary'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <Stethoscope className="h-5 w-5" />
+                        <span className="text-[10px] font-medium">Doctors</span>
+                    </Link>
+                    <Link
+                        href="/rep/requests"
+                        className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors ${
+                            pathname === '/rep/requests'
+                                ? 'text-primary'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <ClipboardList className="h-5 w-5" />
+                        <span className="text-[10px] font-medium">Requests</span>
+                    </Link>
+                </div>
+            </nav>
+        )}
             {user?.email && (
                 <PasswordResetDialog
                     open={isPasswordResetOpen}

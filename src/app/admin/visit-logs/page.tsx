@@ -408,73 +408,146 @@ export default function AdminVisitLogsPage() {
                             <p className="ml-4 text-muted-foreground">Loading visit logs...</p>
                         </div>
                     ) : filteredLogs.length > 0 ? (
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Doctor</TableHead>
-                                        <TableHead>Representative</TableHead>
-                                        <TableHead>Date &amp; Time</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Location</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredLogs.map((log) => (
-                                        <TableRow key={log.id}>
-                                            <TableCell className="font-medium">
-                                                {log.doctorName || 'Unknown Doctor'}
-                                                <p className="text-[10px] text-muted-foreground font-normal">ID: {log.doctorId}</p>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="font-medium">{log.repName}</span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{format(log.timestamp.toDate(), 'dd MMM yyyy')}</span>
-                                                    <span className="text-xs text-muted-foreground">{format(log.timestamp.toDate(), 'hh:mm a')}</span>
-                                                    <span className="text-[10px] text-muted-foreground mt-0.5">
-                                                        {formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true })}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant={log.status === 'VISITED' ? 'default' : 'secondary'}
-                                                    className={log.status === 'VISITED'
-                                                        ? 'bg-green-100 text-green-800 border-green-200'
-                                                        : 'bg-gray-100 text-gray-600'}
-                                                >
-                                                    {log.status === 'VISITED' ? 'Visited' : 'Not Visited'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                {log.latitude && log.longitude ? (
-                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                        <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
-                                                        <span>{log.latitude.toFixed(4)}, {log.longitude.toFixed(4)}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground italic">No location</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                {log.latitude && log.longitude && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => openInGoogleMaps(log.latitude!, log.longitude!)}
-                                                    >
-                                                        <ExternalLink className="h-4 w-4 mr-1.5" />
-                                                        Map
-                                                    </Button>
-                                                )}
-                                            </TableCell>
+                        <div className="space-y-4">
+                            {/* Desktop Table View */}
+                            <div className="hidden lg:block overflow-x-auto bg-card rounded-xl border shadow-sm">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Doctor</TableHead>
+                                            <TableHead>Representative</TableHead>
+                                            <TableHead>Date &amp; Time</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Location</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredLogs.map((log) => (
+                                            <TableRow key={log.id}>
+                                                <TableCell className="font-medium">
+                                                    {log.doctorName || 'Unknown Doctor'}
+                                                    <p className="text-[10px] text-muted-foreground font-normal">ID: {log.doctorId}</p>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="font-medium">{log.repName}</span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{format(log.timestamp.toDate(), 'dd MMM yyyy')}</span>
+                                                        <span className="text-xs text-muted-foreground">{format(log.timestamp.toDate(), 'hh:mm a')}</span>
+                                                        <span className="text-[10px] text-muted-foreground mt-0.5">
+                                                            {formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true })}
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge
+                                                        variant={log.status === 'VISITED' ? 'default' : 'secondary'}
+                                                        className={log.status === 'VISITED'
+                                                            ? 'bg-green-100 text-green-800 border-green-200'
+                                                            : 'bg-gray-100 text-gray-600'}
+                                                    >
+                                                        {log.status === 'VISITED' ? 'Visited' : 'Not Visited'}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {log.latitude && log.longitude ? (
+                                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                            <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                                                            <span>{log.latitude.toFixed(4)}, {log.longitude.toFixed(4)}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground italic">No location</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {log.latitude && log.longitude && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => openInGoogleMaps(log.latitude!, log.longitude!)}
+                                                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                        >
+                                                            <ExternalLink className="h-4 w-4 mr-1.5" />
+                                                            Map
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Mobile Card View */}
+                            <div className="lg:hidden grid gap-3 grid-cols-1 sm:grid-cols-2">
+                                {filteredLogs.map(log => (
+                                    <Card key={log.id} className="overflow-hidden border rounded-xl shadow-sm">
+                                        <CardContent className="p-0 flex flex-col h-full">
+                                            <div className="bg-muted/10 p-3 border-b flex items-start justify-between gap-3 border-primary/5">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-headline text-[1.05rem] font-bold text-primary truncate leading-tight">
+                                                        {log.doctorName || 'Unknown Doctor'}
+                                                    </p>
+                                                    <div className="flex items-center text-xs text-muted-foreground mt-1 gap-1 flex-wrap">
+                                                        <span className="font-medium bg-primary/5 text-primary/80 px-1.5 py-0.5 rounded flex items-center">
+                                                            <Users className="w-3 h-3 mr-1" />
+                                                            {log.repName}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0">
+                                                    <Badge
+                                                        variant={log.status === 'VISITED' ? 'default' : 'secondary'}
+                                                        className={log.status === 'VISITED'
+                                                            ? 'bg-green-100 text-green-800 border-green-200 text-[10px] uppercase tracking-widest'
+                                                            : 'bg-gray-100 text-gray-600 text-[10px] uppercase tracking-widest'}
+                                                    >
+                                                        {log.status === 'VISITED' ? 'Visited' : 'Not Visited'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-3 grid gap-2 mt-auto">
+                                                <div className="flex justify-between items-center bg-muted/30 p-2 rounded-md mb-1 text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <CalendarDays className="h-4 w-4 text-primary/70" />
+                                                        <div>
+                                                            <div className="font-medium text-foreground">{format(log.timestamp.toDate(), 'dd MMM yyyy, hh:mm a')}</div>
+                                                            <div className="text-[10px] text-muted-foreground">{formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true })}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex justify-between items-center px-1">
+                                                    <div className="flex-1">
+                                                        {log.latitude && log.longitude ? (
+                                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                                                                <span>{log.latitude.toFixed(3)}, {log.longitude.toFixed(3)}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground italic flex items-center gap-1"><MapPin className="h-3 w-3 opacity-50" /> No location saved</span>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    {log.latitude && log.longitude && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => openInGoogleMaps(log.latitude!, log.longitude!)}
+                                                            className="text-xs h-7 px-2 text-blue-700 border-blue-200 hover:bg-blue-50"
+                                                        >
+                                                            <ExternalLink className="h-3 w-3 mr-1" /> Map
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">

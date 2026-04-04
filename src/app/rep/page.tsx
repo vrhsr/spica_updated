@@ -4,9 +4,9 @@ import React, { useMemo } from 'react';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   HeartPulse,
@@ -15,6 +15,9 @@ import {
   ArrowRight,
   Loader,
   FileCheck,
+  MapPin,
+  Stethoscope,
+  Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
@@ -22,6 +25,7 @@ import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { StartDayButton } from '@/components/StartDayButton';
 import { OfflinePresentationsCard } from '@/components/OfflinePresentationsCard';
 import { useOfflineReady } from '@/hooks/useOfflineReady';
+import { format } from 'date-fns';
 
 type Doctor = { id: string; city: string; name: string };
 type Request = {
@@ -42,8 +46,6 @@ type UserProfile = {
 };
 
 export default function RepDashboardPage() {
-  // Initialize offline storage and sync manager on dashboard load
-  // This ensures pending sync state is detected from IndexedDB
   useOfflineReady();
 
   const { user, isUserLoading: isAuthLoading } = useUser();
@@ -81,51 +83,77 @@ export default function RepDashboardPage() {
   const dashboardStats = useMemo(() => {
     const pendingRequests = requests?.filter(r => r.status === 'pending').length || 0;
     const readyPpts = presentations?.filter(p => p.pdfUrl && !p.dirty && !p.error).length || 0;
+    const totalDoctors = doctors?.length || 0;
 
     return [
       {
         title: 'Presentations Ready',
-        description: 'Presentations for doctors',
+        description: 'Available for your doctors',
         count: readyPpts.toString(),
         icon: FileCheck,
         href: '/rep/doctors',
-        color: 'text-primary',
+        gradient: 'from-primary/10 to-primary/5',
+        iconBg: 'bg-primary/15',
+        iconColor: 'text-primary',
+        badge: readyPpts > 0 ? 'View All' : null,
       },
       {
         title: 'Pending Requests',
-        description: 'Track updates you have submitted for review',
+        description: 'Awaiting admin review',
         count: pendingRequests.toString(),
         icon: Mail,
         href: '/rep/requests',
-        color: 'text-yellow-500',
+        gradient: 'from-amber-500/10 to-amber-500/5',
+        iconBg: 'bg-amber-500/15',
+        iconColor: 'text-amber-600',
+        badge: pendingRequests > 0 ? `${pendingRequests} pending` : null,
       },
       {
-        title: 'Propose a Change',
-        description: 'Add a new doctor or update slides',
-        count: '+',
-        icon: PlusCircle,
-        href: '/rep/requests?action=propose',
-        color: 'text-accent',
+        title: 'Total Doctors',
+        description: 'In your district',
+        count: totalDoctors.toString(),
+        icon: Stethoscope,
+        href: '/rep/doctors',
+        gradient: 'from-emerald-500/10 to-emerald-500/5',
+        iconBg: 'bg-emerald-500/15',
+        iconColor: 'text-emerald-600',
+        badge: null,
       },
     ];
   }, [doctors, requests, presentations]);
 
   if (isLoading) {
     return (
-      <div className="flex h-64 w-full items-center justify-center">
+      <div className="flex h-64 w-full flex-col items-center justify-center gap-3">
         <Loader className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-4 text-muted-foreground">Loading dashboard...</p>
+        <p className="text-sm text-muted-foreground animate-pulse">Loading dashboard...</p>
       </div>
     );
   }
 
+  const firstName = user?.displayName?.split(' ')[0] || 'there';
+  const today = format(new Date(), 'EEEE, d MMMM');
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Dashboard
-        </h1>
-        <div className="w-full md:w-auto">
+    <div className="space-y-6 pb-24">
+
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">{today}</p>
+          <h1 className="font-headline text-2xl sm:text-3xl font-bold tracking-tight mt-0.5">
+            Hello, {firstName} 👋
+          </h1>
+          {repCity && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                District: <span className="font-semibold text-foreground">{repCity}</span>
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="w-full sm:w-auto">
           <StartDayButton
             presentations={presentations || []}
             doctors={doctors || []}
@@ -133,31 +161,50 @@ export default function RepDashboardPage() {
         </div>
       </div>
 
-      {/* Top Row - Stats + Offline Card */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+      {/* Stats Grid — 3 across on tablet, 1 per row on small mobile */}
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         {dashboardStats.map((item) => (
-          <Card
-            key={item.title}
-            className="group relative overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md"
-          >
-            <Link href={item.href} className="flex h-full flex-col">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {item.title}
-                </CardTitle>
-                <div className={`p-2 rounded-lg bg-${item.color.replace('text-', '')}/10`}>
-                  <item.icon className={`h-5 w-5 ${item.color}`} />
+          <Link key={item.title} href={item.href} className="group block">
+            <Card className={`relative overflow-hidden border rounded-xl transition-all duration-200 hover:shadow-md hover:border-primary/30 active:scale-[0.98]`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className={`p-2 rounded-lg ${item.iconBg}`}>
+                    <item.icon className={`h-5 w-5 ${item.iconColor}`} />
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors group-hover:translate-x-0.5 transform duration-150" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{item.count}</div>
-                <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
+                <div className={`text-3xl font-bold font-headline ${item.iconColor}`}>
+                  {item.count}
+                </div>
+                <p className="text-sm font-medium text-foreground mt-0.5">{item.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
               </CardContent>
-            </Link>
-          </Card>
+            </Card>
+          </Link>
         ))}
-        <OfflinePresentationsCard />
       </div>
+
+      {/* Quick Action */}
+      <Link href="/rep/requests?action=propose">
+        <Card className="border rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15 border-primary/20 transition-all duration-200 hover:shadow-md cursor-pointer active:scale-[0.99]">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                <PlusCircle className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Propose a Change</p>
+                <p className="text-xs text-muted-foreground">Add a new doctor or update slides</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-primary/60" />
+          </CardContent>
+        </Card>
+      </Link>
+
+      {/* Offline Presentations */}
+      <OfflinePresentationsCard />
+
     </div>
   );
 }

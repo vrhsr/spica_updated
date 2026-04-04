@@ -327,180 +327,196 @@ export default function AdminRequestsPage() {
           ) : (
             <>
               {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto max-w-[calc(100vw-3rem)] md:max-w-full">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Request Type</TableHead>
-                      <TableHead>Doctor</TableHead>
-                      <TableHead>Proposed City</TableHead>
-                      <TableHead>Representative</TableHead>
-                      <TableHead>District</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-14">View</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRequests.length > 0 ? (
-                      filteredRequests.map(req => (
-                        <TableRow key={req.id}>
-                          <TableCell className="font-medium">
-                            {req.requestType === 'New Doctor' ? (
-                              <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100">
-                                {req.requestType}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                                {req.requestType}
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium">{req.doctorNameDisplay}</TableCell>
-                          <TableCell className="text-muted-foreground">{req.doctorCityDisplay}</TableCell>
-                          <TableCell className="text-muted-foreground">{req.repName}</TableCell>
-                          <TableCell className="text-muted-foreground font-medium">{req.repDistrict}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            <span title={format(req.createdAt.toDate(), 'PPP p')}>
-                              {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
-                            </span>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(req.status)}</TableCell>
-                          <TableCell>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => setPreviewRequest(req)}
-                              disabled={isSubmitting}
-                              title="View Slides"
-                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {req.status === 'pending' ? (
-                              <div className="flex justify-end items-center gap-2">
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  onClick={() => setEditingRequest(req)}
-                                  disabled={isSubmitting}
-                                  title="Edit slides before approving"
-                                  className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleRejectRequest(req.id)}
-                                  disabled={isSubmitting}
-                                >
-                                  {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                                  Reject
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleApproveRequest(req)}
-                                  disabled={isSubmitting}
-                                >
-                                  {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                                  Approve
-                                </Button>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground italic">No actions</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
+                <div className="hidden lg:block overflow-x-auto bg-card rounded-xl border shadow-sm max-w-[calc(100vw-3rem)] md:max-w-full">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
-                          <div className="flex flex-col items-center justify-center">
-                            <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                            <h3 className="mt-4 text-lg font-semibold">No Requests Found</h3>
-                            <p className="mt-1 text-sm">There are no pending or past requests to review.</p>
-                          </div>
-                        </TableCell>
+                        <TableHead>Request Type</TableHead>
+                        <TableHead>Doctor</TableHead>
+                        <TableHead>Proposed City</TableHead>
+                        <TableHead>Representative</TableHead>
+                        <TableHead>District</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-14">View</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile Card View */}
-              <div className="md:hidden space-y-4">
-                {filteredRequests.length > 0 ? (
-                  filteredRequests.map(req => (
-                    <Card key={req.id} className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRequests.length > 0 ? (
+                        filteredRequests.map(req => (
+                          <TableRow key={req.id}>
+                            <TableCell className="font-medium">
                               {req.requestType === 'New Doctor' ? (
-                                <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-xs py-0.5">
+                                <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100">
                                   {req.requestType}
                                 </Badge>
                               ) : (
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-xs py-0.5">
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100">
                                   {req.requestType}
                                 </Badge>
                               )}
-                              {getStatusBadge(req.status)}
+                            </TableCell>
+                            <TableCell className="font-medium">{req.doctorNameDisplay}</TableCell>
+                            <TableCell className="text-muted-foreground">{req.doctorCityDisplay}</TableCell>
+                            <TableCell className="text-muted-foreground">{req.repName}</TableCell>
+                            <TableCell className="text-muted-foreground font-medium">{req.repDistrict}</TableCell>
+                            <TableCell className="text-muted-foreground">
+                              <span title={format(req.createdAt.toDate(), 'PPP p')}>
+                                {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
+                              </span>
+                            </TableCell>
+                            <TableCell>{getStatusBadge(req.status)}</TableCell>
+                            <TableCell>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setPreviewRequest(req)}
+                                disabled={isSubmitting}
+                                title="View Slides"
+                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {req.status === 'pending' ? (
+                                <div className="flex justify-end items-center gap-2">
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() => setEditingRequest(req)}
+                                    disabled={isSubmitting}
+                                    title="Edit slides before approving"
+                                    className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleRejectRequest(req.id)}
+                                    disabled={isSubmitting}
+                                  >
+                                    {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                                    Reject
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleApproveRequest(req)}
+                                    disabled={isSubmitting}
+                                  >
+                                    {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                                    Approve
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">No actions</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
+                            <div className="flex flex-col items-center justify-center">
+                              <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+                              <h3 className="mt-4 text-lg font-semibold">No Requests Found</h3>
+                              <p className="mt-1 text-sm">There are no pending or past requests to review.</p>
                             </div>
-                            <p className="font-semibold">{req.doctorNameDisplay}</p>
-                            <p className="text-sm text-muted-foreground">{req.doctorCityDisplay}</p>
-                            <p className="text-sm text-muted-foreground mt-1">Rep: <span className="font-medium">{req.repName}</span> ({req.repDistrict})</p>
-                            <p className="text-xs text-muted-foreground/80 flex items-center justify-between mt-1">
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden grid gap-3 grid-cols-1 sm:grid-cols-2">
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map(req => (
+                    <Card key={req.id} className="overflow-hidden border rounded-xl shadow-sm">
+                      <CardContent className="p-0 flex flex-col h-full">
+                        <div className="bg-muted/10 p-3 border-b flex items-start justify-between gap-3 border-primary/5">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {req.requestType === 'New Doctor' ? (
+                                <Badge variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-100 text-[10px] py-0 px-1.5 h-4 font-semibold uppercase tracking-widest leading-tight">
+                                  {req.requestType}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-[10px] py-0 px-1.5 h-4 font-semibold uppercase tracking-widest leading-tight">
+                                  {req.requestType}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="font-headline text-[1.05rem] font-bold text-primary truncate leading-tight">{req.doctorNameDisplay}</p>
+                            <div className="flex items-center text-xs text-muted-foreground mt-1 gap-1 flex-wrap">
+                              <span className="font-medium bg-primary/5 text-primary/80 px-1.5 py-0.5 rounded">{req.doctorCityDisplay}</span>
+                              <span className="text-muted-foreground/30">•</span>
+                              <span className="text-xs text-muted-foreground mt-0.5">Rep: <span className="font-medium text-foreground">{req.repName}</span> ({req.repDistrict})</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground/80 flex items-center gap-1 mt-1.5">
                               {formatDistanceToNow(req.createdAt.toDate(), { addSuffix: true })}
                             </p>
                           </div>
+                          <div className="shrink-0">{getStatusBadge(req.status)}</div>
                         </div>
 
-                        {req.status === 'pending' && (
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setPreviewRequest(req)}
-                              disabled={isSubmitting}
-                              className="flex-1"
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRejectRequest(req.id)}
-                              disabled={isSubmitting}
-                              className="flex-1"
-                            >
-                              {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveRequest(req)}
-                              disabled={isSubmitting}
-                              className="flex-1"
-                            >
-                              {submittingId === req.id && isSubmitting ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                              Approve
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                        <div className="p-3 grid gap-2 mt-auto">
+                          {req.status === 'pending' ? (
+                            <div className="grid grid-cols-3 gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setPreviewRequest(req)}
+                                disabled={isSubmitting}
+                                className="w-full text-xs h-8 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+                              >
+                                <Eye className="mr-1.5 h-3 w-3" />
+                                View
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRejectRequest(req.id)}
+                                disabled={isSubmitting}
+                                className="w-full text-xs h-8 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20"
+                              >
+                                {submittingId === req.id && isSubmitting ? <Loader className="h-3 w-3 animate-spin mx-auto" /> : <><X className="mr-1.5 h-3 w-3" />Reject</>}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveRequest(req)}
+                                disabled={isSubmitting}
+                                className="w-full text-xs h-8 bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                {submittingId === req.id && isSubmitting ? <Loader className="h-3 w-3 animate-spin mx-auto" /> : <><Check className="mr-1.5 h-3 w-3" />Approve</>}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setPreviewRequest(req)}
+                                disabled={isSubmitting}
+                                className="w-full text-xs h-8"
+                              >
+                                <Eye className="mr-1.5 h-3 w-3" />
+                                View Details
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
                     </Card>
                   ))
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                    <h3 className="mt-4 text-lg font-semibold">No Requests Found</h3>
-                    <p className="mt-1 text-sm">There are no pending or past requests to review.</p>
+                  <div className="col-span-full py-12 px-4 text-center border-2 border-dashed rounded-xl border-muted bg-muted/5 text-muted-foreground">
+                    <FileQuestion className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                    <h3 className="text-sm font-semibold">No Requests Found</h3>
+                    <p className="text-xs mt-1">There are no pending or past requests to review.</p>
                   </div>
                 )}
               </div>

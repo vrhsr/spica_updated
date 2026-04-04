@@ -18,7 +18,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader, Search, FileQuestion, Monitor, MapPin } from 'lucide-react';
+import { Loader, Search, FileQuestion, Monitor, MapPin, Clock, RefreshCw } from 'lucide-react';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { OfflineBadge } from '@/components/OfflineBadge';
 import { SaveOfflineButton } from '@/components/SaveOfflineButton';
@@ -128,8 +128,6 @@ export default function RepDoctorsPage() {
   useEffect(() => {
     const checkSync = async () => {
       if (enrichedPresentations.length > 0) {
-        // Only checking those with a valid id (though firestore docs always have id)
-        // Only checking those with a valid id (though firestore docs always have id)
         const validPresentations = enrichedPresentations.map(p => ({
           doctorId: p.doctorId,
           updatedAt: p.updatedAt,
@@ -151,7 +149,6 @@ export default function RepDoctorsPage() {
       return <Badge variant="destructive" title={presentation.error}>Failed</Badge>;
     }
 
-    // Check sync status first
     const sync = syncStatus.get(presentation.doctorId);
     if (sync?.status === 'OUTDATED') {
       return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">Update Available</Badge>;
@@ -167,9 +164,7 @@ export default function RepDoctorsPage() {
   }
 
   const handlePresentClick = (e: React.MouseEvent, doctorId: string, doctorName: string) => {
-    e.preventDefault(); // Prevent default if it was a link, though we use button now
-
-    // Synchronous check using localStorage (via offline-storage lib)
+    e.preventDefault();
     if (isAvailableOffline(doctorId)) {
       router.push(`/rep/present/view?id=${doctorId}`);
     } else {
@@ -191,28 +186,22 @@ export default function RepDoctorsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <OfflineIndicator />
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Doctor Presentations {repCity && <span className="text-primary">({repCity})</span>}
-        </h1>
-        <div className="flex gap-2 items-center flex-wrap">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by doctor or city..."
-              className="pl-9"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div className="space-y-1">
-            <CardTitle>Doctors</CardTitle>
+
+      {/* Header */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-headline text-2xl sm:text-3xl font-bold tracking-tight">
+              Doctor Presentations
+            </h1>
+            {repCity && (
+              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-primary" />
+                District: <span className="font-semibold text-primary">{repCity}</span>
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <SyncStatusIndicator outdatedCount={outdatedCount} />
@@ -224,159 +213,175 @@ export default function RepDoctorsPage() {
               />
             )}
           </div>
-        </CardHeader>
-        <CardContent>
-          {presentationsError ? (
-            <div className="py-8 text-center text-destructive">
-              Failed to load presentations. This may be a security rule issue.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Table view for desktop */}
-              <div className="hidden md:block overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Doctor Name</TableHead>
-                      <TableHead>City</TableHead>
-                      <TableHead>Last Updated</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {enrichedPresentations.length > 0 ? (
-                      enrichedPresentations.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">
-                            {p.doctorName}
-                          </TableCell>
-                          <TableCell>
-                            {p.doctorSubCity ? (
-                              <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
-                                {p.doctorSubCity}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground text-xs italic">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {p.updatedAt ? (
-                              <span title={format(p.updatedAt.toDate(), 'PPP p')}>
-                                {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
-                              </span>
-                            ) : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2 items-center">
-                              {getStatusBadge(p)}
-                              <OfflineBadge doctorId={p.doctorId} />
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right space-x-2 whitespace-nowrap">
-                            <SaveOfflineButton
-                              doctorId={p.doctorId}
-                              pdfUrl={p.pdfUrl || ''}
-                              doctorName={p.doctorName || 'Unknown'}
-                            />
-                            <OfflineAwareViewButton
-                              doctorId={p.doctorId}
-                              doctorName={p.doctorName || 'Unknown'}
-                              pdfUrl={p.pdfUrl}
-                            />
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="h-9"
-                              onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
-                            >
-                              <Monitor className="mr-2 h-4 w-4" />
-                              Present
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-48 text-center" />
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+        </div>
 
-              {/* Card view for mobile */}
-              <div className="md:hidden space-y-4">
+        {/* Search - full width */}
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by doctor name or city..."
+            className="pl-9 h-11 text-base"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {presentationsError ? (
+        <Card className="border-destructive/50">
+          <CardContent className="py-8 text-center text-destructive">
+            Failed to load presentations. This may be a security rule issue.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {/* Desktop Table — only shown on large screens (≥1024px) */}
+          <div className="hidden lg:block overflow-x-auto bg-card rounded-xl border shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Doctor Name</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {enrichedPresentations.length > 0 ? (
                   enrichedPresentations.map((p) => (
-                    <Card key={p.id} className="overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start gap-3">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg font-bold">{p.doctorName}</CardTitle>
-                              {p.doctorSubCity && (
-                                <span className="inline-flex items-center text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium mt-1">
-                                  <MapPin className="mr-1 h-2.5 w-2.5" />{p.doctorSubCity}
-                                </span>
-                              )}
-                            <CardDescription className="text-xs mt-1">
-                              {p.updatedAt ? (
-                                `Updated ${formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}`
-                              ) : 'Last updated: N/A'}
-                            </CardDescription>
-                          </div>
-                          <div className="flex flex-col items-end gap-1.5">
-                            {getStatusBadge(p)}
-                            <OfflineBadge doctorId={p.doctorId} />
-                          </div>
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.doctorName}</TableCell>
+                      <TableCell>
+                        {p.doctorSubCity ? (
+                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">
+                            {p.doctorSubCity}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs italic">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {p.updatedAt ? (
+                          <span title={format(p.updatedAt.toDate(), 'PPP p')}>
+                            {formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })}
+                          </span>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2 items-center">
+                          {getStatusBadge(p)}
+                          <OfflineBadge doctorId={p.doctorId} />
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2">
-                          <SaveOfflineButton
-                            doctorId={p.doctorId}
-                            pdfUrl={p.pdfUrl || ''}
-                            doctorName={p.doctorName || 'Unknown'}
-                          />
-                          <OfflineAwareViewButton
-                            doctorId={p.doctorId}
-                            doctorName={p.doctorName || 'Unknown'}
-                            pdfUrl={p.pdfUrl}
-                          />
-                        </div>
+                      </TableCell>
+                      <TableCell className="text-right space-x-2 whitespace-nowrap">
+                        <SaveOfflineButton
+                          doctorId={p.doctorId}
+                          pdfUrl={p.pdfUrl || ''}
+                          doctorName={p.doctorName || 'Unknown'}
+                        />
+                        <OfflineAwareViewButton
+                          doctorId={p.doctorId}
+                          doctorName={p.doctorName || 'Unknown'}
+                          pdfUrl={p.pdfUrl}
+                        />
                         <Button
                           variant="default"
-                          className="w-full h-11 text-base font-semibold"
+                          size="sm"
+                          className="h-9"
                           onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
                         >
                           <Monitor className="mr-2 h-4 w-4" />
-                          Start Presentation
+                          Present
                         </Button>
-                      </CardContent>
-                    </Card>
+                      </TableCell>
+                    </TableRow>
                   ))
                 ) : (
-                  <div className="py-12 text-center text-muted-foreground">
-                    No doctors found for your search.
-                  </div>
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                      {searchTerm ? 'No doctors match your search.' : 'No presentations assigned to your district.'}
+                    </TableCell>
+                  </TableRow>
                 )}
-              </div>
+              </TableBody>
+            </Table>
+          </div>
 
-              {enrichedPresentations.length === 0 && (
-                <div className="py-24 text-center text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center">
-                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                    <h3 className="mt-4 text-lg font-semibold">No Presentations Found</h3>
-                    <p className="mt-1 text-sm">
-                      No presentations are currently assigned for your district.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          {/* Mobile + Tablet Card Grid — shown below 1024px */}
+          <div className="lg:hidden grid gap-3 grid-cols-1 sm:grid-cols-2">
+            {enrichedPresentations.length > 0 ? (
+              enrichedPresentations.map((p) => (
+                <Card key={p.id} className="overflow-hidden border rounded-xl shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99]">
+                  <CardContent className="p-0">
+                    {/* Card Header */}
+                    <div className="p-4 pb-3 border-b bg-muted/10">
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-headline text-base sm:text-lg font-bold text-foreground leading-tight truncate">
+                            {p.doctorName}
+                          </h3>
+                          {p.doctorSubCity && (
+                            <span className="inline-flex items-center text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium mt-1.5">
+                              <MapPin className="mr-1 h-2.5 w-2.5" />{p.doctorSubCity}
+                            </span>
+                          )}
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            {p.updatedAt
+                              ? formatDistanceToNow(p.updatedAt.toDate(), { addSuffix: true })
+                              : 'Not updated'}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          {getStatusBadge(p)}
+                          <OfflineBadge doctorId={p.doctorId} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Actions */}
+                    <div className="p-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <SaveOfflineButton
+                          doctorId={p.doctorId}
+                          pdfUrl={p.pdfUrl || ''}
+                          doctorName={p.doctorName || 'Unknown'}
+                        />
+                        <OfflineAwareViewButton
+                          doctorId={p.doctorId}
+                          doctorName={p.doctorName || 'Unknown'}
+                          pdfUrl={p.pdfUrl}
+                        />
+                      </div>
+                      <Button
+                        variant="default"
+                        className="w-full h-12 text-base font-semibold rounded-lg"
+                        onClick={(e) => handlePresentClick(e, p.doctorId, p.doctorName || 'Doctor')}
+                      >
+                        <Monitor className="mr-2 h-5 w-5" />
+                        Start Presentation
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="col-span-full py-16 text-center">
+                <FileQuestion className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+                <h3 className="text-base font-semibold text-muted-foreground">
+                  {searchTerm ? 'No results found' : 'No Presentations Found'}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {searchTerm
+                    ? 'Try a different search term.'
+                    : 'No presentations are currently assigned for your district.'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
