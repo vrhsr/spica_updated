@@ -162,7 +162,7 @@ export default function AdminRequestsPage() {
           const result = await generateAndUpsertPresentation({
             doctorId: newDoctorRef.id,
             doctorName: request.doctorName,
-            city: districtName, // Presentation generator takes district for backwards compatibility
+            city: districtName, // ALWAYS use District for filtering compatibility
             selectedSlides: request.selectedSlides,
             adminUid: adminUser.uid,
           });
@@ -191,10 +191,11 @@ export default function AdminRequestsPage() {
           await batch.commit();
 
           // 3. Trigger the presentation generation as a separate step after commit
+          const doctor = doctorMap.get(request.doctorId!);
           const result = await generateAndUpsertPresentation({
             doctorId: request.doctorId!,
             doctorName: request.doctorNameDisplay,
-            city: request.doctorCityDisplay,
+            city: doctor?.city || request.repDistrict || request.doctorCityDisplay, // District name is required for Rep portal visibility
             selectedSlides: request.selectedSlides,
             adminUid: adminUser.uid,
           });
