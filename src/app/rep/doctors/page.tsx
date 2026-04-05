@@ -75,7 +75,7 @@ export default function RepDoctorsPage() {
 
   const { data: userProfile, isLoading: isLoadingProfile } = useDoc<UserProfile>(userProfileRef);
 
-  const repCity = userProfile?.city;
+  const repCity = userProfile?.city?.trim().toUpperCase();
 
   const presentationsQuery = useMemoFirebase(() => {
     if (!firestore || !repCity) return null;

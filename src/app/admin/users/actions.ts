@@ -29,7 +29,8 @@ export const createUser = async (input: z.infer<typeof CreateUserInputSchema>) =
   if (!validation.success) {
     throw new Error(`Invalid input: ${validation.error.flatten().fieldErrors}`);
   }
-  const { name, email, phone, role, city, adminUid } = validation.data;
+  const { name, email, phone, role, adminUid } = validation.data;
+  const city = validation.data.city?.trim().toUpperCase() || null;
 
   // Check for duplicate name
   const existingUserSnapshot = await adminFirestore
@@ -109,7 +110,8 @@ const SetUserCityInputSchema = z.object({
   city: z.string().min(1, 'City is required'),
 });
 
-export const setUserCity = async (uid: string, city: string) => {
+export const setUserCity = async (uid: string, rawCity: string) => {
+  const city = rawCity.trim().toUpperCase();
   const validation = SetUserCityInputSchema.safeParse({ uid, city });
   if (!validation.success) {
     throw new Error(`Invalid input: ${validation.error.flatten().fieldErrors}`);

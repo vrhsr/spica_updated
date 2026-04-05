@@ -134,7 +134,7 @@ export default function DoctorsPage() {
       const result = await generateAndUpsertPresentation({
         doctorId,
         doctorName,
-        city,
+        city: city.trim().toUpperCase(),
         selectedSlides,
         adminUid: adminUser.uid,
       });
@@ -239,7 +239,12 @@ export default function DoctorsPage() {
 
       let tempId: string | null = null;
       const doctorsCollection = collection(firestore, 'doctors');
-      const docRef = await addDoc(doctorsCollection, newDoctor).catch(err => {
+      const normalizedDoctor = {
+        ...newDoctor,
+        city: newDoctor.city.trim().toUpperCase(),
+        subCity: newDoctor.subCity?.trim().toUpperCase()
+      };
+      const docRef = await addDoc(doctorsCollection, normalizedDoctor).catch(err => {
         const contextualError = new FirestorePermissionError({
           operation: 'create',
           path: doctorsCollection.path,
@@ -295,8 +300,14 @@ export default function DoctorsPage() {
 
       const doctorRef = doc(firestore, 'doctors', doctorId);
       
+      const normalizedDetails = {
+        ...details,
+        city: details.city.trim().toUpperCase(),
+        subCity: details.subCity?.trim().toUpperCase()
+      };
+
       // Update Doctor record
-      await updateDoc(doctorRef, details);
+      await updateDoc(doctorRef, normalizedDetails);
 
       toast({
         title: "Doctor Updated",
