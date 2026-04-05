@@ -21,7 +21,11 @@ service cloud.firestore {
 
     function isRepInCity(city) {
       // Check if the user is a rep and their assigned city matches the document's city.
-      return isRep() && request.auth.token.city == city;
+      // We check BOTH the auth token (fast) and the firestore document (reliable/real-time).
+      return isRep() && (
+        request.auth.token.city == city || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.city == city
+      );
     }
 
     // USERS COLLECTION RULES
