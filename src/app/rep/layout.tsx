@@ -65,8 +65,8 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     // 1. /rep/offline page (always)
     // 2. /rep/present/* routes (always - user already authenticated to reach this point)
     const isBypassMode = searchParams.get('mode') === 'bypass';
-    const isOfflineMode = pathname === '/rep/offline' ||
-        pathname.startsWith('/rep/present/');
+    const isOfflineMode = pathname.includes('/rep/offline') ||
+        pathname.includes('/rep/present/');
 
     // Check online/offline status
     useEffect(() => {
@@ -166,7 +166,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
 
-    if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode) {
+    if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode && isOnline) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -240,49 +240,61 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                 ) : null}
             </header>
 
-        <main className="flex-1 px-4 md:px-6 lg:px-8 pt-4">
+        <main className="flex-1 px-4 md:px-6 lg:px-8 pt-4 pb-2 max-w-screen-xl mx-auto w-full">
             {children}
         </main>
 
         {/* Bottom Tab Bar — shown only when online and authenticated */}
         {user && !isOfflineMode && (
             <nav
-                className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur-sm"
+                className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur-sm shadow-lg"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
-                <div className="flex items-center justify-around h-16 max-w-screen-lg mx-auto">
+                <div className="flex items-center justify-around h-16 md:h-20 max-w-screen-xl mx-auto px-2">
                     <Link
                         href="/rep"
-                        className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors ${
+                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full rounded-xl mx-1 transition-all duration-200 ${
                             pathname === '/rep'
                                 ? 'text-primary'
                                 : 'text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <LayoutDashboard className="h-5 w-5" />
-                        <span className="text-[10px] font-medium">Dashboard</span>
+                        <div className={`p-1.5 rounded-xl transition-all duration-200 ${
+                            pathname === '/rep' ? 'bg-primary/15' : ''
+                        }`}>
+                            <LayoutDashboard className="h-5 w-5 md:h-6 md:w-6" />
+                        </div>
+                        <span className="text-[10px] md:text-xs font-medium">Dashboard</span>
                     </Link>
                     <Link
                         href="/rep/doctors"
-                        className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors ${
+                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full rounded-xl mx-1 transition-all duration-200 ${
                             pathname === '/rep/doctors'
                                 ? 'text-primary'
                                 : 'text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <Stethoscope className="h-5 w-5" />
-                        <span className="text-[10px] font-medium">Doctors</span>
+                        <div className={`p-1.5 rounded-xl transition-all duration-200 ${
+                            pathname === '/rep/doctors' ? 'bg-primary/15' : ''
+                        }`}>
+                            <Stethoscope className="h-5 w-5 md:h-6 md:w-6" />
+                        </div>
+                        <span className="text-[10px] md:text-xs font-medium">Doctors</span>
                     </Link>
                     <Link
                         href="/rep/requests"
-                        className={`flex flex-col items-center justify-center gap-0.5 w-full h-full transition-colors ${
+                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full rounded-xl mx-1 transition-all duration-200 ${
                             pathname === '/rep/requests'
                                 ? 'text-primary'
                                 : 'text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <ClipboardList className="h-5 w-5" />
-                        <span className="text-[10px] font-medium">Requests</span>
+                        <div className={`p-1.5 rounded-xl transition-all duration-200 ${
+                            pathname === '/rep/requests' ? 'bg-primary/15' : ''
+                        }`}>
+                            <ClipboardList className="h-5 w-5 md:h-6 md:w-6" />
+                        </div>
+                        <span className="text-[10px] md:text-xs font-medium">Requests</span>
                     </Link>
                 </div>
             </nav>

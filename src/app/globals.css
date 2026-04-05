@@ -70,6 +70,35 @@
   body[style] {
     pointer-events: auto !important;
   }
+
+  /* ── Native Android App Optimizations ── */
+
+  /* Disable browser pull-to-refresh (accidental reloads in native webview) */
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  /* Disable tap highlight (native app feel) */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent text selection on interactive UI elements */
+  button, a, [role="button"], nav, label {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Smooth momentum scrolling on iOS/Android */
+  .overflow-y-auto, .overflow-auto, main {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Minimum tap target size for accessibility on tablets */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 @layer utilities {

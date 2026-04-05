@@ -135,17 +135,17 @@ export default function RepDashboardPage() {
   const today = format(new Date(), 'EEEE, d MMMM');
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-5 pb-28 md:pb-32">
 
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">{today}</p>
-          <h1 className="font-headline text-2xl sm:text-3xl font-bold tracking-tight mt-0.5">
+          <p className="text-xs md:text-sm text-muted-foreground font-medium uppercase tracking-wide">{today}</p>
+          <h1 className="font-headline text-2xl md:text-4xl font-bold tracking-tight mt-1">
             Hello, {firstName} 👋
           </h1>
           {repCity && (
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-1.5 mt-1.5">
               <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
               <span className="text-sm text-muted-foreground">
                 District: <span className="font-semibold text-foreground">{repCity}</span>
@@ -161,23 +161,23 @@ export default function RepDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid — 3 across on tablet, 1 per row on small mobile */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+      {/* Stats Grid — 3 per row on tablets (always), 1-col on small phone */}
+      <div className="grid gap-3 grid-cols-3">
         {dashboardStats.map((item) => (
           <Link key={item.title} href={item.href} className="group block">
-            <Card className={`relative overflow-hidden border rounded-xl transition-all duration-200 hover:shadow-md hover:border-primary/30 active:scale-[0.98]`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`p-2 rounded-lg ${item.iconBg}`}>
-                    <item.icon className={`h-5 w-5 ${item.iconColor}`} />
+            <Card className={`relative overflow-hidden border rounded-xl transition-all duration-200 hover:shadow-md hover:border-primary/30 active:scale-[0.97]`}>
+              <CardContent className="p-3 md:p-5">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <div className={`p-1.5 md:p-2.5 rounded-lg ${item.iconBg}`}>
+                    <item.icon className={`h-4 w-4 md:h-5 md:w-5 ${item.iconColor}`} />
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors group-hover:translate-x-0.5 transform duration-150" />
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors group-hover:translate-x-0.5 transform duration-150" />
                 </div>
-                <div className={`text-3xl font-bold font-headline ${item.iconColor}`}>
+                <div className={`text-2xl md:text-3xl font-bold font-headline ${item.iconColor}`}>
                   {item.count}
                 </div>
-                <p className="text-sm font-medium text-foreground mt-0.5">{item.title}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                <p className="text-xs md:text-sm font-medium text-foreground mt-0.5 leading-tight">{item.title}</p>
+                <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 leading-tight hidden sm:block">{item.description}</p>
               </CardContent>
             </Card>
           </Link>
@@ -187,17 +187,17 @@ export default function RepDashboardPage() {
       {/* Quick Action */}
       <Link href="/rep/requests?action=propose">
         <Card className="border rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15 border-primary/20 transition-all duration-200 hover:shadow-md cursor-pointer active:scale-[0.99]">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center">
-                <PlusCircle className="h-5 w-5 text-primary" />
+          <CardContent className="p-4 md:p-5 flex items-center justify-between">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="h-11 w-11 md:h-12 md:w-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <PlusCircle className="h-5 w-5 md:h-6 md:w-6 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-sm">Propose a Change</p>
-                <p className="text-xs text-muted-foreground">Add a new doctor or update slides</p>
+                <p className="font-semibold text-sm md:text-base">Propose a Change</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Add a new doctor or update slides for your district</p>
               </div>
             </div>
-            <ArrowRight className="h-5 w-5 text-primary/60" />
+            <ArrowRight className="h-5 w-5 text-primary/60 shrink-0" />
           </CardContent>
         </Card>
       </Link>

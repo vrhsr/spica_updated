@@ -46,11 +46,8 @@ export default function LandingPage() {
   const handleAdminClick = async (e: React.MouseEvent) => {
     if (isCapApp) {
       e.preventDefault();
-      try {
-        await Browser.open({ url: 'https://spicasg.in/admin-login' });
-      } catch (error) {
-        console.error('Failed to open browser:', error);
-      }
+      // Navigate to the live website inside the Capacitor WebView
+      window.location.href = 'https://spicasg.in/admin-login';
     }
     // If not Capacitor, let the default Link behavior work
   };

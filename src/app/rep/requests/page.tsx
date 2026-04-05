@@ -599,7 +599,7 @@ export default function RepRequestsPage() {
   }), [sortedRequests]);
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-28 md:pb-32">
 
       {/* Page Header */}
       <div className="flex flex-col gap-4">

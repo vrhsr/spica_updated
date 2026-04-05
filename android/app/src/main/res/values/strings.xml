@@ -4,4 +4,5 @@
     <string name="title_activity_main">SpicaSG</string>
     <string name="package_name">io.spicasg.app</string>
     <string name="custom_url_scheme">io.spicasg.app</string>
+    <string name="server_client_id">731200978852-8mvn08dar40n0pr1u276hbgmlt9nsqjm.apps.googleusercontent.com</string>
 </resources>

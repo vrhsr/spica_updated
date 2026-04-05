@@ -209,12 +209,16 @@ export default function RepLoginPage() {
             <Button
               variant="outline"
               className="mb-5 w-full flex items-center gap-2 border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 text-primary font-semibold h-11 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
-              asChild
+              onClick={() => {
+                if (isCapacitorApp()) {
+                  window.location.href = 'https://spicasg.in/admin-login';
+                } else {
+                  router.push('/admin-login');
+                }
+              }}
             >
-              <Link href="/admin-login">
-                <ArrowLeft className="h-4 w-4 shrink-0" />
-                Switch to Admin Login
-              </Link>
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              Switch to Admin Login
             </Button>
             <div className="text-center">
               <h2 className="font-headline text-2xl font-bold tracking-tight">Representative Login</h2>
@@ -318,8 +322,18 @@ export default function RepLoginPage() {
               <div className="mt-4 text-center space-y-2">
                 <p className="text-sm text-destructive">{error}</p>
                 {error.includes('Admin portal') && (
-                  <Button variant="link" asChild className="text-primary h-auto p-0 font-medium">
-                    <Link href="/admin-login">Go to Admin Login</Link>
+                  <Button 
+                    variant="link" 
+                    className="text-primary h-auto p-0 font-medium"
+                    onClick={() => {
+                      if (isCapacitorApp()) {
+                        window.location.href = 'https://spicasg.in/admin-login';
+                      } else {
+                        router.push('/admin-login');
+                      }
+                    }}
+                  >
+                    Go to Admin Login
                   </Button>
                 )}
               </div>

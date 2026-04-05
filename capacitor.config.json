@@ -3,13 +3,29 @@
   "appName": "SPICA SG",
   "webDir": "out",
   "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["*spicasg.in*"]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0ea5e9",
+    "webContentsDebuggingEnabled": false
+  },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
+      "launchShowDuration": 1500,
+      "launchAutoHide": true,
       "backgroundColor": "#0ea5e9",
-      "showSpinner": true,
-      "androidSpinnerStyle": "large",
-      "spinnerColor": "#ffffff"
+      "androidSplashResourceName": "splash",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "Keyboard": {
+      "resize": "body",
+      "style": "dark",
+      "resizeOnFullScreen": true
     }
   }
 }

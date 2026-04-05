@@ -88,6 +88,23 @@ function restoreServerCode() {
     }
 }
 
+
+
+async function copyApkToDist() {
+    const apkSource = path.join(PROJECT_ROOT, 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+    if (!fs.existsSync(apkSource)) return;
+
+    const distDir = path.join(PROJECT_ROOT, 'dist');
+    if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const dest = path.join(distDir, `spica-sg-${timestamp}.apk`);
+    fs.copyFileSync(apkSource, dest);
+    console.log(`\n📦 APK copied to: dist/spica-sg-${timestamp}.apk`);
+    console.log('   Share this file with your team to install on tablets.');
+}
+
 async function main() {
     try {
         // Move server code out of the way
@@ -109,9 +126,8 @@ async function main() {
         console.log('');
         console.log('📱 Next steps:');
         console.log('   1. npx cap sync android');
-        console.log('   2. npx cap open android');
+        console.log('   2. npx cap open android  (or run gradlew.bat assembleDebug)');
         console.log('   3. Run on device');
-        console.log('   4. Test offline after sync');
 
     } catch (error) {
         console.error('');
