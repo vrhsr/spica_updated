@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 
 export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
+    setHasMounted(true);
     const setOffline = () => setIsOffline(true);
     const setOnline = () => setIsOffline(false);
 
@@ -22,7 +24,7 @@ export function OfflineBanner() {
     };
   }, []);
 
-  if (!isOffline) return null;
+  if (!hasMounted || !isOffline) return null;
 
   return (
     <div className="sticky top-0 z-50 w-full bg-yellow-500 py-2 text-center text-sm font-semibold text-black">

@@ -47,7 +47,8 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     const { user, role, isUserLoading: isAuthLoading } = useUser();
     const firestore = useFirestore();
     const [isTimedOut, setIsTimedOut] = useState(false);
-    const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+    const [isOnline, setIsOnline] = useState(true); // Default to true for stable server render
+    const [hasMounted, setHasMounted] = useState(false);
     const [hasCheckedOffline, setHasCheckedOffline] = useState(false);
     const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
     const repAvatar = PlaceHolderImages.find((img) => img.id === 'rep-avatar');
@@ -68,8 +69,13 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     const isOfflineMode = pathname.includes('/rep/offline') ||
         pathname.includes('/rep/present/');
 
-    // Check online/offline status
+    // Initial setup on mount
     useEffect(() => {
+        setHasMounted(true);
+        if (typeof navigator !== 'undefined') {
+            setIsOnline(navigator.onLine);
+        }
+
         const updateOnlineStatus = () => {
             const online = navigator.onLine;
             setIsOnline(online);
@@ -82,7 +88,6 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
             }
         };
 
-        updateOnlineStatus();
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
 
@@ -166,7 +171,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
 
-    if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode && isOnline) {
+    if (!hasMounted || ((isUserLoading || !user || role !== 'rep') && !isOfflineMode && isOnline)) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
