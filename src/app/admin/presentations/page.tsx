@@ -56,7 +56,6 @@ type Presentation = {
 };
 
 type Doctor = {
-  id: string;
   name: string;
   city: string; // This is the District
   subCity?: string; // This is the Actual City
@@ -295,24 +294,30 @@ function PresentationsComponent() {
     try {
       setGeneratingId(`add-${Date.now()}`); // Use a temporary generating ID or just lock UI
 
+      // Normalize District
+      const normalizedDoctor = {
+        ...newDoctor,
+        city: newDoctor.city.trim().toUpperCase()
+      };
+
       // Global duplicate check
-      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', newDoctor.name));
+      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', normalizedDoctor.name));
       const duplicateSnapshot = await getDocs(duplicateQuery);
       if (!duplicateSnapshot.empty) {
         toast({
           variant: "destructive",
           title: "Duplicate Doctor",
-          description: `A doctor named "${newDoctor.name}" already exists in the system.`,
+          description: `A doctor named "${normalizedDoctor.name}" already exists in the system.`,
         });
         return;
       }
 
       const doctorsCollection = collection(firestore, 'doctors');
-      const docRef = await addDoc(doctorsCollection, newDoctor).catch(err => {
+      const docRef = await addDoc(doctorsCollection, normalizedDoctor).catch(err => {
         const contextualError = new FirestorePermissionError({
           operation: 'create',
           path: doctorsCollection.path,
-          requestResourceData: newDoctor
+          requestResourceData: normalizedDoctor
         });
         errorEmitter.emit('permission-error', contextualError);
         throw err;
@@ -320,22 +325,22 @@ function PresentationsComponent() {
       
       toast({
         title: "Doctor Added & Generating...",
-        description: `${newDoctor.name} successfully added! The presentation is now generating in the background.`,
+        description: `${normalizedDoctor.name} successfully added! The presentation is now generating in the background.`,
       });
       refetchDoctors();
 
       // Trigger presentation generation asynchronously
       generateAndUpsertPresentation({
         doctorId: docRef.id,
-        doctorName: newDoctor.name,
-        city: newDoctor.city,
-        selectedSlides: newDoctor.selectedSlides || [],
+        doctorName: normalizedDoctor.name,
+        city: normalizedDoctor.city,
+        selectedSlides: normalizedDoctor.selectedSlides || [],
         adminUid: adminUser.uid,
       }).then((result) => {
         if ('error' in result) {
           toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });
         } else {
-          toast({ title: 'Presentation Ready', description: `PDF for ${newDoctor.name} is available for download.` });
+          toast({ title: 'Presentation Ready', description: `PDF for ${normalizedDoctor.name} is available for download.` });
         }
         forceRefetch();
       });

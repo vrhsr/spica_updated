@@ -32,7 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface AddDoctorDialogProps {
   defaultCity?: string; // district name pre-selected (comes from ?city= param)
-  onDoctorAdded: (doctor: Omit<Doctor, 'status'>) => void;
+  onDoctorAdded: (doctor: Omit<Doctor, 'status'>) => void | Promise<void>;
   triggerButton: React.ReactNode;
 }
 
