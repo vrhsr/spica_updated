@@ -29,8 +29,7 @@ export const createUser = async (input: z.infer<typeof CreateUserInputSchema>) =
   if (!validation.success) {
     throw new Error(`Invalid input: ${validation.error.flatten().fieldErrors}`);
   }
-  const { name, email, phone, role, adminUid } = validation.data;
-  const city = validation.data.city?.trim().toUpperCase() || null;
+  const { name, email, phone, role, city, adminUid } = validation.data;
 
   // Check for duplicate name
   const existingUserSnapshot = await adminFirestore
@@ -58,7 +57,7 @@ export const createUser = async (input: z.infer<typeof CreateUserInputSchema>) =
   // 2. Set custom claims for the user (role and city)
   const claims = {
     role,
-    city: role === 'rep' ? city : null,
+    city: role === 'rep' ? city.trim().toUpperCase() : null,
   };
   await adminAuth.setCustomUserClaims(userRecord.uid, claims);
 
@@ -69,7 +68,7 @@ export const createUser = async (input: z.infer<typeof CreateUserInputSchema>) =
     email,
     phone,
     role,
-    city: role === 'rep' ? city : null,
+    city: role === 'rep' ? city.trim().toUpperCase() : null,
     active: true,
     createdBy: adminUid, // Save the UID of the admin who created the user
   });
@@ -98,7 +97,8 @@ export const setUserRole = async (uid: string, role: 'admin' | 'rep') => {
   };
 
   await adminAuth.setCustomUserClaims(uid, newClaims);
-  await adminFirestore.collection('users').doc(uid).update({ role: role, city: newClaims.city || null });
+  const normalizedCity = newClaims.city ? newClaims.city.trim().toUpperCase() : null;
+  await adminFirestore.collection('users').doc(uid).update({ role: role, city: normalizedCity });
   await adminAuth.revokeRefreshTokens(uid);
   console.log(`Set role '${role}' for user ${uid}`);
   return { success: true };
@@ -110,8 +110,7 @@ const SetUserCityInputSchema = z.object({
   city: z.string().min(1, 'City is required'),
 });
 
-export const setUserCity = async (uid: string, rawCity: string) => {
-  const city = rawCity.trim().toUpperCase();
+export const setUserCity = async (uid: string, city: string) => {
   const validation = SetUserCityInputSchema.safeParse({ uid, city });
   if (!validation.success) {
     throw new Error(`Invalid input: ${validation.error.flatten().fieldErrors}`);
@@ -123,9 +122,10 @@ export const setUserCity = async (uid: string, rawCity: string) => {
     throw new Error('Can only set city for users with the "rep" role.');
   }
 
-  const newClaims = { ...userRecord.customClaims, city };
+  const normalizedCity = city.trim().toUpperCase();
+  const newClaims = { ...userRecord.customClaims, city: normalizedCity };
   await adminAuth.setCustomUserClaims(uid, newClaims);
-  await adminFirestore.collection('users').doc(uid).update({ city });
+  await adminFirestore.collection('users').doc(uid).update({ city: normalizedCity });
   await adminAuth.revokeRefreshTokens(uid);
   console.log(`Set city '${city}' for user ${uid}`);
   return { success: true };

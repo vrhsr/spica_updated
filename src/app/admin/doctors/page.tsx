@@ -134,7 +134,7 @@ export default function DoctorsPage() {
       const result = await generateAndUpsertPresentation({
         doctorId,
         doctorName,
-        city: city.trim().toUpperCase(),
+        city,
         selectedSlides,
         adminUid: adminUser.uid,
       });
@@ -225,8 +225,14 @@ export default function DoctorsPage() {
     try {
       setIsSubmitting('add-doctor');
 
+      // Normalize District
+      const normalizedDoctor = {
+        ...newDoctor,
+        city: newDoctor.city.trim().toUpperCase()
+      };
+
       // Global duplicate check
-      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', newDoctor.name));
+      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', normalizedDoctor.name));
       const duplicateSnapshot = await getDocs(duplicateQuery);
       if (!duplicateSnapshot.empty) {
         toast({
@@ -239,16 +245,11 @@ export default function DoctorsPage() {
 
       let tempId: string | null = null;
       const doctorsCollection = collection(firestore, 'doctors');
-      const normalizedDoctor = {
-        ...newDoctor,
-        city: newDoctor.city.trim().toUpperCase(),
-        subCity: newDoctor.subCity?.trim().toUpperCase()
-      };
       const docRef = await addDoc(doctorsCollection, normalizedDoctor).catch(err => {
         const contextualError = new FirestorePermissionError({
           operation: 'create',
           path: doctorsCollection.path,
-          requestResourceData: newDoctor
+          requestResourceData: normalizedDoctor
         });
         errorEmitter.emit('permission-error', contextualError);
         throw err;
@@ -265,7 +266,7 @@ export default function DoctorsPage() {
       setIsSubmitting(null);
 
       // Now generate the presentation immediately in background
-      handleGeneration(docRef.id, newDoctor.name, newDoctor.city, newDoctor.selectedSlides).catch(console.error);
+      handleGeneration(docRef.id, normalizedDoctor.name, normalizedDoctor.city, normalizedDoctor.selectedSlides).catch(console.error);
 
     } catch (err) {
       console.error("Error adding doctor:", err);
@@ -284,8 +285,13 @@ export default function DoctorsPage() {
     try {
       setIsSubmitting(`edit-details-${doctorId}`);
 
+      const normalizedDetails = {
+        ...details,
+        city: details.city.trim().toUpperCase()
+      };
+
       // Global duplicate check (ignoring self)
-      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', details.name));
+      const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', normalizedDetails.name));
       const duplicateSnapshot = await getDocs(duplicateQuery);
       const isDuplicate = duplicateSnapshot.docs.some(doc => doc.id !== doctorId);
       
@@ -293,19 +299,13 @@ export default function DoctorsPage() {
         toast({
           variant: "destructive",
           title: "Duplicate Doctor",
-          description: `Cannot rename to "${details.name}" because it already exists in the system.`,
+          description: `Cannot rename to "${normalizedDetails.name}" because it already exists in the system.`,
         });
         return;
       }
 
       const doctorRef = doc(firestore, 'doctors', doctorId);
       
-      const normalizedDetails = {
-        ...details,
-        city: details.city.trim().toUpperCase(),
-        subCity: details.subCity?.trim().toUpperCase()
-      };
-
       // Update Doctor record
       await updateDoc(doctorRef, normalizedDetails);
 

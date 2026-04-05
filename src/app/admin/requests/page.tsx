@@ -133,7 +133,8 @@ export default function AdminRequestsPage() {
           const doctorsCollection = collection(firestore, 'doctors');
 
           // 1. Extract and Normalize District and City
-          const districtName = ((request as any).doctorDistrict || request.repDistrict || '').trim().toUpperCase();
+          const rawDistrict = (request as any).doctorDistrict || request.repDistrict || '';
+          const districtName = rawDistrict.trim().toUpperCase();
           const cityName = request.doctorCity.trim().toUpperCase();
 
           // 2. Create the new doctor doc
@@ -192,11 +193,13 @@ export default function AdminRequestsPage() {
 
           // 3. Trigger the presentation generation as a separate step after commit
           const doctor = doctorMap.get(request.doctorId!);
-          const districtName = (doctor?.city || request.repDistrict || request.doctorCityDisplay).trim().toUpperCase();
+          const rawDistrict = doctor?.city || request.repDistrict || request.doctorCityDisplay;
+          const normalizedDistrict = rawDistrict.trim().toUpperCase();
+
           const result = await generateAndUpsertPresentation({
             doctorId: request.doctorId!,
             doctorName: request.doctorNameDisplay,
-            city: districtName, // District name is required for Rep portal visibility
+            city: normalizedDistrict, // District name is required for Rep portal visibility
             selectedSlides: request.selectedSlides,
             adminUid: adminUser.uid,
           });

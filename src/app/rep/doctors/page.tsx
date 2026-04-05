@@ -33,7 +33,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
-import { cn } from '@/lib/utils';
 
 type Presentation = {
   id: string;
@@ -76,7 +75,7 @@ export default function RepDoctorsPage() {
 
   const { data: userProfile, isLoading: isLoadingProfile } = useDoc<UserProfile>(userProfileRef);
 
-  const repCity = userProfile?.city?.trim().toUpperCase();
+  const repCity = userProfile?.city;
 
   const presentationsQuery = useMemoFirebase(() => {
     if (!firestore || !repCity) return null;
@@ -94,8 +93,8 @@ export default function RepDoctorsPage() {
     );
   }, [firestore, repCity]);
 
-  const { data: presentations, isLoading: isLoadingPresentations, error: presentationsError, forceRefetch: refetchPresentations } = useCollection<Presentation>(presentationsQuery);
-  const { data: doctors, isLoading: isLoadingDoctors, forceRefetch: refetchDoctors } = useCollection<Doctor>(doctorsQuery);
+  const { data: presentations, isLoading: isLoadingPresentations, error: presentationsError } = useCollection<Presentation>(presentationsQuery);
+  const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
 
   const isLoading = isAuthLoading || isLoadingProfile || isLoadingPresentations || isLoadingDoctors;
 
@@ -206,20 +205,6 @@ export default function RepDoctorsPage() {
           </div>
           <div className="flex items-center gap-2">
             <SyncStatusIndicator outdatedCount={outdatedCount} />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                refetchPresentations();
-                refetchDoctors();
-                toast({ title: '🔄 Refreshing...', description: 'Checking for newly approved doctors.' });
-              }}
-              disabled={isLoading}
-              className="h-9 px-3 rounded-lg border-primary/20 hover:border-primary/50 text-xs gap-2"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
-              Sync
-            </Button>
             {doctors && enrichedPresentations && (
               <BulkDownloadButton
                 presentations={enrichedPresentations}

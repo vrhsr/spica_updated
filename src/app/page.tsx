@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Shield, Users, ArrowRight, Menu, X, WifiOff, Loader } from 'lucide-react';
+import { Shield, Users, ArrowRight, Menu, X, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -20,11 +20,9 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isCapApp, setIsCapApp] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
 
   // Check if running in Capacitor
   useEffect(() => {
-    setHasMounted(true);
     setIsCapApp(isCapacitorApp());
   }, []);
 
@@ -62,12 +60,6 @@ export default function LandingPage() {
     }
     // If online, let the default Link behavior work
   };
-
-  if (!hasMounted) return (
-    <div className="min-h-screen bg-slate-50/50 flex items-center justify-center">
-        <Loader className="h-10 w-12 animate-spin text-primary" />
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-slate-50/50">

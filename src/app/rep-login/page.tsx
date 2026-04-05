@@ -100,7 +100,7 @@ export default function RepLoginPage() {
         setError('Network Connection Error. Please check your internet or firewall settings.');
         break;
       default:
-        setError('An unexpected error occurred. Please try again.');
+        setError(`An unexpected error occurred: ${err.message || 'Unknown error'}. Please try again.`);
         break;
     }
   };
@@ -210,11 +210,7 @@ export default function RepLoginPage() {
               variant="outline"
               className="mb-5 w-full flex items-center gap-2 border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 text-primary font-semibold h-11 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
               onClick={() => {
-                if (isCapacitorApp()) {
-                  window.location.href = 'https://spicasg.in/admin-login';
-                } else {
-                  router.push('/admin-login');
-                }
+                router.push('/admin-login');
               }}
             >
               <ArrowLeft className="h-4 w-4 shrink-0" />
@@ -326,11 +322,7 @@ export default function RepLoginPage() {
                     variant="link" 
                     className="text-primary h-auto p-0 font-medium"
                     onClick={() => {
-                      if (isCapacitorApp()) {
-                        window.location.href = 'https://spicasg.in/admin-login';
-                      } else {
-                        router.push('/admin-login');
-                      }
+                      router.push('/admin-login');
                     }}
                   >
                     Go to Admin Login

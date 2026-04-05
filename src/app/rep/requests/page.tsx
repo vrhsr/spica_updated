@@ -193,7 +193,7 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
         repId,
         doctorName: proposedDoctor.name,
         doctorCity: proposedDoctor.city,
-        doctorDistrict: repDistrict || '',
+        doctorDistrict: (repDistrict || '').trim().toUpperCase(),
         selectedSlides: slides,
         status: 'pending' as const,
         requestType: 'new_doctor' as const,

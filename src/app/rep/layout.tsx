@@ -20,7 +20,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { doc } from 'firebase/firestore';
 import { PasswordResetDialog } from '@/components/PasswordResetDialog';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, ShieldCheck } from 'lucide-react';
 
 type UserProfile = {
     city: string;
@@ -47,8 +47,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     const { user, role, isUserLoading: isAuthLoading } = useUser();
     const firestore = useFirestore();
     const [isTimedOut, setIsTimedOut] = useState(false);
-    const [isOnline, setIsOnline] = useState(true); // Default to true for stable server render
-    const [hasMounted, setHasMounted] = useState(false);
+    const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
     const [hasCheckedOffline, setHasCheckedOffline] = useState(false);
     const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
     const repAvatar = PlaceHolderImages.find((img) => img.id === 'rep-avatar');
@@ -69,13 +68,8 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     const isOfflineMode = pathname.includes('/rep/offline') ||
         pathname.includes('/rep/present/');
 
-    // Initial setup on mount
+    // Check online/offline status
     useEffect(() => {
-        setHasMounted(true);
-        if (typeof navigator !== 'undefined') {
-            setIsOnline(navigator.onLine);
-        }
-
         const updateOnlineStatus = () => {
             const online = navigator.onLine;
             setIsOnline(online);
@@ -88,6 +82,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
             }
         };
 
+        updateOnlineStatus();
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
 
@@ -171,7 +166,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
 
-    if (!hasMounted || ((isUserLoading || !user || role !== 'rep') && !isOfflineMode && isOnline)) {
+    if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode && isOnline) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -232,6 +227,12 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                                 <KeyRound className="mr-2 h-4 w-4" />
                                 <span>Change Password</span>
                             </DropdownMenuItem>
+                            {role === 'admin' && (
+                                <DropdownMenuItem onSelect={() => router.push('/admin/dashboard')}>
+                                    <ShieldCheck className="mr-2 h-4 w-4 text-primary" />
+                                    <span className="font-semibold text-primary">Admin Portal</span>
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onSelect={handleLogout}>
                                 <LogOut className="mr-2 h-4 w-4" />
                                 <span>Log out</span>

@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
         setError('Sign-in process was cancelled or blocked. Please ensure popups are allowed and you are not in Incognito mode with third-party cookies blocked.');
         break;
       default:
-        setError('An unexpected error occurred. Please try again.');
+        setError(`An unexpected error occurred: ${err.message || 'Unknown error'}. Please try again.`);
         break;
     }
   };
@@ -253,8 +253,8 @@ export default function AdminLoginPage() {
               <div className="mt-4 text-center space-y-2">
                 <p className="text-sm text-destructive">{error}</p>
                 {error.includes('Representative portal') && (
-                  <Button variant="link" asChild className="text-primary h-auto p-0">
-                    <Link href="/rep-login">Go to Representative Login</Link>
+                  <Button variant="link" onClick={() => router.push('/rep-login')} className="text-primary h-auto p-0">
+                    Go to Representative Login
                   </Button>
                 )}
               </div>
