@@ -78,8 +78,11 @@ export default function AdminRequestsPage() {
     }
   }, [searchParams]);
 
-  // Data fetching
-  const { data: allUsers, isLoading: isLoadingUsersSWR } = useSWR('allUsers', listAllUsers);
+  // Data fetching. listAllUsers needs a fresh ID token to verify who's asking.
+  const { data: allUsers, isLoading: isLoadingUsersSWR } = useSWR(
+    adminUser ? 'allUsers' : null,
+    async () => listAllUsers(await adminUser!.getIdToken())
+  );
   const requestsCollection = useMemo(() => firestore ? collection(firestore, 'requests') : null, [firestore]);
   const doctorsCollection = useMemo(() => firestore ? collection(firestore, 'doctors') : null, [firestore]);
 

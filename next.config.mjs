@@ -1,7 +1,6 @@
 import withPWA from "next-pwa";
 
 const isProd = process.env.NODE_ENV === "production";
-const isCapacitor = process.env.BUILD_TARGET === "capacitor";
 
 const baseConfig = {
     reactStrictMode: true,
@@ -12,7 +11,6 @@ const baseConfig = {
         ignoreDuringBuilds: process.env.CI === 'true',
     },
     images: {
-        unoptimized: isCapacitor, // Required for static export
         remotePatterns: [
             { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
             { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
@@ -21,9 +19,9 @@ const baseConfig = {
             { protocol: 'https', hostname: 'ezogujldmpxycodwboos.supabase.co', pathname: '/**' },
         ],
     },
-    serverExternalPackages: ["@aws-sdk/*"],
     experimental: {
         turbo: {},
+        serverComponentsExternalPackages: ["@aws-sdk/*"],
     },
     async headers() {
         return [
@@ -40,14 +38,10 @@ const baseConfig = {
     },
 };
 
-// Capacitor build: Static export (no PWA)
-if (isCapacitor) {
-    baseConfig.output = 'export';
-    baseConfig.trailingSlash = true; // Better for file-based routing
-}
-
-// Web build: PWA with Service Worker
-export default isProd && !isCapacitor
+// Web build: PWA with Service Worker. The Android app loads the live site
+// directly (capacitor.config.json server.url) rather than a bundled static
+// export, so there's no separate Capacitor build target here anymore.
+export default isProd
     ? withPWA({
         dest: "public",
         register: true,

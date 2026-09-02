@@ -4,12 +4,8 @@ import React, { useMemo } from 'react';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import {
-  HeartPulse,
   Mail,
   PlusCircle,
   ArrowRight,
@@ -17,13 +13,11 @@ import {
   FileCheck,
   MapPin,
   Stethoscope,
-  Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { StartDayButton } from '@/components/StartDayButton';
-import { OfflinePresentationsCard } from '@/components/OfflinePresentationsCard';
 import { useOfflineReady } from '@/hooks/useOfflineReady';
 import { format } from 'date-fns';
 
@@ -88,36 +82,27 @@ export default function RepDashboardPage() {
     return [
       {
         title: 'Presentations Ready',
-        description: 'Available for your doctors',
         count: readyPpts.toString(),
         icon: FileCheck,
         href: '/rep/doctors',
-        gradient: 'from-primary/10 to-primary/5',
         iconBg: 'bg-primary/15',
         iconColor: 'text-primary',
-        badge: readyPpts > 0 ? 'View All' : null,
       },
       {
         title: 'Pending Requests',
-        description: 'Awaiting admin review',
         count: pendingRequests.toString(),
         icon: Mail,
         href: '/rep/requests',
-        gradient: 'from-amber-500/10 to-amber-500/5',
         iconBg: 'bg-amber-500/15',
         iconColor: 'text-amber-600',
-        badge: pendingRequests > 0 ? `${pendingRequests} pending` : null,
       },
       {
         title: 'Total Doctors',
-        description: 'In your district',
         count: totalDoctors.toString(),
         icon: Stethoscope,
         href: '/rep/doctors',
-        gradient: 'from-emerald-500/10 to-emerald-500/5',
         iconBg: 'bg-emerald-500/15',
         iconColor: 'text-emerald-600',
-        badge: null,
       },
     ];
   }, [doctors, requests, presentations]);
@@ -131,7 +116,7 @@ export default function RepDashboardPage() {
     );
   }
 
-  const firstName = user?.displayName?.split(' ')[0] || 'there';
+  const firstName = user?.displayName?.split(' ')[0] || 'Representative';
   const today = format(new Date(), 'EEEE, d MMMM');
 
   return (
@@ -141,12 +126,13 @@ export default function RepDashboardPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs md:text-sm text-muted-foreground font-medium uppercase tracking-wide">{today}</p>
-          <h1 className="font-headline text-2xl md:text-4xl font-bold tracking-tight mt-1">
-            Hello, {firstName} 👋
+          <h1 className="font-headline text-2xl md:text-4xl font-bold tracking-tight mt-1 text-primary">
+            HELLO {firstName} 👋
           </h1>
+          <p className="text-lg md:text-xl mt-1 text-foreground font-medium">Ready for another productive day?</p>
           {repCity && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+            <div className="flex items-center gap-1.5 mt-2">
+              <MapPin className="h-4 w-4 text-primary shrink-0" />
               <span className="text-sm text-muted-foreground">
                 District: <span className="font-semibold text-foreground">{repCity}</span>
               </span>
@@ -161,49 +147,55 @@ export default function RepDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid — 3 per row on tablets (always), 1-col on small phone */}
-      <div className="grid gap-3 grid-cols-3">
+      {/* Stats Grid — Sleek 3-column balanced layout */}
+      <div className="grid grid-cols-3 gap-2.5 md:gap-6 mt-6">
         {dashboardStats.map((item) => (
           <Link key={item.title} href={item.href} className="group block">
-            <Card className={`relative overflow-hidden border rounded-xl transition-all duration-200 hover:shadow-md hover:border-primary/30 active:scale-[0.97]`}>
-              <CardContent className="p-3 md:p-5">
-                <div className="flex items-center justify-between mb-2 md:mb-3">
-                  <div className={`p-1.5 md:p-2.5 rounded-lg ${item.iconBg}`}>
-                    <item.icon className={`h-4 w-4 md:h-5 md:w-5 ${item.iconColor}`} />
+            <Card className="relative overflow-hidden border-0 rounded-2xl transition-all duration-300 hover:shadow-lg hover:translate-y-[-1px] active:scale-[0.97] h-full shadow-sm bg-white">
+              <CardContent className="p-3 md:p-8 flex flex-col items-center md:items-start justify-between h-full min-h-[150px] md:min-h-[220px]">
+                <div className={`p-2.5 md:p-5 rounded-xl md:rounded-2xl ${item.iconBg} mb-3 md:mb-6`}>
+                  <item.icon className={`h-5 w-5 md:h-9 md:w-9 ${item.iconColor}`} />
+                </div>
+                <div className="text-center md:text-left mt-auto">
+                  <div className={`text-2xl md:text-6xl font-black tabular-nums leading-none ${item.iconColor}`}>
+                    {item.count}
                   </div>
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors group-hover:translate-x-0.5 transform duration-150" />
+                  <p className="text-[10px] md:text-base font-bold text-slate-500 mt-2 md:mt-3 leading-tight uppercase tracking-tight md:tracking-wider">
+                    {item.title.split(' ')[0]}<br/>{item.title.split(' ').slice(1).join(' ')}
+                  </p>
                 </div>
-                <div className={`text-2xl md:text-3xl font-bold font-headline ${item.iconColor}`}>
-                  {item.count}
-                </div>
-                <p className="text-xs md:text-sm font-medium text-foreground mt-0.5 leading-tight">{item.title}</p>
-                <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 leading-tight hidden sm:block">{item.description}</p>
               </CardContent>
+              <div className={`absolute bottom-0 left-0 right-0 h-1 ${item.iconBg.replace('/15', '')} opacity-40`} />
             </Card>
           </Link>
         ))}
       </div>
 
-      {/* Quick Action */}
-      <Link href="/rep/requests?action=propose">
-        <Card className="border rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 hover:from-primary/10 hover:to-primary/15 border-primary/20 transition-all duration-200 hover:shadow-md cursor-pointer active:scale-[0.99]">
-          <CardContent className="p-4 md:p-5 flex items-center justify-between">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="h-11 w-11 md:h-12 md:w-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                <PlusCircle className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+      {/* Propose a Change — Prominent but well-sized CTA */}
+      <div className="mt-8 pt-4 border-t border-slate-100">
+        <Link href="/rep/requests?action=propose" className="block w-full">
+          <Card className="border rounded-2xl md:rounded-3xl bg-gradient-to-r from-indigo-50/50 to-blue-50/50 border-indigo-100 transition-all duration-200 hover:shadow-md hover:border-indigo-300 cursor-pointer active:scale-[0.98] shadow-sm">
+            <CardContent className="p-5 md:p-6">
+              <div className="flex items-center justify-between gap-4 md:gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 md:h-16 md:w-16 rounded-[1rem] bg-indigo-600 shadow-md flex items-center justify-center shrink-0">
+                    <PlusCircle className="h-7 w-7 md:h-8 md:w-8 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-lg md:text-xl text-indigo-950 mb-0.5">Propose a Change</p>
+                    <p className="text-xs md:text-sm text-indigo-800/70 font-medium max-w-[200px] md:max-w-none">
+                      Add a new doctor or update slides
+                    </p>
+                  </div>
+                </div>
+                <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:translate-x-1">
+                  <ArrowRight className="h-5 w-5 md:h-6 md:w-6" />
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-sm md:text-base">Propose a Change</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Add a new doctor or update slides for your district</p>
-              </div>
-            </div>
-            <ArrowRight className="h-5 w-5 text-primary/60 shrink-0" />
-          </CardContent>
-        </Card>
-      </Link>
-
-      {/* Offline Presentations */}
-      <OfflinePresentationsCard />
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
 
     </div>
   );

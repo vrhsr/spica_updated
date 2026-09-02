@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -51,6 +51,7 @@ import { useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { Badge } from '@/components/ui/badge';
+import { useRequireRole } from '@/hooks/useRequireRole';
 
 const navItems = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -64,7 +65,7 @@ const navItems = [
 ];
 
 // Separate component to use useSidebar hook (must be inside SidebarProvider)
-function SidebarNavMenu({ pathname, pendingCount }: { pathname: string; pendingCount: number }) {
+function SidebarNavMenu({ pathname, pendingCount, role }: { pathname: string; pendingCount: number; role?: string | null }) {
   const { setOpenMobile, isMobile } = useSidebar();
 
   const handleNavClick = () => {
@@ -73,9 +74,14 @@ function SidebarNavMenu({ pathname, pendingCount }: { pathname: string; pendingC
     }
   };
 
+  // Users & Roles and Slides Library are admin-only — Project Managers no
+  // longer manage accounts or the master slide library.
+  const adminOnlyHrefs = ['/admin/users', '/admin/slides'];
+  const visibleNavItems = navItems.filter((item) => !adminOnlyHrefs.includes(item.href) || role === 'admin');
+
   return (
     <SidebarMenu>
-      {navItems.map((item) => {
+      {visibleNavItems.map((item) => {
         const isRequestsItem = item.href.startsWith('/admin/requests');
         const showBadge = isRequestsItem && pendingCount > 0;
         const hrefPath = item.href.split('?')[0]; // Strip query params for active check
@@ -113,45 +119,26 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { user, role } = useUser();
+  const roleLabel = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Project Manager' : '';
   const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
   const adminAvatar = PlaceHolderImages.find((img) => img.id === 'admin-avatar');
 
-  // Fetch pending requests count for badge
+  // Gate on admin/manager access. `isChecking` stays true until role is
+  // actually confirmed, so `children` (and every Firestore query inside
+  // them) never mounts for a role that doesn't have access — that race was
+  // what caused permission-denied crashes here before.
+  const { isChecking, isTimedOut } = useRequireRole(['admin', 'manager']);
+
+  // Fetch pending requests count for badge — only once access is confirmed;
+  // rules only allow admin/manager to list this collection.
   const firestore = useFirestore();
   const requestsCollection = useMemoFirebase(
-    () => (firestore && user?.uid ? collection(firestore, 'requests') : null),
-    [firestore, user?.uid]
+    () => (firestore && user?.uid && !isChecking ? collection(firestore, 'requests') : null),
+    [firestore, user?.uid, isChecking]
   );
   const { data: requests } = useCollection<Request>(requestsCollection);
   const pendingCount = requests?.filter((r) => r.status === 'pending').length || 0;
-
-  const [isTimedOut, setIsTimedOut] = useState(false);
-
-  // Check if user has admin role and redirect if not
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isUserLoading || !user) {
-        setIsTimedOut(true);
-      }
-    }, 10000); // 10 second timeout
-
-    if (!isUserLoading && user) {
-      clearTimeout(timer);
-      user.getIdTokenResult().then((idTokenResult) => {
-        const userRole = idTokenResult.claims.role;
-        if (userRole !== 'admin') {
-          // User is not an admin, redirect to home page
-          router.push('/');
-        }
-      }).catch((error) => {
-        console.error('Error checking user role:', error);
-        router.push('/');
-      });
-    }
-
-    return () => clearTimeout(timer);
-  }, [user, isUserLoading, router]);
 
   if (isTimedOut) {
     return (
@@ -161,7 +148,7 @@ export default function AdminLayout({
         <p className="text-muted-foreground mb-6">It's taking longer than expected to load your profile. Please try logging in again.</p>
         <Button onClick={() => {
           auth?.signOut();
-          window.location.href = '/admin-login';
+          window.location.href = '/login';
         }}>
           Login Again
         </Button>
@@ -169,7 +156,7 @@ export default function AdminLayout({
     );
   }
 
-  if (isUserLoading || !user) {
+  if (isChecking || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -207,13 +194,13 @@ export default function AdminLayout({
                 PHARMA
               </span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] mt-1 font-medium">
-                Admin Portal
+                {roleLabel || 'Admin Portal'}
               </span>
             </div>
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarNavMenu pathname={pathname} pendingCount={pendingCount} />
+          <SidebarNavMenu pathname={pathname} pendingCount={pendingCount} role={role} />
         </SidebarContent>
         <SidebarFooter>
           <DropdownMenu>

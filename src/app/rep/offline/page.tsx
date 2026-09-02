@@ -64,7 +64,7 @@ export default function OfflineDashboardPage() {
                     </p>
                 </div>
                 <Button asChild variant="outline">
-                    <Link href="/rep-login">
+                    <Link href="/login">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back to Login
                     </Link>

@@ -31,7 +31,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
-import { AddRepDialog } from '@/app/admin/reps/AddRepDialog';
+import { AddUserDialog } from '@/app/admin/users/AddUserDialog';
 import React, { useMemo } from 'react';
 import { AddDoctorDialog } from '../doctors/AddDoctorDialog';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
@@ -40,57 +40,38 @@ import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { sub, startOfDay, formatDistanceToNow } from 'date-fns';
 import { listAllUsers } from '../users/actions';
 import useSWR from 'swr';
+import { Doctor, Presentation, CreateDoctorInput, Request } from '@/types';
 
 
-type City = { id: string; name: string };
-type Doctor = { id: string; name: string; city: string };
-type User = WithId<{
-  uid: string;
-  role: 'admin' | 'rep',
-  displayName: string,
-  creationTime?: string; // This will come from the server action now
-  createdBy?: string;
-}>;
-type Request = {
-  id: string;
-  status: 'pending' | 'approved' | 'rejected';
-  repId: string;
-  doctorId: string;
-  createdAt: Timestamp;
-};
-type Presentation = {
-  id: string;
-  city: string;
-  doctorId: string;
-  updatedAt: Timestamp;
-  updatedBy: string;
-  error?: string | null;
-  dirty: boolean;
-};
 
 export default function AdminDashboardPage() {
   const firestore = useFirestore();
-  const { role: adminRole, isUserLoading } = useUser();
-  const isAdmin = adminRole === 'admin';
+  const { user: currentUser, role: adminRole, isUserLoading } = useUser();
+  const hasPortalAccess = adminRole === 'admin' || adminRole === 'manager';
 
-  // Using SWR to fetch users from the server action
-  const { data: allUsers, error: usersError, isLoading: isLoadingUsersSWR, mutate: mutateUsers } = useSWR(isAdmin ? 'allUsers' : null, listAllUsers);
+  // Using SWR to fetch users from the server action. listAllUsers needs a
+  // fresh ID token to verify who's asking (and, for a Project Manager,
+  // scopes the result to Representatives only).
+  const { data: allUsers, error: usersError, isLoading: isLoadingUsersSWR, mutate: mutateUsers } = useSWR(
+    hasPortalAccess && currentUser ? 'allUsers' : null,
+    async () => listAllUsers(await currentUser!.getIdToken())
+  );
 
   const doctorsCollection = useMemoFirebase(
-    () => (firestore && isAdmin ? collection(firestore, 'doctors') : null),
-    [firestore, isAdmin]
+    () => (firestore && hasPortalAccess ? collection(firestore, 'doctors') : null),
+    [firestore, hasPortalAccess]
   );
   const presentationsCollection = useMemoFirebase(
-    () => (firestore && isAdmin ? collection(firestore, 'presentations') : null),
-    [firestore, isAdmin]
+    () => (firestore && hasPortalAccess ? collection(firestore, 'presentations') : null),
+    [firestore, hasPortalAccess]
   );
   const citiesCollection = useMemoFirebase(
-    () => (firestore && isAdmin ? collection(firestore, 'cities') : null),
-    [firestore, isAdmin]
+    () => (firestore && hasPortalAccess ? collection(firestore, 'cities') : null),
+    [firestore, hasPortalAccess]
   );
   const requestsCollection = useMemoFirebase(
-    () => (firestore && isAdmin ? collection(firestore, 'requests') : null),
-    [firestore, isAdmin]
+    () => (firestore && hasPortalAccess ? collection(firestore, 'requests') : null),
+    [firestore, hasPortalAccess]
   );
 
   // useCollection is still useful for realtime updates on other collections
@@ -99,7 +80,7 @@ export default function AdminDashboardPage() {
   const { data: presentations, isLoading: isLoadingPresentations } =
     useCollection<Presentation>(presentationsCollection);
   const { data: cities, isLoading: isLoadingCities } =
-    useCollection<City>(citiesCollection);
+    useCollection<{ id: string; name: string }>(citiesCollection);
   const { data: requests, isLoading: isLoadingRequests } =
     useCollection<Request>(requestsCollection);
 
@@ -177,7 +158,7 @@ export default function AdminDashboardPage() {
         title: 'Total Reps',
         value: allUsers?.filter((u) => u.role === 'rep').length || 0,
         icon: Users,
-        href: '/admin/users'
+        href: adminRole === 'admin' ? '/admin/users' : undefined,
       },
       {
         title: 'Total Doctors',
@@ -215,7 +196,7 @@ export default function AdminDashboardPage() {
         href: '/admin/presentations?status=error'
       },
     ];
-  }, [allUsers, doctors, presentations, cities, requests]);
+  }, [allUsers, doctors, presentations, cities, requests, adminRole]);
 
   const doctorStatusByCity = useMemo(() => {
     if (!cities || !presentations) return [];
@@ -236,9 +217,9 @@ export default function AdminDashboardPage() {
     mutateUsers();
   };
 
-  const handleDoctorAdded = () => {
+  const handleDoctorAdded = async (newDoctor: CreateDoctorInput) => {
     // Here you would typically re-fetch data or update state
-    console.log('A new doctor has been added from the dashboard.');
+    console.log('A new doctor has been added from the dashboard:', newDoctor);
   };
 
   const getStatusBadge = (status: {
@@ -260,7 +241,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!hasPortalAccess) {
     return (
       <Card className="shadow-sm">
         <CardHeader>
@@ -310,30 +291,26 @@ export default function AdminDashboardPage() {
               </Button>
             }
           />
-          <AddRepDialog
-            cities={cities || []}
-            isLoadingCities={isLoadingCities}
-            onRepAdded={handleRepAdded}
-            triggerButton={
-              <Button>
-                <Users className="mr-2 h-4 w-4" /> Add User
-              </Button>
-            }
-          />
+          {adminRole === 'admin' && (
+            <AddUserDialog
+              cities={cities || []}
+              isLoadingCities={isLoadingCities}
+              onUserAdded={handleRepAdded}
+              triggerButton={
+                <Button>
+                  <Users className="mr-2 h-4 w-4" /> Add User
+                </Button>
+              }
+            />
+          )}
         </div>
       </div>
 
       {/* System Status Summary */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {stats.map((item) => (
-          <Card
-            key={item.title}
-            className={`group relative overflow-hidden border rounded-lg transition-all duration-200 ${item.variant === 'destructive'
-              ? 'border-destructive/50 shadow-sm'
-              : 'hover:border-accent hover:bg-accent/5 hover:shadow-md'
-              }`}
-          >
-            <Link href={item.href} className="flex h-full flex-col">
+        {stats.map((item) => {
+          const body = (
+            <>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {item.title}
@@ -343,9 +320,24 @@ export default function AdminDashboardPage() {
               <CardContent>
                 <div className="text-3xl font-bold">{item.value}</div>
               </CardContent>
-            </Link>
-          </Card>
-        ))}
+            </>
+          );
+          return (
+            <Card
+              key={item.title}
+              className={`group relative overflow-hidden border rounded-lg transition-all duration-200 ${item.variant === 'destructive'
+                ? 'border-destructive/50 shadow-sm'
+                : 'hover:border-accent hover:bg-accent/5 hover:shadow-md'
+                }`}
+            >
+              {item.href ? (
+                <Link href={item.href} className="flex h-full flex-col">{body}</Link>
+              ) : (
+                <div className="flex h-full flex-col">{body}</div>
+              )}
+            </Card>
+          );
+        })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

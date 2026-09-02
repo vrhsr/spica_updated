@@ -106,7 +106,7 @@ export function EditSlidesForm({
                 />
             </div>
 
-            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-[60vh] overflow-y-auto p-2 border rounded-md">
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-[42vh] overflow-y-auto p-2 border rounded-md sm:max-h-[52vh]">
                 {filteredSlides.length > 0 ? (
                     filteredSlides.map((slide) => {
                         const isMandatory = slide.number === firstSlideNumber || slide.number === lastSlideNumber;
@@ -149,16 +149,17 @@ export function EditSlidesForm({
                     </div>
                 )}
             </div>
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 z-10 flex flex-row gap-2 border-t bg-background/95 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
                 <DialogClose asChild>
-                    <Button variant="outline" disabled={isSaving}>Cancel</Button>
+                    <Button variant="outline" disabled={isSaving} className="h-12 flex-1 text-sm font-semibold sm:flex-none">Cancel</Button>
                 </DialogClose>
                 <Button
                     onClick={() => onSave(selectedSlides, showCityEdit ? editedCity : undefined)}
                     disabled={selectedSlides.length === 0 || isSaving || (showCityEdit && !editedCity.trim())}
+                    className="h-12 flex-1 text-sm font-semibold sm:flex-none"
                 >
                     {isSaving ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isSaving ? 'Saving...' : 'Save and Create Presentation'}
+                    {isSaving ? 'Saving...' : 'Save Presentation'}
                 </Button>
             </DialogFooter>
         </>

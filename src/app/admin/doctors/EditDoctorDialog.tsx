@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { DoctorForm } from './AddDoctorDialog';
-import type { Doctor } from './page';
+import type { Doctor } from '@/types/doctor';
 import { WithId } from '@/firebase/firestore/use-collection';
 
 interface EditDoctorDialogProps {

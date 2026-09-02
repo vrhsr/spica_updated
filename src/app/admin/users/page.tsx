@@ -3,7 +3,7 @@
 
 /**
  * @fileoverview This component is the primary admin interface for managing user roles and city assignments.
- * It is protected by an admin-only guard. Non-admin users will see a "Permission Denied" message.
+ * Admin-only: Project Managers no longer have any access to this page.
  */
 
 import React, { useState, useEffect, useCallback, useTransition } from 'react';
@@ -56,16 +56,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader, Users, ShieldQuestion, MoreHorizontal, Trash2, Building } from 'lucide-react';
+import { Loader, Users, ShieldQuestion, MoreHorizontal, Trash2, Building, MailCheck } from 'lucide-react';
 import { z } from 'zod';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { AddRepDialog } from '../reps/AddRepDialog';
+import { AddUserDialog } from './AddUserDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { listAllUsers, setUserRole, setUserCity, deleteUser, toggleUserStatus } from './actions';
+import { listAllUsers, setUserCity, deleteUser, toggleUserStatus, resendInvite } from './actions';
+import { KING_ADMIN_EMAIL } from './constants';
 import { EditUserDialog } from './EditUserDialog';
 
 
@@ -74,19 +75,14 @@ const RoleUserSchema = z.object({
   email: z.string().optional(),
   displayName: z.string().optional(),
   phone: z.string().optional(),
-  role: z.enum(['admin', 'rep']).optional(),
+  role: z.enum(['admin', 'manager', 'rep']).optional(),
   city: z.string().optional(),
   disabled: z.boolean().optional(),
+  inviteAccepted: z.boolean().optional(),
 });
 export type RoleUser = z.infer<typeof RoleUserSchema>;
 
 type City = { id: string, name: string };
-
-type RoleChangeConfirmation = {
-  uid: string;
-  newRole: 'admin' | 'rep';
-  displayName: string;
-}
 
 type CityChangeConfirmation = {
   uid: string;
@@ -94,8 +90,6 @@ type CityChangeConfirmation = {
   oldCity: string;
   displayName: string;
 }
-
-const KING_ADMIN_EMAIL = 'mvrhsr0@gmail.com';
 
 
 export default function UsersPage() {
@@ -107,7 +101,6 @@ export default function UsersPage() {
   const firestore = useFirestore();
   const { user: currentUser, role: currentUserRole, isUserLoading } = useUser();
   const [userToDelete, setUserToDelete] = useState<RoleUser | null>(null);
-  const [roleChangeToConfirm, setRoleChangeToConfirm] = useState<RoleChangeConfirmation | null>(null);
   const [cityChangeToConfirm, setCityChangeToConfirm] = useState<CityChangeConfirmation | null>(null);
   const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
   const [userToEdit, setUserToEdit] = useState<RoleUser | null>(null);
@@ -119,10 +112,12 @@ export default function UsersPage() {
   const { data: cities, isLoading: isLoadingCities } = useCollection<City>(citiesCollection);
 
   const fetchUsers = useCallback(async () => {
+    if (!currentUser) return;
     setIsDataLoading(true);
     setError(null);
     try {
-      const userList = await listAllUsers();
+      const idToken = await currentUser.getIdToken();
+      const userList = await listAllUsers(idToken);
       setUsers(userList);
     } catch (e: any) {
       console.error('Failed to fetch users:', e);
@@ -135,7 +130,7 @@ export default function UsersPage() {
     } finally {
       setIsDataLoading(false);
     }
-  }, [toast]);
+  }, [toast, currentUser]);
 
   useEffect(() => {
     if (!isUserLoading && currentUserRole === 'admin') {
@@ -146,75 +141,13 @@ export default function UsersPage() {
   }, [fetchUsers, currentUserRole, isUserLoading]);
 
 
-  const proceedWithRoleChange = async () => {
-    if (!roleChangeToConfirm) return;
-    const { uid, newRole, displayName } = roleChangeToConfirm;
-
-    startTransition(async () => {
-      try {
-        await setUserRole(uid, newRole);
-        toast({
-          title: 'Role Updated',
-          description: `${displayName}'s role has been set to ${newRole}. The user must log out and log back in for the changes to apply.`,
-        });
-        await fetchUsers(); // Refresh the user list
-      } catch (err: any) {
-        console.error(err);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to update role',
-          description: err.message || 'An unknown error occurred.',
-        });
-      } finally {
-        setRoleChangeToConfirm(null);
-      }
-    });
-  };
-
-  const initiateRoleChange = (uid: string, newRole: 'admin' | 'rep', displayName: string) => {
-    if (uid === currentUser?.uid) {
-      toast({
-        variant: 'destructive',
-        title: 'Action not allowed',
-        description: 'For security, you cannot change your own role.',
-      });
-      return;
-    }
-    // If setting a user to admin, show confirmation. Otherwise, proceed directly.
-    if (newRole === 'admin') {
-      setRoleChangeToConfirm({ uid, newRole, displayName });
-    } else {
-      proceedWithRoleChangeOnNoConfirm(uid, newRole, displayName);
-    }
-  };
-
-  const proceedWithRoleChangeOnNoConfirm = async (uid: string, newRole: 'rep', displayName: string) => {
-    startTransition(async () => {
-      try {
-        await setUserRole(uid, newRole);
-        toast({
-          title: 'Role Updated',
-          description: `${displayName}'s role has been set to ${newRole}. The user must log out and log back in for the changes to apply.`,
-        });
-        await fetchUsers(); // Refresh the user list
-      } catch (err: any) {
-        console.error(err);
-        toast({
-          variant: 'destructive',
-          title: 'Failed to update role',
-          description: err.message || 'An unknown error occurred.',
-        });
-      }
-    });
-  }
-
-
   const proceedWithCityChange = async () => {
-    if (!cityChangeToConfirm) return;
+    if (!cityChangeToConfirm || !currentUser) return;
     const { uid, newCity } = cityChangeToConfirm;
     startTransition(async () => {
       try {
-        await setUserCity(uid, newCity);
+        const idToken = await currentUser.getIdToken();
+        await setUserCity(uid, newCity, idToken);
         toast({
           title: 'City Updated',
           description: `${cityChangeToConfirm.displayName}'s city has been changed to ${newCity}. The user must log out and log back in for the changes to apply.`,
@@ -246,10 +179,11 @@ export default function UsersPage() {
   }
 
   const handleDeleteUser = async () => {
-    if (!userToDelete) return;
+    if (!userToDelete || !currentUser) return;
     startTransition(async () => {
       try {
-        await deleteUser(userToDelete.uid);
+        const idToken = await currentUser.getIdToken();
+        await deleteUser(userToDelete.uid, idToken);
         toast({
           title: 'User Deleted',
           description: `${userToDelete.displayName || userToDelete.email} has been permanently deleted.`,
@@ -275,10 +209,12 @@ export default function UsersPage() {
   }
 
   const handleToggleStatus = async (user: RoleUser) => {
+    if (!currentUser) return;
     startTransition(async () => {
       try {
         const newStatus = !user.disabled;
-        await toggleUserStatus(user.uid, newStatus);
+        const idToken = await currentUser.getIdToken();
+        await toggleUserStatus(user.uid, newStatus, idToken);
         toast({
           title: newStatus ? 'User Suspended' : 'User Activated',
           description: `${user.displayName || user.email} has been ${newStatus ? 'suspended' : 'activated'}.`,
@@ -295,9 +231,33 @@ export default function UsersPage() {
     });
   };
 
-  const getRoleBadge = (role?: 'admin' | 'rep') => {
+  const handleResendInvite = async (user: RoleUser) => {
+    if (!currentUser) return;
+    startTransition(async () => {
+      try {
+        const idToken = await currentUser.getIdToken();
+        await resendInvite(user.uid, idToken);
+        toast({
+          title: 'Invite Resent',
+          description: `A fresh invitation email was sent to ${user.email}.`,
+        });
+      } catch (err: any) {
+        console.error(err);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to resend invite',
+          description: err.message || 'An unknown error occurred.',
+        });
+      }
+    });
+  };
+
+  const getRoleBadge = (role?: 'admin' | 'manager' | 'rep') => {
     if (role === 'admin') {
       return <Badge variant="destructive">Admin</Badge>;
+    }
+    if (role === 'manager') {
+      return <Badge className="bg-purple-100 text-purple-800">Project Manager</Badge>;
     }
     if (role === 'rep') {
       return <Badge className="bg-blue-100 text-blue-800">Rep</Badge>;
@@ -319,14 +279,13 @@ export default function UsersPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
           <CardDescription>
-            You do not have the necessary permissions to view this page. This is because your account does not have the 'admin' role. Please contact the system administrator.
+            You do not have the necessary permissions to view this page. Please contact the system administrator.
           </CardDescription>
         </CardHeader>
       </Card>
     )
   }
 
-  // This is the view for an admin user.
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -334,10 +293,10 @@ export default function UsersPage() {
           Users & Roles Management
         </h1>
         <div className="w-full md:w-auto">
-          <AddRepDialog
+          <AddUserDialog
             cities={cities || []}
             isLoadingCities={isLoadingCities}
-            onRepAdded={fetchUsers}
+            onUserAdded={fetchUsers}
             triggerButton={
               <Button className="w-full md:w-auto rounded-xl shadow-md hover:shadow-lg transition-all"><Users className="mr-2 h-4 w-4" /> Add User</Button>
             }
@@ -377,7 +336,13 @@ export default function UsersPage() {
                     {users.map((user) => {
                       const isCurrentUser = user.uid === currentUser?.uid;
                       const isKingAdmin = user.email === KING_ADMIN_EMAIL;
-                      const canPerformAction = !isCurrentUser && !isKingAdmin;
+                      const isProtected = isCurrentUser || isKingAdmin;
+                      // Project Managers can add & edit representatives, but never delete, suspend, or touch anyone else.
+                      const canEdit = !isProtected;
+                      const canSuspend = !isProtected;
+                      const canDelete = !isProtected;
+                      const canResend = canEdit && user.inviteAccepted === false;
+                      const canPerformAction = canEdit || canSuspend || canDelete || canResend;
 
                       return (
                         <TableRow key={user.uid} className={user.disabled ? 'opacity-60 bg-muted/20' : ''}>
@@ -405,6 +370,11 @@ export default function UsersPage() {
                           <TableCell>
                             <div className="flex flex-col gap-1 items-start">
                               {getRoleBadge(user.role)}
+                              {user.inviteAccepted === false && (
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 border-amber-300 text-amber-700 bg-amber-50">
+                                  <MailCheck className="h-3 w-3" /> Invite Pending
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -426,23 +396,36 @@ export default function UsersPage() {
                                 <DropdownMenuContent align="end" className="w-56">
                                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => setUserToEdit(user)}>
-                                    <Users className="mr-2 h-4 w-4" />
-                                    Edit Details
-                                  </DropdownMenuItem>
-
-                                  <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
-                                    {user.disabled ? <Users className="mr-2 h-4 w-4" /> : <ShieldQuestion className="mr-2 h-4 w-4" />}
-                                    {user.disabled ? 'Activate Account' : 'Suspend Account'}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-red-500 focus:bg-red-500/10 focus:text-red-600"
-                                    onClick={() => handleOpenDeleteDialog(user)}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete User
-                                  </DropdownMenuItem>
+                                  {canEdit && (
+                                    <DropdownMenuItem onClick={() => setUserToEdit(user)}>
+                                      <Users className="mr-2 h-4 w-4" />
+                                      Edit Details
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canResend && (
+                                    <DropdownMenuItem onClick={() => handleResendInvite(user)}>
+                                      <MailCheck className="mr-2 h-4 w-4" />
+                                      Resend Invite
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canSuspend && (
+                                    <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
+                                      {user.disabled ? <Users className="mr-2 h-4 w-4" /> : <ShieldQuestion className="mr-2 h-4 w-4" />}
+                                      {user.disabled ? 'Activate Account' : 'Suspend Account'}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canDelete && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-red-500 focus:bg-red-500/10 focus:text-red-600"
+                                        onClick={() => handleOpenDeleteDialog(user)}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete User
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
@@ -459,7 +442,12 @@ export default function UsersPage() {
                 {users.map((user) => {
                   const isCurrentUser = user.uid === currentUser?.uid;
                   const isKingAdmin = user.email === KING_ADMIN_EMAIL;
-                  const canPerformAction = !isCurrentUser && !isKingAdmin;
+                  const isProtected = isCurrentUser || isKingAdmin;
+                  const canEdit = !isProtected;
+                  const canSuspend = !isProtected;
+                  const canDelete = !isProtected;
+                  const canResend = canEdit && user.inviteAccepted === false;
+                  const canPerformAction = canEdit || canSuspend || canDelete || canResend;
 
                   return (
                     <Card key={user.uid} className="overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:bg-accent/5 hover:shadow-md">
@@ -492,6 +480,11 @@ export default function UsersPage() {
                               )}
                               <div className="flex items-center gap-2 mt-2">
                                 {!user.disabled && getRoleBadge(user.role)}
+                                {user.inviteAccepted === false && (
+                                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 gap-1 border-amber-300 text-amber-700 bg-amber-50">
+                                    <MailCheck className="h-3 w-3" /> Invite Pending
+                                  </Badge>
+                                )}
                               </div>
                             </div>
 
@@ -505,25 +498,36 @@ export default function UsersPage() {
                                 <DropdownMenuContent align="end" className="w-56">
                                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => setUserToEdit(user)}>
-                                    <Users className="mr-2 h-4 w-4" />
-                                    Edit Details
-                                  </DropdownMenuItem>
-
-
-
-                                  <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
-                                    {user.disabled ? <Users className="mr-2 h-4 w-4" /> : <ShieldQuestion className="mr-2 h-4 w-4" />}
-                                    {user.disabled ? 'Activate Account' : 'Suspend Account'}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-red-500 focus:text-red-600"
-                                    onClick={() => handleOpenDeleteDialog(user)}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete User
-                                  </DropdownMenuItem>
+                                  {canEdit && (
+                                    <DropdownMenuItem onClick={() => setUserToEdit(user)}>
+                                      <Users className="mr-2 h-4 w-4" />
+                                      Edit Details
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canResend && (
+                                    <DropdownMenuItem onClick={() => handleResendInvite(user)}>
+                                      <MailCheck className="mr-2 h-4 w-4" />
+                                      Resend Invite
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canSuspend && (
+                                    <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
+                                      {user.disabled ? <Users className="mr-2 h-4 w-4" /> : <ShieldQuestion className="mr-2 h-4 w-4" />}
+                                      {user.disabled ? 'Activate Account' : 'Suspend Account'}
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canDelete && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-red-500 focus:text-red-600"
+                                        onClick={() => handleOpenDeleteDialog(user)}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete User
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
@@ -570,25 +574,6 @@ export default function UsersPage() {
               className="bg-destructive hover:bg-destructive/90">
               {isSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
               Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Role Change Confirmation Dialog */}
-      <AlertDialog open={!!roleChangeToConfirm} onOpenChange={(open) => !open && setRoleChangeToConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Role Change</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to grant <span className="font-bold">{roleChangeToConfirm?.displayName}</span> full administrative privileges? They will have the ability to manage users and all other aspects of the system.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRoleChangeToConfirm(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={proceedWithRoleChange} disabled={isSubmitting}>
-              {isSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm & Grant Admin
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

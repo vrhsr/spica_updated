@@ -282,7 +282,10 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg w-full sm:w-[calc(100vw-2rem)] rounded-2xl p-0 overflow-hidden">
+      <DialogContent
+        className="w-[calc(100vw-1rem)] max-w-2xl rounded-2xl p-0 overflow-hidden gap-0 grid-rows-[auto_minmax(0,1fr)] sm:w-[calc(100vw-2rem)]"
+        style={{ maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 0.75rem)' }}
+      >
         {/* Gradient header band */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-6 pt-6 pb-4 border-b">
           <DialogTitle className="text-xl font-bold">
@@ -298,7 +301,10 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
           </DialogDescription>
         </div>
 
-        <div className="px-6 pt-5 pb-4">
+        <div
+          className="flex-1 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-5"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+        >
           <StepIndicator step={step} />
 
           {/* Step 1: Type selection */}
@@ -493,14 +499,14 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
                 </div>
               )}
 
-              <DialogFooter className="flex flex-row gap-2 pt-2">
-                <Button variant="outline" onClick={() => setStep('type')} className="flex-1 sm:flex-none h-11">
+              <DialogFooter className="sticky bottom-0 z-10 flex flex-row gap-2 border-t bg-background/95 pb-2 pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                <Button variant="outline" onClick={() => setStep('type')} className="h-12 flex-1 text-sm font-semibold sm:flex-none">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
                 <Button
                   onClick={handleNext}
                   disabled={requestType === 'new_doctor' ? !doctorName.trim() : !selectedDoctorId}
-                  className="flex-1 sm:flex-none h-11"
+                  className="h-12 flex-1 text-sm font-semibold sm:flex-none"
                 >
                   Next: Select Slides <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>

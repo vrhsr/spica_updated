@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useOfflineReady } from '@/hooks/useOfflineReady';
 import * as pdfjsLib from 'pdfjs-dist';
 import { App } from '@capacitor/app';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { saveVisitLog } from '@/lib/visit-logs-store';
 import {
     AlertDialog,
@@ -26,8 +28,6 @@ if (typeof window !== 'undefined') {
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 }
 
-// ... (existing imports remain, handled by tool context)
-
 function PresentationViewerContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -43,7 +43,6 @@ function PresentationViewerContent() {
     const [totalPages, setTotalPages] = useState(0);
     const [loading, setLoading] = useState(true);
     const [isOffline, setIsOffline] = useState(false);
-    const [isPresenting, setIsPresenting] = useState(false);
     const [doctorName, setDoctorName] = useState<string>('');
     const [showExitDialog, setShowExitDialog] = useState(false);
 
@@ -60,6 +59,17 @@ function PresentationViewerContent() {
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
 
+        // Lock screen orientation to landscape and go full screen
+        const enterPresentationMode = async () => {
+            try {
+                await ScreenOrientation.lock({ orientation: 'landscape' });
+                await StatusBar.hide();
+            } catch (error) {
+                console.log('Presentation mode setup skipped - not supported in this environment');
+            }
+        };
+        enterPresentationMode();
+
         // Hardware Back Button Handling (Capacitor)
         let backListener: any;
         const setupBackListener = async () => {
@@ -73,6 +83,14 @@ function PresentationViewerContent() {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
             if (backListener) backListener.remove();
+            
+            const exitPresentationMode = async () => {
+                try {
+                    await ScreenOrientation.unlock();
+                    await StatusBar.show();
+                } catch (error) {}
+            };
+            exitPresentationMode();
         };
     }, []);
 
@@ -144,8 +162,6 @@ function PresentationViewerContent() {
         }
     };
 
-    // ... (renderPage, useEffects for rendering remain same)
-
     const renderPage = useCallback(async (pageNumber: number) => {
         if (!pdfDoc || !canvasRef.current) return;
 
@@ -193,20 +209,12 @@ function PresentationViewerContent() {
         setCurrentPage(p => Math.min(totalPages, p + 1));
     }, [totalPages]);
 
-    // MODIFIED: handleClose now saves log silently and exits
     const handleClose = () => {
-        // Exit fullscreen if active
-        if (document.fullscreenElement) {
-            document.exitFullscreen().then(() => setIsPresenting(false));
-        } else {
-            setIsPresenting(false);
-        }
-
         // For online presentations, show confirmation dialog
         if (navigator.onLine) {
             setShowExitDialog(true);
         } else {
-            // Offline: redirect without asking (use window.location.replace to clear history)
+            // Offline: redirect without asking
             window.location.replace('/rep/offline');
         }
     };
@@ -215,31 +223,13 @@ function PresentationViewerContent() {
         setShowExitDialog(false);
 
         if (didPresent) {
-            // User confirmed they presented - save visit log (will capture location silently)
+            // User confirmed they presented - save visit log
             await saveVisitLog(doctorId, 'VISITED', doctorName);
         }
 
-        // Use window.location.replace to completely clear history and prevent back button loop
-        window.location.replace('/rep');
+        // Use router to navigate without hard reloading the app
+        router.replace('/rep');
     };
-
-    const startPresentation = useCallback(() => {
-        const elem = containerRef.current;
-        if (elem?.requestFullscreen) {
-            elem.requestFullscreen().catch(err => {
-                console.warn('Could not enter fullscreen:', err);
-            }).then(() => setIsPresenting(true));
-        }
-    }, []);
-
-    const exitPresentation = () => {
-        if (document.fullscreenElement) {
-            document.exitFullscreen().then(() => setIsPresenting(false));
-            // Don't auto-show dialog on ESC/ExitFullscreen, only on explicit Close/Back
-        }
-    };
-
-    // ... (Touch handlers, handleCanvasClick remain same)
 
     const handleTouchStart = (e: React.TouchEvent) => {
         touchStartX.current = e.touches[0].clientX;
@@ -288,34 +278,14 @@ function PresentationViewerContent() {
                 e.preventDefault();
                 goToPrevPage();
             }
-            if (e.key === 'Escape') {
-                exitPresentation();
-            }
-        };
-
-        const handleFullscreenChange = () => {
-            if (!document.fullscreenElement) {
-                setIsPresenting(false);
-            } else {
-                setIsPresenting(true);
-            }
         };
 
         document.addEventListener('keydown', handleKeyDown);
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
 
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
         };
     }, [goToNextPage, goToPrevPage]);
-
-    // Auto-start presentation when loaded
-    useEffect(() => {
-        if (pdfDoc && !loading) {
-            startPresentation();
-        }
-    }, [pdfDoc, loading, startPresentation]);
 
     if (!doctorId) {
         return (
@@ -375,38 +345,43 @@ function PresentationViewerContent() {
     return (
         <div
             ref={containerRef}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black overflow-hidden"
+            style={{
+                // No safe area padding when in full screen presentation mode
+                paddingTop: 0,
+                paddingBottom: 0,
+            }}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
         >
-            {!isPresenting && (
-                <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between bg-black/90 p-3">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleClose}
-                        className="text-white hover:bg-white/20"
-                    >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back
-                    </Button>
-                    {isOffline && (
-                        <div className="rounded bg-destructive px-3 py-1 text-xs font-semibold text-white">
-                            OFFLINE MODE
-                        </div>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleClose}
-                        className="text-white hover:bg-white/20"
-                    >
-                        <X className="h-5 w-5" />
-                    </Button>
-                </div>
-            )}
+            {/* Top Bar */}
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between bg-black/90 p-3">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClose}
+                    className="text-white hover:bg-white/20 focus:ring-0 focus-visible:ring-0"
+                >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                </Button>
+                {isOffline && (
+                    <div className="rounded bg-destructive px-3 py-1 text-xs font-semibold text-white">
+                        OFFLINE MODE
+                    </div>
+                )}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleClose}
+                    className="text-white hover:bg-white/20 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
+                    <X className="h-5 w-5" />
+                </Button>
+            </div>
 
-            <div className="flex-grow flex items-center justify-center w-full h-full">
+            {/* PDF Canvas */}
+            <div className="flex-grow flex h-full w-full items-center justify-center px-2 pb-24 pt-20">
                 <canvas
                     ref={canvasRef}
                     className="max-w-full max-h-full object-contain cursor-pointer"
@@ -414,15 +389,17 @@ function PresentationViewerContent() {
                 />
             </div>
 
-            {/* Bottom Controls - includes exit button for fullscreen mode */}
-            <div className="absolute bottom-4 left-0 right-0 z-10 flex items-center justify-center gap-4">
-                <div className="flex items-center gap-4 rounded-full bg-black/50 p-2 shadow-lg backdrop-blur-sm border border-white/20 text-white">
-                    {/* Exit/Close button - always visible */}
+            {/* Bottom Control Bar */}
+            <div
+                className="absolute left-0 right-0 z-10 flex items-center justify-center"
+                style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+            >
+                <div className="flex items-center gap-3 rounded-full bg-black/50 p-2 shadow-lg backdrop-blur-sm border border-white/20 text-white">
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={handleClose}
-                        className="text-white hover:bg-red-500/50 hover:text-white"
+                        className="text-white hover:bg-red-500/50 hover:text-white focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                         title="Exit Presentation"
                     >
                         <X className="h-5 w-5" />
@@ -433,7 +410,7 @@ function PresentationViewerContent() {
                         size="icon"
                         onClick={goToPrevPage}
                         disabled={currentPage <= 1}
-                        className="text-white hover:bg-white/20 hover:text-white disabled:opacity-30"
+                        className="text-white hover:bg-white/20 hover:text-white disabled:opacity-30 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                     >
                         <ChevronLeft className="h-6 w-6" />
                     </Button>
@@ -445,19 +422,20 @@ function PresentationViewerContent() {
                         size="icon"
                         onClick={goToNextPage}
                         disabled={currentPage >= totalPages}
-                        className="text-white hover:bg-white/20 hover:text-white disabled:opacity-30"
+                        className="text-white hover:bg-white/20 hover:text-white disabled:opacity-30 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                     >
                         <ChevronRight className="h-6 w-6" />
                     </Button>
                 </div>
             </div>
 
+            {/* Navigation Tip (first slide only) */}
             {currentPage === 1 && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-black/70 rounded-lg px-6 py-3 text-white text-sm text-center max-w-md">
                     <p className="font-semibold mb-1">Navigation Tips:</p>
                     <p className="text-xs">• Swipe left/right to change slides</p>
                     <p className="text-xs">• Tap left/right side of screen</p>
-                    <p className="text-xs">• Use arrow keys or buttons below</p>
+                    <p className="text-xs">• Use buttons below or arrow keys</p>
                 </div>
             )}
 

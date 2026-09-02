@@ -8,12 +8,28 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { allSlides } from '@/lib/slides';
+import { useUser } from '@/firebase';
+import { ShieldQuestion } from 'lucide-react';
 
 export default function SlidesPage() {
+  const { role } = useUser();
   const sortedSlides = useMemo(() => {
     // Sort all slides by their number
     return [...allSlides].sort((a, b) => a.number - b.number);
   }, []);
+
+  if (role !== 'admin') {
+    return (
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
+          <CardContent className="pt-4 px-0">
+            <p>You do not have the necessary permissions to view this page. Please contact the system administrator.</p>
+          </CardContent>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">

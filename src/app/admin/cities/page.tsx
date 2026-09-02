@@ -15,14 +15,14 @@ import { HeartPulse, Users, Loader, PlusCircle, Building, Trash2, MapPin, Chevro
 import { useCollection } from '@/firebase/firestore/use-collection';
 import {
   collection,
-  query,
-  where,
   addDoc,
   deleteDoc,
   doc,
   CollectionReference,
 } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import useSWR from 'swr';
+import { listAllUsers } from '../users/actions';
 import {
   Dialog,
   DialogContent,
@@ -244,6 +244,7 @@ function DistrictCard({
   onDeleteDistrict,
   onCityDeleted,
   onCityAdded,
+  isAdmin,
 }: {
   district: District;
   doctorCount: number;
@@ -252,6 +253,7 @@ function DistrictCard({
   onDeleteDistrict: (d: District) => void;
   onCityDeleted: () => void;
   onCityAdded: () => void;
+  isAdmin: boolean;
 }) {
   const [showCities, setShowCities] = useState(true);
   const [cityToDelete, setCityToDelete] = useState<DistrictCity | null>(null);
@@ -286,27 +288,29 @@ function DistrictCard({
               <CardTitle className="font-headline text-2xl">{district.name}</CardTitle>
               <CardDescription className="text-xs">District management hub</CardDescription>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="inline-block">
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="h-8 w-8 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-red-200"
-                    onClick={() => onDeleteDistrict(district)}
-                    disabled={!isDeletable}
-                    aria-label={`Delete district ${district.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {!isDeletable && (
-                <TooltipContent>
-                  <p>Cannot delete district with active doctors or reps.</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
+            {isAdmin && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-block">
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="h-8 w-8 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-red-200"
+                      onClick={() => onDeleteDistrict(district)}
+                      disabled={!isDeletable}
+                      aria-label={`Delete district ${district.name}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {!isDeletable && (
+                  <TooltipContent>
+                    <p>Cannot delete district with active doctors or reps.</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            )}
           </div>
         </CardHeader>
 
@@ -361,13 +365,15 @@ function DistrictCard({
                         className="text-xs flex items-center gap-1 pl-2 pr-1 py-1"
                       >
                         {city.name}
-                        <button
-                          onClick={() => setCityToDelete(city)}
-                          className="ml-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive p-0.5 transition-colors"
-                          aria-label={`Remove city ${city.name}`}
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setCityToDelete(city)}
+                            className="ml-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive p-0.5 transition-colors"
+                            aria-label={`Remove city ${city.name}`}
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        )}
                       </Badge>
                     ))}
                   </div>
@@ -422,6 +428,8 @@ function DistrictCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DistrictsPage() {
   const firestore = useFirestore();
+  const { user: currentUser, role } = useUser();
+  const isAdmin = role === 'admin';
   const { toast } = useToast();
   const [districtToDelete, setDistrictToDelete] = useState<District | null>(null);
   const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
@@ -436,14 +444,6 @@ export default function DistrictsPage() {
     [firestore]
   );
 
-  const repsCollection = useMemoFirebase(
-    () =>
-      firestore
-        ? query(collection(firestore, 'users'), where('role', '==', 'rep'))
-        : null,
-    [firestore]
-  );
-
   const districtsCitiesCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'districts_cities') : null),
     [firestore]
@@ -451,8 +451,22 @@ export default function DistrictsPage() {
 
   const { data: districts, isLoading: isLoadingDistricts, error: districtsError, forceRefetch } = useCollection<Omit<District, 'id'>>(districtsCollection);
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
-  const { data: reps, isLoading: isLoadingReps } = useCollection<Rep>(repsCollection);
   const { data: allCities, isLoading: isLoadingCities, forceRefetch: refetchCities } = useCollection<DistrictCity>(districtsCitiesCollection);
+
+  // Rep counts come from the listAllUsers server action (Admin SDK) rather
+  // than a direct client-side query on the 'users' collection — that
+  // collection's Firestore rules only allow admin to `list` it directly,
+  // so a manager's browser query would be denied.
+  const { data: allUsers, isLoading: isLoadingReps } = useSWR(
+    currentUser ? 'districts-reps' : null,
+    async () => listAllUsers(await currentUser!.getIdToken())
+  );
+  const reps = useMemo<Rep[]>(
+    () => (allUsers || [])
+      .filter((u) => u.role === 'rep')
+      .map((u) => ({ id: u.uid, city: u.city || '', role: 'rep' })),
+    [allUsers]
+  );
 
   const isLoading = isLoadingDistricts || isLoadingDoctors || isLoadingReps || isLoadingCities;
 
@@ -562,6 +576,7 @@ export default function DistrictsPage() {
                 onDeleteDistrict={setDistrictToDelete}
                 onCityDeleted={refetchCities}
                 onCityAdded={refetchCities}
+                isAdmin={isAdmin}
               />
             ))}
           </div>

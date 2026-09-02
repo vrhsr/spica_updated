@@ -21,6 +21,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { doc } from 'firebase/firestore';
 import { PasswordResetDialog } from '@/components/PasswordResetDialog';
 import { KeyRound, ShieldCheck } from 'lucide-react';
+import { useRequireRole } from '@/hooks/useRequireRole';
 
 type UserProfile = {
     city: string;
@@ -44,9 +45,8 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const auth = useAuth();
-    const { user, role, isUserLoading: isAuthLoading } = useUser();
+    const { user, role } = useUser();
     const firestore = useFirestore();
-    const [isTimedOut, setIsTimedOut] = useState(false);
     const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
     const [hasCheckedOffline, setHasCheckedOffline] = useState(false);
     const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
@@ -58,8 +58,6 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     );
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
-
-    const isUserLoading = isAuthLoading || isProfileLoading;
 
     // Offline mode should bypass auth for:
     // 1. /rep/offline page (always)
@@ -123,31 +121,15 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
         }
     }, [isOnline, isOfflineMode, pathname, router]);
 
-    useEffect(() => {
-        if (isOfflineMode) return; // Skip auth check in offline mode
-
-        const timer = setTimeout(() => {
-            if (isUserLoading || !user || role !== 'rep') {
-                console.log('[Rep Layout] Auth timeout - user:', !!user, 'loading:', isUserLoading, 'role:', role);
-                setIsTimedOut(true);
-            }
-        }, 15000); // 15 second timeout
-
-        if (!isUserLoading && user && role === 'rep') {
-            clearTimeout(timer);
-            setIsTimedOut(false); // Reset timeout state when auth is successful
-        } else if (!isUserLoading && (!user || role !== 'rep')) {
-            clearTimeout(timer);
-            // FIXED: Only redirect if we're online AND definitively not authenticated
-            // Don't redirect during transition states (when user is still loading or switching)
-            if (isOnline && !isUserLoading && !user) {
-                console.log('[Rep Layout] No user found - redirecting to login');
-                router.push('/rep-login');
-            }
-        }
-
-        return () => clearTimeout(timer);
-    }, [isUserLoading, user, role, isOfflineMode, isOnline, router]);
+    // Gate on the 'rep' role. Redirects any account without it (including
+    // one that resolves to admin/manager) straight to /login instead of
+    // leaving it stuck on "Loading field portal..." forever, which is what
+    // happened before this used the shared hook.
+    const { isChecking: isRoleChecking, isTimedOut } = useRequireRole(['rep'], {
+        redirectTo: '/login',
+        timeoutMs: 15000,
+        enabled: !isOfflineMode,
+    });
 
     if (isTimedOut && !isOfflineMode) {
         return (
@@ -157,7 +139,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                 <p className="text-muted-foreground mb-6">It's taking longer than expected to load your profile. Please try logging in again.</p>
                 <Button onClick={() => {
                     auth?.signOut();
-                    window.location.href = '/rep-login';
+                    window.location.href = '/login';
                 }}>
                     Login Again
                 </Button>
@@ -166,7 +148,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
 
-    if ((isUserLoading || !user || role !== 'rep') && !isOfflineMode && isOnline) {
+    if ((isRoleChecking || isProfileLoading) && !isOfflineMode && isOnline) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
@@ -227,7 +209,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                                 <KeyRound className="mr-2 h-4 w-4" />
                                 <span>Change Password</span>
                             </DropdownMenuItem>
-                            {role === 'admin' && (
+                            {(role === 'admin' || role === 'manager') && (
                                 <DropdownMenuItem onSelect={() => router.push('/admin/dashboard')}>
                                     <ShieldCheck className="mr-2 h-4 w-4 text-primary" />
                                     <span className="font-semibold text-primary">Admin Portal</span>
@@ -259,48 +241,48 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center justify-around h-16 md:h-20 max-w-screen-xl mx-auto px-2">
                     <Link
                         href="/rep"
-                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full rounded-xl mx-1 transition-all duration-200 ${
+                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-200 ${
                             pathname === '/rep'
-                                ? 'text-primary'
-                                : 'text-muted-foreground hover:text-foreground'
+                                ? 'text-blue-700'
+                                : 'text-slate-500 hover:text-slate-900'
                         }`}
                     >
-                        <div className={`p-1.5 rounded-xl transition-all duration-200 ${
-                            pathname === '/rep' ? 'bg-primary/15' : ''
+                        <div className={`flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-2xl transition-all duration-200 ${
+                            pathname === '/rep' ? 'bg-blue-100 shadow-sm ring-1 ring-blue-200 scale-105' : ''
                         }`}>
-                            <LayoutDashboard className="h-5 w-5 md:h-6 md:w-6" />
+                            <LayoutDashboard className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep' ? 'text-blue-600' : ''}`} />
+                            <span className={`text-[10px] md:text-xs ${pathname === '/rep' ? 'font-bold text-blue-800' : 'font-medium'}`}>Dashboard</span>
                         </div>
-                        <span className="text-[10px] md:text-xs font-medium">Dashboard</span>
                     </Link>
                     <Link
                         href="/rep/doctors"
-                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full rounded-xl mx-1 transition-all duration-200 ${
+                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-200 ${
                             pathname === '/rep/doctors'
-                                ? 'text-primary'
-                                : 'text-muted-foreground hover:text-foreground'
+                                ? 'text-blue-700'
+                                : 'text-slate-500 hover:text-slate-900'
                         }`}
                     >
-                        <div className={`p-1.5 rounded-xl transition-all duration-200 ${
-                            pathname === '/rep/doctors' ? 'bg-primary/15' : ''
+                        <div className={`flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-2xl transition-all duration-200 ${
+                            pathname === '/rep/doctors' ? 'bg-blue-100 shadow-sm ring-1 ring-blue-200 scale-105' : ''
                         }`}>
-                            <Stethoscope className="h-5 w-5 md:h-6 md:w-6" />
+                            <Stethoscope className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep/doctors' ? 'text-blue-600' : ''}`} />
+                            <span className={`text-[10px] md:text-xs ${pathname === '/rep/doctors' ? 'font-bold text-blue-800' : 'font-medium'}`}>Doctors</span>
                         </div>
-                        <span className="text-[10px] md:text-xs font-medium">Doctors</span>
                     </Link>
                     <Link
                         href="/rep/requests"
-                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full rounded-xl mx-1 transition-all duration-200 ${
+                        className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-200 ${
                             pathname === '/rep/requests'
-                                ? 'text-primary'
-                                : 'text-muted-foreground hover:text-foreground'
+                                ? 'text-blue-700'
+                                : 'text-slate-500 hover:text-slate-900'
                         }`}
                     >
-                        <div className={`p-1.5 rounded-xl transition-all duration-200 ${
-                            pathname === '/rep/requests' ? 'bg-primary/15' : ''
+                        <div className={`flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-2xl transition-all duration-200 ${
+                            pathname === '/rep/requests' ? 'bg-blue-100 shadow-sm ring-1 ring-blue-200 scale-105' : ''
                         }`}>
-                            <ClipboardList className="h-5 w-5 md:h-6 md:w-6" />
+                            <ClipboardList className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep/requests' ? 'text-blue-600' : ''}`} />
+                            <span className={`text-[10px] md:text-xs ${pathname === '/rep/requests' ? 'font-bold text-blue-800' : 'font-medium'}`}>Requests</span>
                         </div>
-                        <span className="text-[10px] md:text-xs font-medium">Requests</span>
                     </Link>
                 </div>
             </nav>

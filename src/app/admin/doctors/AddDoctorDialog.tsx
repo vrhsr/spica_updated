@@ -22,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import type { Doctor } from './page';
+import { Doctor, CreateDoctorInput } from '@/types';
 import { collection, query, where, addDoc } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { Loader } from 'lucide-react';
@@ -32,7 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface AddDoctorDialogProps {
   defaultCity?: string; // district name pre-selected (comes from ?city= param)
-  onDoctorAdded: (doctor: Omit<Doctor, 'status'>) => void | Promise<void>;
+  onDoctorAdded: (doctor: CreateDoctorInput) => Promise<void>;
   triggerButton: React.ReactNode;
 }
 

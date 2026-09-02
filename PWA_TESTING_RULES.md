@@ -137,11 +137,10 @@ git push origin main
 ```
 
 ### Capacitor Build (mobile app)
-```bash
-npm run build:capacitor
-# PWA is DISABLED (static export)
-# Different distribution method
-```
+The Android app now loads `https://spicasg.in` directly at runtime
+(`capacitor.config.json` `server.url`) instead of a bundled static export —
+there's no separate `build:capacitor` step anymore. Test it the same way as
+the PWA above; the WebView just points at the live site.
 
 ## 📊 PWA Debugger Interpretation
 

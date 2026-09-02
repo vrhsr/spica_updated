@@ -8,7 +8,7 @@ import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
 interface UserAuthState {
   user: User | null;
-  role: 'admin' | 'rep' | null;
+  role: 'admin' | 'manager' | 'rep' | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
@@ -28,7 +28,7 @@ export interface FirebaseServicesAndUser extends UserAuthState {
 
 export interface UserHookResult {
   user: User | null;
-  role: 'admin' | 'rep' | null;
+  role: 'admin' | 'manager' | 'rep' | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
@@ -70,7 +70,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         if (firebaseUser) {
           try {
             const idTokenResult: IdTokenResult = await firebaseUser.getIdTokenResult();
-            const userRole = (idTokenResult.claims.role as 'admin' | 'rep') || null;
+            const userRole = (idTokenResult.claims.role as 'admin' | 'manager' | 'rep') || null;
             setUserAuthState({ user: firebaseUser, role: userRole, isUserLoading: false, userError: null });
           } catch (error) {
             console.error("Error getting user role from token:", error);

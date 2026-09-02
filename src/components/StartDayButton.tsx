@@ -90,11 +90,11 @@ export function StartDayButton({ presentations, doctors }: StartDayButtonProps) 
             ) : (
                 // Normal Start Day button
                 <Button
-                    size="lg"
-                    className="w-full shadow-lg transition-all active:scale-95"
-                    onClick={handleStartDay}
-                    disabled={isSyncing}
-                >
+                size="lg"
+                className="w-auto px-6 shadow-lg transition-all active:scale-95"
+                onClick={handleStartDay}
+                disabled={isSyncing}
+            >
                     <Play className="mr-2 h-5 w-5 fill-current" />
                     {isSyncing ? 'Syncing...' : 'Start Day / Sync'}
                 </Button>

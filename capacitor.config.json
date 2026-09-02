@@ -4,19 +4,21 @@
   "webDir": "out",
   "bundledWebRuntime": false,
   "server": {
+    "url": "https://spicasg.in",
     "androidScheme": "https",
-    "allowNavigation": ["*spicasg.in*"]
+    "allowNavigation": ["*spicasg.in*"],
+    "cleartext": false
   },
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#0ea5e9",
+    "backgroundColor": "#ffffff",
     "webContentsDebuggingEnabled": false
   },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 1500,
       "launchAutoHide": true,
-      "backgroundColor": "#0ea5e9",
+      "backgroundColor": "#ffffff",
       "androidSplashResourceName": "splash",
       "showSpinner": false,
       "splashFullScreen": true,

@@ -75,7 +75,7 @@ export default function TokenDebugPage() {
                             variant="destructive"
                             onClick={() => {
                                 auth?.signOut();
-                                window.location.href = '/admin-login';
+                                window.location.href = '/login';
                             }}
                         >
                             Sign Out

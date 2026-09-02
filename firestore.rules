@@ -9,6 +9,18 @@ service cloud.firestore {
       return request.auth.token.role == "admin";
     }
 
+    function isManager() {
+      // Project Managers: full admin-portal access to operational data, but
+      // NEVER user management (that's enforced server-side in actions.ts,
+      // since account creation/deletion/role changes go through the Admin
+      // SDK and never touch these rules directly).
+      return request.auth.token.role == "manager";
+    }
+
+    function isAdminOrManager() {
+      return isAdmin() || isManager();
+    }
+
     function isRep() {
       // Check for the 'rep' role in the user's custom auth token.
       return request.auth.token.role == "rep";
@@ -31,7 +43,7 @@ service cloud.firestore {
       allow get: if isAdmin() || isOwner(userId);
 
       // Owners can update their own profile (except restricted fields)
-      allow update: if isOwner(userId) && !('role' in request.resource.data.diff());
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
       // Admins can update anything
       allow write: if isAdmin();
 
@@ -43,57 +55,62 @@ service cloud.firestore {
     match /cities/{cityId} {
       // Any authenticated user can read the list of cities.
       allow get, list: if request.auth != null;
-      // Only admins can create, update, or delete cities.
-      allow write: if isAdmin();
+      // Admins and Project Managers can create or update cities.
+      allow create, update: if isAdminOrManager();
+      // Only the admin can delete a district.
+      allow delete: if isAdmin();
     }
 
     // Rules for the 'districts_cities' collection (sub-cities within a district)
     match /districts_cities/{cityId} {
       // Any authenticated user can read the list of cities (needed for Add Doctor cascade dropdown).
       allow get, list: if request.auth != null;
-      // Only admins can create, update, or delete district cities.
-      allow write: if isAdmin();
+      // Admins and Project Managers can create or update district cities.
+      allow create, update: if isAdminOrManager();
+      // Only the admin can delete a city.
+      allow delete: if isAdmin();
     }
-    
+
     // Rules for the 'slides' collection
     match /slides/{slideId} {
        // Any authenticated user can read the master slides.
       allow get, list: if request.auth != null;
-      // Only admins can modify the master slide library.
+      // Only the admin can modify the master slide library — Project
+      // Managers no longer have Slides Library access.
       allow write: if isAdmin();
     }
 
     // Rules for the 'doctors' collection
     match /doctors/{doctorId} {
-      // Admins can read any doctor.
+      // Admins/Project Managers can read any doctor.
       // Reps can only read doctors that are in their assigned city.
-      allow get: if isAdmin() || isRepInCity(resource.data.city);
+      allow get: if isAdminOrManager() || isRepInCity(resource.data.city);
       // Allow listing for any authenticated user.
       allow list: if request.auth != null;
-      // Only admins can create, update, or delete doctors.
-      allow write: if isAdmin();
+      // Admins and Project Managers can create, update, or delete doctors.
+      allow write: if isAdminOrManager();
     }
 
     // Rules for the 'presentations' collection
     match /presentations/{presentationId} {
-      // Admins can read any presentation metadata.
+      // Admins/Project Managers can read any presentation metadata.
       // Reps can only read presentations belonging to their city.
-      allow get, list: if isAdmin() || isRepInCity(resource.data.city);
-      // Only admins (or backend functions with admin privileges) can create/update presentations.
-      allow write: if isAdmin();
+      allow get, list: if isAdminOrManager() || isRepInCity(resource.data.city);
+      // Admins and Project Managers (or backend functions with admin privileges) can create/update presentations.
+      allow write: if isAdminOrManager();
     }
 
     // Rules for the 'requests' collection
     match /requests/{requestId} {
       // A rep can create a request, but only for themselves.
       allow create: if isRep() && request.resource.data.repId == request.auth.uid;
-      // An admin can read any request. A rep can only read their own requests.
-      allow get: if isAdmin() || (isRep() && resource.data.repId == request.auth.uid);
-      // Only an admin can update (approve/reject/edit) a request.
-      allow update: if isAdmin();
-      // Admins can list all requests. A rep can list their own requests (will be filtered by queries in the app).
-      allow list: if isAdmin() || isRep();
-      // Only admins can delete requests.
+      // Admins/Project Managers can read any request. A rep can only read their own requests.
+      allow get: if isAdminOrManager() || (isRep() && resource.data.repId == request.auth.uid);
+      // Admins and Project Managers can update (approve/reject/edit) a request.
+      allow update: if isAdminOrManager();
+      // Admins/Project Managers can list all requests. A rep can list their own requests (will be filtered by queries in the app).
+      allow list: if isAdminOrManager() || isRep();
+      // Only the admin can delete requests.
       allow delete: if isAdmin();
     }
 
@@ -102,9 +119,11 @@ service cloud.firestore {
       // Reps can create logs, but only for themselves.
       allow create: if isRep() && request.resource.data.repId == request.auth.uid;
       // TEMPORARY: Allow any authenticated user to read visit logs (debugging custom claims)
-      // TODO: Change back to isAdmin() once custom claims are working
+      // TODO: Change back to isAdminOrManager() once custom claims are working
       allow read, list: if request.auth != null;
-      allow update, delete: if isAdmin();
+      allow update: if isAdminOrManager();
+      // Only the admin can delete visit logs.
+      allow delete: if isAdmin();
     }
   }
 }

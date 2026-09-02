@@ -55,24 +55,9 @@ import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
+import { Doctor, CreateDoctorInput, Presentation } from '@/types';
 
 
-export type Doctor = {
-  name: string;
-  city: string;      // district name (backwards-compatible Firestore field)
-  subCity?: string;  // actual city within the district (new field)
-  selectedSlides: number[];
-};
-
-type Presentation = {
-  doctorId: string;
-  city: string;
-  pdfUrl?: string;
-  updatedAt: Timestamp;
-  updatedBy: string;
-  dirty: boolean;
-  error?: string;
-};
 
 type EnrichedDoctor = WithId<Doctor> & {
   presentationStatus?: 'ready' | 'pending' | 'error' | 'generating' | 'not-generated';
@@ -86,7 +71,7 @@ export default function DoctorsPage() {
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
   const { toast } = useToast();
-  const isAdmin = adminRole === 'admin';
+  const isAdmin = adminRole === 'admin' || adminRole === 'manager';
 
   const [editDoctor, setEditDoctor] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToEditDetails, setDoctorToEditDetails] = React.useState<WithId<Doctor> | null>(null);
@@ -219,7 +204,7 @@ export default function DoctorsPage() {
   };
 
 
-  const handleDoctorAdded = async (newDoctor: Omit<Doctor, 'status'>) => {
+  const handleDoctorAdded = async (newDoctor: CreateDoctorInput) => {
     if (!firestore || !adminUser) return;
 
     try {
@@ -255,7 +240,7 @@ export default function DoctorsPage() {
         throw err;
       });
       tempId = docRef.id;
-      
+
       toast({
         title: "Doctor Added & Saving...",
         description: `${newDoctor.name} successfully added! The presentation is now generating in the background.`,
@@ -281,7 +266,7 @@ export default function DoctorsPage() {
 
   const handleEditDoctorSave = async (doctorId: string, details: { name: string; city: string; subCity: string }, selectedSlides: number[]) => {
     if (!firestore || !adminUser) return;
-    
+
     try {
       setIsSubmitting(`edit-details-${doctorId}`);
 
@@ -294,7 +279,7 @@ export default function DoctorsPage() {
       const duplicateQuery = query(collection(firestore, 'doctors'), where('name', '==', normalizedDetails.name));
       const duplicateSnapshot = await getDocs(duplicateQuery);
       const isDuplicate = duplicateSnapshot.docs.some(doc => doc.id !== doctorId);
-      
+
       if (isDuplicate) {
         toast({
           variant: "destructive",
@@ -305,7 +290,7 @@ export default function DoctorsPage() {
       }
 
       const doctorRef = doc(firestore, 'doctors', doctorId);
-      
+
       // Update Doctor record
       await updateDoc(doctorRef, normalizedDetails);
 
@@ -313,10 +298,10 @@ export default function DoctorsPage() {
         title: "Doctor Updated",
         description: `Details for ${details.name} have been updated in the database.`,
       });
-      
+
       setDoctorToEditDetails(null);
       refetchDoctors();
-      
+
     } catch (err: any) {
       console.error("Error updating doctor:", err);
       toast({
@@ -351,7 +336,7 @@ export default function DoctorsPage() {
         title: "Slides Saved",
         description: `Generating updated presentation for ${editDoctor.name} in background...`,
       });
-      
+
       // Release lock so dialog will close
       setEditDoctor(null);
       refetchDoctors();
@@ -432,7 +417,7 @@ export default function DoctorsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
           <CardContent className="pt-4">
-            <p>You do not have the necessary permissions to view this page. This is because your account does not have the 'admin' role. Please contact the system administrator.</p>
+            <p>You do not have the necessary permissions to view this page. Please contact the system administrator.</p>
           </CardContent>
         </CardHeader>
       </Card>
@@ -520,8 +505,8 @@ export default function DoctorsPage() {
                         <TableCell>{doctor.city}</TableCell>
                         <TableCell>{doctor.subCity || <span className="text-muted-foreground text-xs italic">—</span>}</TableCell>
                         <TableCell className="text-muted-foreground text-[11px] max-w-[140px] truncate" title={doctor.selectedSlides.join(', ')}>
-                          {doctor.selectedSlides.length <= 5 
-                            ? doctor.selectedSlides.join(', ') 
+                          {doctor.selectedSlides.length <= 5
+                            ? doctor.selectedSlides.join(', ')
                             : `${doctor.selectedSlides.slice(0, 5).join(', ')}... +${doctor.selectedSlides.length - 5} more`}
                         </TableCell>
                         <TableCell>{getStatusBadge(doctor)}</TableCell>
@@ -621,14 +606,14 @@ export default function DoctorsPage() {
                         <div className="flex-1">
                           <h3 className="font-headline text-[1.05rem] font-bold text-primary leading-tight">{doctor.name}</h3>
                           <div className="flex items-center text-xs text-muted-foreground mt-1 flex-wrap gap-1">
-                             <Building className="h-3 w-3 flex-shrink-0" />
-                             <span>{doctor.city}</span>
-                             {doctor.subCity && (
-                               <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium ml-0.5">
-                                 {doctor.subCity}
-                               </span>
-                             )}
-                           </div>
+                            <Building className="h-3 w-3 flex-shrink-0" />
+                            <span>{doctor.city}</span>
+                            {doctor.subCity && (
+                              <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium ml-0.5">
+                                {doctor.subCity}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex-shrink-0">{getStatusBadge(doctor)}</div>
                       </div>
@@ -652,8 +637,8 @@ export default function DoctorsPage() {
                               )}
                             </div>
                           ) : (
-                              <span className="text-xs text-muted-foreground italic">No slides assigned</span>
-                            )}
+                            <span className="text-xs text-muted-foreground italic">No slides assigned</span>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-1 gap-2 pt-3 mt-3 border-t">
@@ -669,7 +654,7 @@ export default function DoctorsPage() {
                               View Presentation
                             </Button>
                           )}
-                          
+
                           {doctor.presentationStatus === 'error' && (
                             <Button
                               variant="secondary"
@@ -687,7 +672,7 @@ export default function DoctorsPage() {
                               Retry
                             </Button>
                           )}
-                          
+
                           <Button
                             variant="outline"
                             size="sm"

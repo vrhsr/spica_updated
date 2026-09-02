@@ -19,5 +19,13 @@
   "storage": {
     "rules": "storage.rules",
     "cors": "storage.cors.json"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    }
   }
 }

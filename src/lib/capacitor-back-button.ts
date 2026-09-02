@@ -1,69 +1,62 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { type MutableRefObject, useEffect, useRef, useState } from 'react';
 import { App } from '@capacitor/app';
+import { usePathname } from 'next/navigation';
 import { isCapacitorApp } from './capacitor-utils';
-import { toast } from '@/hooks/use-toast';
 
-let backButtonListenerHandle: any = null;
+type BackButtonListenerHandle = {
+    remove: () => Promise<void>;
+};
+
+let isInitialized = false;
 
 /**
  * Initialize Android back button handler for Capacitor app
- * Implements double-tap-to-exit pattern
  */
-export function initializeBackButtonHandler() {
-    if (!isCapacitorApp()) {
-        console.log('[BackButton] Not a Capacitor app, skipping initialization');
+export function initializeBackButtonHandler(
+    pathnameRef: MutableRefObject<string>,
+    onRequestExit: () => void,
+    isExitDialogOpenRef: MutableRefObject<boolean>
+) {
+    if (!isCapacitorApp() || isInitialized) {
         return;
     }
 
-    let lastBackPress = 0;
-    const BACK_PRESS_INTERVAL = 2000; // 2 seconds
+    isInitialized = true;
 
-    // Remove any existing listener
-    if (backButtonListenerHandle) {
-        backButtonListenerHandle.remove();
-        backButtonListenerHandle = null;
-    }
-
-    // Add back button listener
     App.addListener('backButton', ({ canGoBack }) => {
-        const currentTime = Date.now();
-        const timeSinceLastPress = currentTime - lastBackPress;
+        const pathname = pathnameRef.current;
+        // Normalize pathname for robust matching
+        const normalizedPath = pathname.split('?')[0].split('#')[0];
+        
+        const isPresentationRoute = normalizedPath.startsWith('/rep/present/view');
+        // Include both /rep and /rep/ as root
+        const isRootRoute = normalizedPath === '/rep' || normalizedPath === '/rep/' || normalizedPath === '/admin/dashboard';
 
-        // If we can navigate back in the app, let the default behavior handle it
+        if (isPresentationRoute) {
+            return;
+        }
+
+        if (isRootRoute) {
+            if (!isExitDialogOpenRef.current) {
+                onRequestExit();
+            }
+            return;
+        }
+
         if (canGoBack) {
             window.history.back();
             return;
         }
 
-        // If at root and back pressed within interval, exit
-        if (timeSinceLastPress < BACK_PRESS_INTERVAL) {
-            App.exitApp();
-        } else {
-            // First press - show toast in the middle
-            lastBackPress = currentTime;
-            toast({
-                title: 'Press back again to exit',
-                duration: 2000,
-                className: 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-            });
+        if (!isExitDialogOpenRef.current) {
+            // Failsafe for non-root routes when history cannot go back
+            window.location.replace('/rep');
         }
-    }).then((handle) => {
-        backButtonListenerHandle = handle;
-        console.log('[BackButton] Listener registered successfully');
+    }).then(() => {
+        console.log('[BackButton] Listener registered permanently');
     });
-}
-
-/**
- * Clean up back button handler
- */
-export function cleanupBackButtonHandler() {
-    if (backButtonListenerHandle) {
-        backButtonListenerHandle.remove();
-        backButtonListenerHandle = null;
-        console.log('[BackButton] Listener removed');
-    }
 }
 
 /**
@@ -71,17 +64,33 @@ export function cleanupBackButtonHandler() {
  * Use in your root layout component
  */
 export function useBackButtonHandler() {
-    const isInitialized = useRef(false);
+    const pathname = usePathname();
+    const pathnameRef = useRef(pathname);
+    const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
+    const isExitDialogOpenRef = useRef(false);
 
     useEffect(() => {
-        if (!isInitialized.current) {
-            initializeBackButtonHandler();
-            isInitialized.current = true;
-        }
+        pathnameRef.current = pathname;
+    }, [pathname]);
 
-        return () => {
-            cleanupBackButtonHandler();
-            isInitialized.current = false;
-        };
+    useEffect(() => {
+        isExitDialogOpenRef.current = isExitDialogOpen;
+    }, [isExitDialogOpen]);
+
+    useEffect(() => {
+        initializeBackButtonHandler(
+            pathnameRef,
+            () => setIsExitDialogOpen(true),
+            isExitDialogOpenRef
+        );
     }, []);
+
+    return {
+        isExitDialogOpen,
+        setIsExitDialogOpen,
+        confirmExit: async () => {
+            setIsExitDialogOpen(false);
+            await App.exitApp();
+        },
+    };
 }

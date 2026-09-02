@@ -113,13 +113,6 @@ function PDFViewer() {
         }
     }, [pdfDoc, currentPage, renderPage]);
 
-    // Automatically start presentation when PDF is loaded
-    useEffect(() => {
-        if (pdfDoc && !isLoading) {
-            startPresentation();
-        }
-    }, [pdfDoc, isLoading, startPresentation]);
-
     const goToPrevPage = () => setCurrentPage(p => Math.max(1, p - 1));
     const goToNextPage = () => setCurrentPage(p => Math.min(totalPages, p + 1));
 
@@ -160,7 +153,14 @@ function PDFViewer() {
     if (error) return <PDFError message={error} />;
 
     return (
-        <div ref={containerRef} className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black p-4">
+        <div
+            ref={containerRef}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black p-4"
+            style={{
+                paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)',
+            }}
+        >
             {/* Top Controls - only visible if NOT in presentation mode */}
             {!isPresenting && (
                 <div className="absolute top-4 left-4 z-10">
@@ -178,7 +178,10 @@ function PDFViewer() {
             </div>
 
             {/* Bottom Controls */}
-            <div className="absolute bottom-4 left-0 right-0 z-10 flex items-center justify-center gap-4">
+            <div
+                className="absolute left-0 right-0 z-10 flex items-center justify-center gap-4"
+                style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+            >
                 {isPresenting ? (
                     <div className="flex items-center gap-4 rounded-full bg-black/50 p-2 shadow-lg backdrop-blur-sm border border-white/20 text-white">
                         <Button variant="ghost" size="icon" onClick={goToPrevPage} disabled={currentPage <= 1} className="text-white hover:bg-white/20 hover:text-white">

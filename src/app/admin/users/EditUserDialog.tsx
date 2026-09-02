@@ -18,12 +18,14 @@ import { Loader, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateUserDetails, setUserCity, setUserRole } from './actions';
 import { RoleUser } from './page'; // Ensure this type is exported from page.tsx or moved to a shared types file
+import { useUser } from '@/firebase';
 
+/** Admin-only: Project Managers no longer have access to Users & Roles. */
 export function EditUserDialog({
   user,
   cities = [],
   onClose,
-  onUserUpdated
+  onUserUpdated,
 }: {
   user: RoleUser | null;
   cities?: { id: string, name: string }[];
@@ -35,10 +37,11 @@ export function EditUserDialog({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [city, setCity] = useState('');
-  const [role, setRole] = useState<'admin' | 'rep'>('rep');
-  
+  const [role, setRole] = useState<'manager' | 'rep'>('rep');
+
   const [isSubmitting, startTransition] = useTransition();
   const { toast } = useToast();
+  const { user: viewer } = useUser();
 
   // Populate form when dialog opens
   useEffect(() => {
@@ -47,7 +50,7 @@ export function EditUserDialog({
       setPhone(user.phone || '');
       setEmail(user.email || '');
       setCity(user.city || '');
-      setRole(user.role || 'rep');
+      setRole(user.role === 'manager' ? 'manager' : 'rep');
       setIsOpen(true);
     } else {
       setIsOpen(false);
@@ -68,8 +71,8 @@ export function EditUserDialog({
   };
 
   const handleSave = () => {
-    if (!user) return;
-    
+    if (!user || !viewer) return;
+
     // Basic validation
     if (!name.trim()) {
       toast({ variant: 'destructive', title: 'Name is required' });
@@ -82,24 +85,26 @@ export function EditUserDialog({
 
     startTransition(async () => {
       try {
+        const idToken = await viewer.getIdToken();
+
         await updateUserDetails({
           uid: user.uid,
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim() || undefined,
+          idToken,
         });
 
-        // Handle role change safely
         if (role !== user.role) {
-          await setUserRole(user.uid, role);
+          await setUserRole(user.uid, role, idToken);
         }
 
         // Handle city change for rep
         if (role === 'rep' && city !== user.city) {
           if (!city) throw new Error("City/District cannot be empty for a rep");
-          await setUserCity(user.uid, city);
+          await setUserCity(user.uid, city, idToken);
         }
-        
+
         toast({
           title: 'User Updated',
           description: `Details for ${name.trim()} have been successfully saved.`,
@@ -172,22 +177,21 @@ export function EditUserDialog({
             />
           </div>
 
-          {/* Role Field */}
           <div className="grid gap-2">
             <Label>Role</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as 'admin' | 'rep')} disabled={isSubmitting}>
+            <Select value={role} onValueChange={(v) => setRole(v as 'manager' | 'rep')} disabled={isSubmitting}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="manager">Project Manager</SelectItem>
                 <SelectItem value="rep">Representative</SelectItem>
               </SelectContent>
             </Select>
-            {role === 'admin' && user?.role !== 'admin' && (
+            {role === 'manager' && user?.role !== 'manager' && (
               <p className="text-xs text-amber-600 flex items-start gap-1 mt-1 font-medium bg-amber-50 p-1.5 rounded">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                Warning: Assigning the Admin role grants this user critical system access.
+                Project Managers get full admin-portal access (Dashboard, Doctors, Districts, Presentations, Requests, Visit Logs) but cannot manage Users & Roles.
               </p>
             )}
           </div>

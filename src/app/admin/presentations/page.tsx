@@ -30,6 +30,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
+import { Doctor, CreateDoctorInput, Presentation, EnrichedPresentation } from '@/types';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AddDoctorDialog, EditSlidesForm } from '../doctors/AddDoctorDialog';
@@ -45,30 +46,6 @@ import {
 } from '@/components/ui/alert-dialog';
 
 
-type Presentation = {
-  doctorId: string;
-  city: string;
-  pdfUrl?: string;
-  updatedAt: Timestamp;
-  updatedBy: string;
-  dirty: boolean;
-  error?: string;
-};
-
-type Doctor = {
-  name: string;
-  city: string; // This is the District
-  subCity?: string; // This is the Actual City
-  selectedSlides: number[];
-};
-
-type EnrichedPresentation = WithId<Presentation> & {
-  doctorName?: string;
-  doctorCity?: string;
-  doctorDistrict?: string;
-  doctorSlides?: number[];
-  status: 'ready' | 'pending' | 'failed' | 'generating' | 'unknown';
-};
 
 function PresentationsComponent() {
   const router = useRouter();
@@ -110,7 +87,7 @@ function PresentationsComponent() {
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
   const { toast } = useToast();
 
-  const isAdmin = adminRole === 'admin';
+  const isAdmin = adminRole === 'admin' || adminRole === 'manager';
 
   const presentationsQuery = useMemoFirebase(() =>
     (firestore && isAdmin) ? collection(firestore, 'presentations') : null,
@@ -288,7 +265,7 @@ function PresentationsComponent() {
     }
   }
 
-  const handleDoctorAdded = async (newDoctor: Omit<Doctor, 'status'>) => {
+  const handleDoctorAdded = async (newDoctor: CreateDoctorInput) => {
     if (!firestore || !adminUser) return;
 
     try {
@@ -442,7 +419,7 @@ function PresentationsComponent() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-headline"><ShieldQuestion /> Permission Denied</CardTitle>
           <CardDescription>
-            You do not have the necessary permissions to view this page. This is because your account does not have the 'admin' role. Please contact the system administrator.
+            You do not have the necessary permissions to view this page. Please contact the system administrator.
           </CardDescription>
         </CardHeader>
       </Card>

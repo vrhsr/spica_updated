@@ -128,15 +128,12 @@ export default function AdminVisitLogsPage() {
         () => firestore ? collection(firestore, 'visit_logs') : null,
         [firestore]
     );
-    const usersCollection = useMemoFirebase(
-        () => firestore ? collection(firestore, 'users') : null,
-        [firestore]
-    );
 
     const { data: logs, isLoading, forceRefetch, error } = useCollection<VisitLog>(logsCollection);
-    const { data: users } = useCollection<{ id: string; role: string; name?: string; displayName?: string }>(usersCollection);
 
-    // Build unique rep list from logs (more reliable than users collection)
+    // Build unique rep list from logs (more reliable than a direct 'users'
+    // query — that collection's Firestore rules only allow admin to `list`
+    // it directly, which would deny a manager viewing this page)
     const repList = useMemo(() => {
         if (!logs) return [];
         const map = new Map<string, string>();
