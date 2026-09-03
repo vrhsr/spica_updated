@@ -174,7 +174,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200 p-4">
+      <div className="flex min-h-screen w-full items-center justify-center bg-brand-gradient p-4">
         <div className="w-full max-w-4xl rounded-xl bg-card/50 shadow-2xl backdrop-blur-lg md:grid md:grid-cols-2">
 
           {/* Left Side: Branding */}

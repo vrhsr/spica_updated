@@ -109,7 +109,7 @@ function AcceptInviteContent() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-brand-gradient">
       <Card className="relative w-full max-w-md shadow-2xl">
         <CardHeader className="pt-10 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -219,7 +219,7 @@ export default function AcceptInvitePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 via-purple-100 to-blue-200">
+        <div className="flex min-h-screen items-center justify-center bg-brand-gradient">
           <Loader className="h-8 w-8 animate-spin text-primary" />
         </div>
       }

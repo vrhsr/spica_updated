@@ -5,7 +5,7 @@
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0066CC",
+  "theme_color": "#4F46E5",
   "orientation": "any",
   "description": "Medical Representative Portal for Offline Doctor Presentations",
   "icons": [

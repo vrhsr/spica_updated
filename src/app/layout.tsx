@@ -3,7 +3,7 @@
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
-import { Inter } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -11,6 +11,7 @@ import { useBackButtonHandler } from '@/lib/capacitor-back-button';
 import { AppExitDialog } from '@/components/AppExitDialog';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-body' });
+const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-headline' });
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { UpdateNotification } from '@/components/UpdateNotification';
@@ -39,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn(inter.variable)}
+      className={cn(inter.variable, jakarta.variable)}
       style={{ colorScheme: 'light' }}
     >
       <head>
@@ -50,7 +51,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        <meta name="theme-color" content="#3b82f6" />
+        <meta name="theme-color" content="#4F46E5" />
       </head>
       <body className={cn('min-h-screen bg-slate-50 font-body antialiased')}>
         <ErrorBoundary level="root">

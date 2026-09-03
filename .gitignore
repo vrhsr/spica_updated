@@ -44,6 +44,7 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 studio-6785763299-c920b-firebase-adminsdk-fbsvc-f5a4eb7171.json
+/.firebase/
 
 # debug / build logs & JVM crash dumps (see build-capacitor.js, release-android.js)
 *.log
