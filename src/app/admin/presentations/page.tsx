@@ -495,9 +495,9 @@ function PresentationsComponent() {
                       <TableHead>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="-ml-4">
-                              District {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{cityFilter}</span>}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            <Button variant="ghost" className="-ml-4 h-auto py-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                              District {cityFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs normal-case tracking-normal text-secondary-foreground">{cityFilter}</span>}
+                              <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
@@ -522,9 +522,9 @@ function PresentationsComponent() {
                       <TableHead>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="-ml-4">
-                              Status {statusFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs capitalize text-secondary-foreground">{statusFilter}</span>}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            <Button variant="ghost" className="-ml-4 h-auto py-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                              Status {statusFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs normal-case tracking-normal text-secondary-foreground">{statusFilter}</span>}
+                              <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
