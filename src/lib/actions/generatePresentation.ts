@@ -111,7 +111,8 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
 
         // 1. Create a new PDF document
         const pdfDoc = await PDFDocument.create();
-        const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        // Serif bold, to match the "THANK YOU DOCTOR" title styling on the last slide
+        const titleFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
 
         // 2. Add selected slides to the presentation
         const slidesToAdd = allSlides.filter(slide => selectedSlides.includes(slide.number)).sort((a, b) => a.number - b.number);
@@ -174,28 +175,39 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
                 height: 720,
             });
 
-            // If this is the last slide (Thank You slide), add the doctor's name
+            // If this is the last slide (Thank You slide), add the doctor's name into the
+            // clear band under the "THANK YOU DOCTOR" title, matching its serif/dark styling.
+            // Box stops well before the doctor's hand/sleeve in the image (measured against
+            // the actual artwork) so the name never overlaps it.
             if (slide.number === 34) {
-                const personalizedText = doctorName;
-                const fontSize = 42;
-                const textWidth = helveticaBoldFont.widthOfTextAtSize(personalizedText, fontSize);
+                const NAME_BOX_LEFT = 40;
+                const NAME_BOX_RIGHT = 760;
+                const NAME_BOX_WIDTH = NAME_BOX_RIGHT - NAME_BOX_LEFT;
+                const NAME_BASELINE_Y = 410;
+                const NAME_MAX_FONT_SIZE = 40;
+                const NAME_MIN_FONT_SIZE = 18;
 
-                // Draw a white shadow for better visibility
-                page.drawText(personalizedText, {
-                    x: ((page.getWidth() - textWidth) / 2) + 1.5,
-                    y: 280 - 1.5,
-                    font: helveticaBoldFont,
-                    size: fontSize,
-                    color: rgb(1, 1, 1), // White shadow
-                });
+                const personalizedText = doctorName.toUpperCase();
 
-                // Draw the blue fill on top
+                let fontSize = NAME_MAX_FONT_SIZE;
+                let textWidth = titleFont.widthOfTextAtSize(personalizedText, fontSize);
+                while (textWidth > NAME_BOX_WIDTH && fontSize > NAME_MIN_FONT_SIZE) {
+                    fontSize -= 1;
+                    textWidth = titleFont.widthOfTextAtSize(personalizedText, fontSize);
+                }
+
+                // Center within the safe box; if it's still too wide even at the smallest
+                // size, left-align from the box edge rather than centering off the image.
+                const x = textWidth <= NAME_BOX_WIDTH
+                    ? NAME_BOX_LEFT + (NAME_BOX_WIDTH - textWidth) / 2
+                    : NAME_BOX_LEFT;
+
                 page.drawText(personalizedText, {
-                    x: (page.getWidth() - textWidth) / 2,
-                    y: 280,
-                    font: helveticaBoldFont,
+                    x,
+                    y: NAME_BASELINE_Y,
+                    font: titleFont,
                     size: fontSize,
-                    color: rgb(0, 102 / 255, 204 / 255), // Royal Blue: #0066CC
+                    color: rgb(0.16, 0.16, 0.16), // matches the title's dark charcoal
                 });
             }
         }

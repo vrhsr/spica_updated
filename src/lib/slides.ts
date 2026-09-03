@@ -43,5 +43,5 @@ export const allSlides: Slide[] = [
   { id: 'slide-31', number: 31, url: 'https://res.cloudinary.com/daxtfjb3u/image/upload/v1719586111/33_ULCIGLAD_v6ncoq.jpg', medicineName: 'ULCIGLAD' },
   { id: 'slide-32', number: 32, url: 'https://res.cloudinary.com/daxtfjb3u/image/upload/v1719586111/34_UTRONIM_jogybh.jpg', medicineName: 'UTRONIM' },
   { id: 'slide-33', number: 33, url: 'https://res.cloudinary.com/daxtfjb3u/image/upload/v1719586111/35_VITAGLAD_eyeixy.jpg', medicineName: 'VITAGLAD' },
-  { id: 'slide-34', number: 34, url: 'https://res.cloudinary.com/daxtfjb3u/image/upload/v1719586111/36_THANKYOU_l2yyqj.jpg', medicineName: 'Thank You' },
+  { id: 'slide-34', number: 34, url: 'https://res.cloudinary.com/daxtfjb3u/image/upload/v1788438146/thank_you_slide_zkkokj.png', medicineName: 'Thank You' },
 ];
