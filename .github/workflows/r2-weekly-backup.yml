@@ -1,0 +1,82 @@
+name: Weekly R2 dated snapshot + retention + restore check
+
+on:
+  schedule:
+    # Every Sunday 03:00 UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch: {}
+
+env:
+  # How many weekly snapshots to keep before pruning the oldest.
+  RETENTION_WEEKS: 8
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install rclone
+        run: sudo -v ; curl https://rclone.org/install.sh | sudo bash
+
+      - name: Configure R2 remote
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
+          secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          endpoint = https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          acl = private
+          EOF
+
+      - name: Set snapshot date
+        id: vars
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Copy primary bucket into dated snapshot
+        run: |
+          rclone copy "r2:${{ secrets.R2_BUCKET }}" \
+            "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/${{ steps.vars.outputs.date }}" \
+            --progress
+
+      - name: Verify snapshot integrity (checksum vs source)
+        run: |
+          rclone check "r2:${{ secrets.R2_BUCKET }}" \
+            "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/${{ steps.vars.outputs.date }}" \
+            --one-way
+
+      - name: Restore drill — pull a sample file back and sanity-check it
+        run: |
+          SNAP="r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/${{ steps.vars.outputs.date }}"
+          SAMPLE=$(rclone lsf "$SNAP" | shuf -n 1)
+          if [ -z "$SAMPLE" ]; then
+            echo "Snapshot is empty — nothing to verify restore against."
+            exit 1
+          fi
+          mkdir -p /tmp/restore-check
+          rclone copy "$SNAP/$SAMPLE" /tmp/restore-check/
+          FILE="/tmp/restore-check/$SAMPLE"
+          if [ ! -s "$FILE" ]; then
+            echo "Restored file is empty or missing: $SAMPLE"
+            exit 1
+          fi
+          if ! head -c 4 "$FILE" | grep -q "%PDF"; then
+            echo "Restored file failed PDF signature check: $SAMPLE"
+            exit 1
+          fi
+          echo "Restore verification passed for sample file: $SAMPLE"
+
+      - name: Apply retention policy (keep last N weekly snapshots)
+        run: |
+          ALL_SNAPSHOTS=$(rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/" --dirs-only | sed 's#/$##' | sort)
+          TOTAL=$(echo "$ALL_SNAPSHOTS" | grep -c . || true)
+          TO_DELETE=$((TOTAL - RETENTION_WEEKS))
+          if [ "$TO_DELETE" -gt 0 ]; then
+            echo "$ALL_SNAPSHOTS" | head -n "$TO_DELETE" | while read -r OLD; do
+              echo "Purging old snapshot: $OLD"
+              rclone purge "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/$OLD"
+            done
+          else
+            echo "Nothing to prune — $TOTAL snapshot(s) within retention of $RETENTION_WEEKS weeks."
+          fi

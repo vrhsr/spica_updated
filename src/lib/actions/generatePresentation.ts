@@ -30,12 +30,11 @@ type ErrorResponse = { error: string };
 export const generateAndUpsertPresentation = async (input: PdfGenerationInput): Promise<SuccessResponse | ErrorResponse> => {
     // --- START: Robust Environment Variable Validation ---
     const requiredEnvVars = [
-        'SUPABASE_S3_REGION',
-        'SUPABASE_S3_ENDPOINT',
-        'SUPABASE_S3_ACCESS_KEY_ID',
-        'SUPABASE_S3_SECRET_ACCESS_KEY',
-        'SUPABASE_S3_BUCKET',
-        'SUPABASE_STORAGE_URL'
+        'R2_ACCOUNT_ID',
+        'R2_ACCESS_KEY_ID',
+        'R2_SECRET_ACCESS_KEY',
+        'R2_BUCKET',
+        'R2_PUBLIC_URL'
     ];
 
     const missingVars = requiredEnvVars.filter(v => !process.env[v]);
@@ -61,16 +60,16 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
     // Initialize S3 client only after validation
     const s3 = new S3Client({
         forcePathStyle: true,
-        region: process.env.SUPABASE_S3_REGION!,
-        endpoint: process.env.SUPABASE_S3_ENDPOINT!,
+        region: 'auto',
+        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
         credentials: {
-            accessKeyId: process.env.SUPABASE_S3_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.SUPABASE_S3_SECRET_ACCESS_KEY!,
+            accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
         },
     });
 
-    const uploadToSupabase = async (fileBuffer: Buffer, fileName: string): Promise<string> => {
-        const bucket = process.env.SUPABASE_S3_BUCKET!;
+    const uploadToR2 = async (fileBuffer: Buffer, fileName: string): Promise<string> => {
+        const bucket = process.env.R2_BUCKET!;
         const safeFileName = fileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
         const key = `${safeFileName}.pdf`;
 
@@ -84,7 +83,7 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
             })
         );
 
-        return `${process.env.SUPABASE_STORAGE_URL}/storage/v1/object/public/${bucket}/${key}`;
+        return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
 
 
@@ -187,10 +186,10 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
         // 3. Generate the PDF file as a buffer
         const pdfBytes = await pdfDoc.save();
 
-        // 4. Upload the buffer to Supabase S3-compatible storage
+        // 4. Upload the buffer to Cloudflare R2 (S3-compatible)
         const safeDoctorName = doctorName.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
         const fileName = `${city.toUpperCase()}_${safeDoctorName}_${Date.now()}`;
-        const downloadUrl = await uploadToSupabase(Buffer.from(pdfBytes), fileName);
+        const downloadUrl = await uploadToR2(Buffer.from(pdfBytes), fileName);
 
         // 5. Upsert the presentation record in Firestore
         const presentationsRef = adminFirestore.collection('presentations');
