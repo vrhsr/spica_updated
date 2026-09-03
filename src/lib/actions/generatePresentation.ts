@@ -175,17 +175,17 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
                 height: 720,
             });
 
-            // If this is the last slide (Thank You slide), add the doctor's name into the
-            // clear band under the "THANK YOU DOCTOR" title, matching its serif/dark styling.
-            // Box stops well before the doctor's hand/sleeve in the image (measured against
-            // the actual artwork) so the name never overlaps it.
+            // If this is the last slide (Thank You slide), add the doctor's name inside the
+            // blue branding bar under the SPICA SG logo, matching the title's serif/dark
+            // styling. Bar coordinates measured directly from the artwork (spans roughly
+            // y 45-120 in PDF space, full width) so this tracks the actual image, not a guess.
             if (slide.number === 34) {
-                const NAME_BOX_LEFT = 40;
-                const NAME_BOX_RIGHT = 760;
+                const NAME_BOX_LEFT = 70;
+                const NAME_BOX_RIGHT = 1150;
                 const NAME_BOX_WIDTH = NAME_BOX_RIGHT - NAME_BOX_LEFT;
-                const NAME_BASELINE_Y = 410;
-                const NAME_MAX_FONT_SIZE = 40;
-                const NAME_MIN_FONT_SIZE = 18;
+                const NAME_BASELINE_Y = 68;
+                const NAME_MAX_FONT_SIZE = 34;
+                const NAME_MIN_FONT_SIZE = 16;
 
                 const personalizedText = doctorName.toUpperCase();
 
