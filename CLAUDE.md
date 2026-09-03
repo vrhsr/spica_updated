@@ -3,8 +3,9 @@
 Pharma field-sales platform: a Next.js web app plus a Capacitor-wrapped
 Android app, backed by Firebase. **Single login** at `/login` — anyone signs
 in there and is routed by their custom-claim role: `admin`/`manager` →
-`/admin/dashboard` (Dashboard, Doctors, Districts, Presentations, Change
-Requests, Visit Logs, and — admin-only — Users & Roles + Slides Library),
+`/admin/dashboard` (Dashboard, Doctors & Reps, Districts, Presentations,
+Change Requests, Visit Logs, and — admin-only — Users & Roles + Slides
+Library),
 `rep` → `/rep` (view presentations, offline PDF access, submit requests). The
 old `/admin-login` and `/rep-login` routes still exist as thin redirect
 stubs to `/login`, for old bookmarks/cached APKs. This file exists so a
@@ -37,7 +38,28 @@ understanding why it's structured this way first.
   uses it.
 - **Capacitor 8** wraps the web app as a native Android app.
 
-## Architecture decisions made in the 2026-09-02 session
+## Deployment — Vercel, not Firebase Hosting
+
+`https://spicasg.in` is served by **Vercel**, auto-deploying on every push
+to `main` on GitHub (`vrhsr/spica_updated`) — confirmed via response
+headers (`Server: Vercel`, `X-Vercel-Id`). This matters because the repo
+*also* contains a `firebase.json` `"hosting"` block and
+`.github/workflows/firebase-hosting-merge.yml` / `-pull-request.yml` that
+look like the deploy pipeline but **are not** — they're vestigial leftovers
+from an earlier setup. Running `firebase deploy --only hosting` uploads a
+handful of static files to `studio-6785763299-c920b.web.app`, a URL nobody
+uses; it is a complete no-op for the actual site. If `spicasg.in` needs a
+manual/emergency deploy and `git push` isn't an option, it has to go
+through Vercel (CLI or dashboard), not Firebase.
+
+**`git push origin main` may be denied** depending on which GitHub account
+is credentialed in the current environment/session — it was denied earlier
+in one session (`403`, wrong account) and worked normally later in the same
+day with no change on this end. If it's denied, don't try to work around it
+(no alternate deploy path reaches Vercel) — tell the user and let them push
+from their own authenticated machine/account, or fix the credentials here.
+
+## Architecture decisions
 
 ### Android app now loads live content
 `capacitor.config.json` sets `server.url` to `https://spicasg.in` — the
@@ -53,10 +75,28 @@ anymore, which is fine since `server.url` takes over at runtime anyway.
 `android/app/src/main/java/com/spicasg/app/UpdateManager.java` calls
 Firebase App Distribution's `updateIfNewReleaseAvailable()` on launch. Pairs
 with `scripts/deploy-to-firebase.js`, which pushes a release APK to the
-Firebase App Distribution **"representatives"** tester group. That group
-**starts empty** — testers must be added manually
-(`firebase appdistribution:testers:add <emails> --group representatives`)
-or nobody gets notified.
+Firebase App Distribution **"representatives"** tester group. This has been
+exercised end-to-end and works: `mvrhsr@gmail.com` is registered as a
+tester, and the flow has pushed multiple releases (currently build 5+)
+that showed the native "Update available" prompt on a real device. The
+group is no longer empty, but only has that one tester — add more with:
+
+```
+firebase appdistribution:testers:add <email> --group-alias representatives
+```
+
+(**not** `--group` — that flag doesn't exist on this firebase-tools version
+and fails with "unknown option"; it's `--group-alias`, easy to get wrong).
+There's no wrapper script for this yet, just the raw command above.
+
+This whole mechanism is a beta-testing tool, not a real distribution
+channel — it requires each tester to be added by email and to sign in
+once inside the app before it'll check for updates. It's the right choice
+for a personal/free project handing the app to a handful of known reps;
+it will never feel like a Play Store "just works" experience for a
+stranger. (Play Store internal/managed distribution is the actual
+equivalent of that, but costs money and a Play Console account — see
+Outstanding items.)
 
 Release flow: `npm run release:android` → `scripts/release-android.js`
 bumps `android/app/version.properties` (versionCode/versionName — no longer
@@ -64,7 +104,10 @@ hardcoded in `build.gradle`), runs `gradlew assembleRelease`, then deploys.
 **Release APK is signed with the debug keystore** — fine for App
 Distribution, not acceptable for a Play Store submission; a real release
 keystore would need to be generated and wired into `android/app/build.gradle`
-first.
+first. Also note: `npm run cap:sync` should run before a release build if
+`capacitor.config.json` changed (it copies the config + web assets into
+the native project) — `release-android.js` does **not** do this
+automatically, it's a separate manual step.
 
 ### User management: invite-by-email, no temp passwords, three-tier roles
 - **No self-signup anywhere.** Only an admin can create accounts, via the
@@ -146,6 +189,60 @@ first.
   the exact regressions above (manager delete-denied on districts/slides,
   manager list-denied on `users`, rep city-scoping on doctors/presentations,
   owner-can't-change-own-role) so they can't silently come back.
+
+### Premium visual system
+- **Brand color is indigo-600** (`#4F46E5`), set once as `--primary` (and
+  `--ring`) in `src/app/globals.css`'s CSS variables — every shadcn
+  component (Button, Badge, Input, focus rings) inherits it automatically.
+  It's also duplicated in three other places that don't read the CSS
+  variable and need updating by hand if the brand color ever changes again:
+  `android/app/src/main/res/values/colors.xml` (`colorPrimary`/
+  `colorPrimaryDark`, native chrome), `public/manifest.json`
+  (`theme_color`, PWA), and the `<meta name="theme-color">` tag in
+  `src/app/layout.tsx`.
+- **Two fonts**: Inter for body (`--font-body`), **Plus Jakarta Sans** for
+  headlines (`--font-headline`) — both loaded via `next/font/google` in
+  `src/app/layout.tsx` and mapped in `tailwind.config.ts`. Before this,
+  `font-headline` was silently aliased back to Inter, so every
+  `CardTitle`/`h1` in the app looked like body text despite the class being
+  used everywhere — if headings ever look plain again, check this mapping
+  didn't get reverted.
+- **`--radius` is `0.75rem`** (was `0.5rem`) — matches what most pages were
+  already hand-overriding to (`rounded-xl`/`rounded-2xl`), so the shared
+  Button/Input default now agrees with the rest of the app.
+- **`.bg-brand-gradient` / `.text-brand-gradient`** utility classes
+  (`globals.css`, `@layer utilities`) formalize the blue/violet wash used
+  on `/login`, `/accept-invite`, and the district cards — use these instead
+  of retyping `bg-gradient-to-br from-blue-100 via-purple-100 ...` again.
+- **Table headers** (`src/components/ui/table.tsx`) are uppercase/tracked/
+  muted by default now. Gotcha: a `TableHead` that wraps a `<Button>` (e.g.
+  a sortable-column filter trigger, see `admin/presentations/page.tsx`)
+  needs the button's own text classes matched to
+  `text-xs font-semibold uppercase tracking-wider text-muted-foreground`
+  explicitly — the button's own `text-sm font-medium` otherwise overrides
+  the inherited header style, which is exactly what happened there before
+  it got fixed.
+- **Dashboard stat cards** (`admin/dashboard/page.tsx`): the destructive
+  (red-bordered/alarm) styling on "Pending Requests" and "Errors in 24h" is
+  **conditional on the count being > 0**, not hardcoded — a stat card
+  showing "0" should never look alarming. If you add a new stat card with a
+  `variant`, make it conditional the same way.
+
+### Doctors & Reps page (merged view)
+`admin/doctors/page.tsx` — renamed from "Doctors" to "Doctors & Reps" (nav
+label too, in `admin/layout.tsx`) — now has a Doctors/Reps segmented toggle
+at the top, synced to a `?view=reps` query param (default is the doctors
+view). The Reps side is a separate `RepsSection` component defined in the
+same file, sourcing data from `listAllUsers` (same reasoning as the
+`users` collection gotcha below — a direct Firestore query would fail for
+a manager) and is **intentionally read-only**: no edit/suspend/delete
+controls, since account management stays exclusively in Users & Roles
+(admin-only). District cards on `admin/cities/page.tsx` link their
+Doctors/Reps stat tiles straight into this page
+(`/admin/doctors?city=X` and `/admin/doctors?city=X&view=reps`) instead of
+showing static numbers — if you add a third "type" to browse this way
+(e.g. presentations by district), follow the same `?view=` pattern rather
+than inventing a new one.
 
 ## Gotchas that will bite you if you don't know them
 
@@ -250,14 +347,21 @@ first.
 ## Outstanding items for the user (not done automatically)
 
 1. **Real release keystore** — needed before any Play Store submission;
-   currently release APKs are debug-signed.
-2. **Add testers to the "representatives" App Distribution group** — it's
-   currently empty, so `npm run release:android` builds and uploads fine but
-   notifies nobody until testers are added.
-3. **Visual "premium" pass was scoped narrowly** — the invite page and
-   login pages got direct attention; the rest of the app (Doctors,
-   Presentations, Cities, Visit Logs, PDF viewer) hasn't had a deliberate
-   design pass yet.
+   currently release APKs are debug-signed. Decided against Play Store for
+   now (personal/free project) — App Distribution is the update mechanism
+   instead, see above. Revisit only if this ever needs to go to real users
+   beyond a small known group of reps.
+2. **App Distribution "representatives" group has only one tester**
+   (`mvrhsr@gmail.com`) — add reps as they come on board:
+   `firebase appdistribution:testers:add <email> --group-alias representatives`.
+   Each new tester has to sign in once inside the app before update checks
+   work for them.
+3. **Visual premium pass**: the core system (brand color, headline font,
+   table styling, gradient utility) now applies app-wide, plus dedicated
+   redesigns of the Dashboard, Districts (cities), and the new Doctors &
+   Reps page. Presentations, Visit Logs, and the PDF viewer have only
+   inherited the system-level changes, not a bespoke pass — still open if
+   more polish is wanted there specifically.
 4. **`npm run test:rules` has never actually run** — this dev machine has
    JDK 17, the Firestore emulator needs 21+. Install a newer JDK (or run it
    in CI) to actually execute `firestore.rules.test.ts`.
@@ -265,4 +369,6 @@ first.
    manual. Firestore rules have already drifted from deployed once this
    project's life (a whole session's worth of "permission denied" bugs
    traced back to it); wiring at least `deploy:rules` into a CI step after
-   merge to main would prevent a repeat.
+   merge to main would prevent a repeat. (Vercel already auto-deploys the
+   web app itself on push — this gap is specifically about Firestore
+   rules, which are a separate deploy Vercel doesn't know about.)
