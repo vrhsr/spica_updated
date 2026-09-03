@@ -153,6 +153,9 @@ export default function AdminDashboardPage() {
         (p) => p.updatedAt.toDate() > twentyFourHoursAgo
       ) || [];
 
+    const pendingRequestsCount = requests?.filter((r) => r.status === 'pending').length || 0;
+    const errorsCount = recentPresentations.filter((p) => !!p.error).length;
+
     return [
       {
         title: 'Total Reps',
@@ -177,9 +180,9 @@ export default function AdminDashboardPage() {
       },
       {
         title: 'Pending Requests',
-        value: requests?.filter((r) => r.status === 'pending').length || 0,
+        value: pendingRequestsCount,
         icon: Mail,
-        variant: 'destructive',
+        variant: pendingRequestsCount > 0 ? 'destructive' : undefined,
         href: '/admin/requests?status=pending'
       },
       {
@@ -190,9 +193,9 @@ export default function AdminDashboardPage() {
       },
       {
         title: 'Errors in 24h',
-        value: recentPresentations.filter((p) => !!p.error).length || 0,
+        value: errorsCount,
         icon: AlertTriangle,
-        variant: 'destructive',
+        variant: errorsCount > 0 ? 'destructive' : undefined,
         href: '/admin/presentations?status=error'
       },
     ];
