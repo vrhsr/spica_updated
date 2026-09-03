@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion, Search, Building, Eye } from 'lucide-react';
+import { PlusCircle, Edit, MoreHorizontal, Trash2, ArrowLeft, Loader, FileQuestion, RefreshCcw, ShieldQuestion, Search, Building, Eye, Users, Phone, MailCheck, HeartPulse } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -44,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTransition } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { AddDoctorDialog, EditSlidesForm } from './AddDoctorDialog';
 import { EditDoctorDialog } from './EditDoctorDialog';
@@ -56,6 +56,8 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
 import { Doctor, CreateDoctorInput, Presentation } from '@/types';
+import useSWR from 'swr';
+import { listAllUsers } from '../users/actions';
 
 
 
@@ -65,13 +67,135 @@ type EnrichedDoctor = WithId<Doctor> & {
   presentationPdfUrl?: string;
 };
 
+// ─── Reps View ──────────────────────────────────────────────────────────────
+// Read-only — actually managing a rep's account (edit/suspend/delete) still
+// lives in Users & Roles, which stays admin-only. This is just a quick way
+// to browse who's assigned where, reachable from the Districts page.
+function RepsSection({ cityFilter, searchTerm }: { cityFilter: string | null; searchTerm: string }) {
+  const { user: currentUser } = useUser();
+
+  const { data: allUsers, isLoading } = useSWR(
+    currentUser ? 'allUsers-reps-view' : null,
+    async () => listAllUsers(await currentUser!.getIdToken())
+  );
+
+  const reps = React.useMemo(() => {
+    const list = (allUsers || []).filter((u) => u.role === 'rep');
+    const cityScoped = cityFilter ? list.filter((r) => r.city === cityFilter) : list;
+    if (!searchTerm.trim()) return cityScoped;
+    const lower = searchTerm.toLowerCase();
+    return cityScoped.filter((r) =>
+      (r.displayName || '').toLowerCase().includes(lower) ||
+      (r.city || '').toLowerCase().includes(lower) ||
+      (r.email || '').toLowerCase().includes(lower)
+    );
+  }, [allUsers, cityFilter, searchTerm]);
+
+  const getRepStatusBadge = (rep: NonNullable<typeof allUsers>[number]) => {
+    if (rep.disabled) return <Badge variant="destructive">Suspended</Badge>;
+    if (rep.inviteAccepted === false) return <Badge className="bg-amber-100 text-amber-800">Invite Pending</Badge>;
+    return <Badge className="bg-green-100 text-green-800">Active</Badge>;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-4 text-muted-foreground">Loading representatives...</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Desktop Table View */}
+      <div className="hidden lg:block overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Representative</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>District</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {reps.length > 0 ? reps.map((rep) => (
+              <TableRow key={rep.uid}>
+                <TableCell className="font-medium">{rep.displayName || 'N/A'}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col text-sm">
+                    <span className="text-muted-foreground">{rep.email}</span>
+                    {rep.phone && <span className="text-xs text-muted-foreground">{rep.phone}</span>}
+                  </div>
+                </TableCell>
+                <TableCell>{rep.city || <span className="text-muted-foreground text-xs italic">Unassigned</span>}</TableCell>
+                <TableCell>{getRepStatusBadge(rep)}</TableCell>
+              </TableRow>
+            )) : (
+              <TableRow>
+                <TableCell colSpan={4} className="h-48 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center">
+                    <Users className="h-12 w-12 text-muted-foreground/50" />
+                    <h3 className="mt-4 text-lg font-semibold">No Representatives Found</h3>
+                    <p className="mt-1 text-sm">
+                      {searchTerm ? `No reps match "${searchTerm}"` : cityFilter ? `No reps are assigned to ${cityFilter} yet.` : 'No representatives have been added yet.'}
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="lg:hidden grid gap-3 grid-cols-1 sm:grid-cols-2">
+        {reps.length > 0 ? reps.map((rep) => (
+          <Card key={rep.uid} className="overflow-hidden border rounded-xl transition-all duration-200 hover:border-primary/40 hover:shadow-md">
+            <CardContent className="p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-headline text-[1.05rem] font-bold leading-tight">{rep.displayName || 'N/A'}</h3>
+                {getRepStatusBadge(rep)}
+              </div>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5"><MailCheck className="h-3 w-3 shrink-0" />{rep.email}</div>
+                {rep.phone && <div className="flex items-center gap-1.5"><Phone className="h-3 w-3 shrink-0" />{rep.phone}</div>}
+                <div className="flex items-center gap-1.5"><Building className="h-3 w-3 shrink-0" />{rep.city || 'Unassigned district'}</div>
+              </div>
+            </CardContent>
+          </Card>
+        )) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+            <Users className="h-12 w-12 text-muted-foreground/50" />
+            <h3 className="mt-4 text-lg font-semibold">No Representatives Found</h3>
+            <p className="mt-1 text-sm">
+              {searchTerm ? `No reps match "${searchTerm}"` : 'No representatives have been added yet.'}
+            </p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function DoctorsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const cityFilter = searchParams.get('city');
+  const activeView = searchParams.get('view') === 'reps' ? 'reps' : 'doctors';
   const firestore = useFirestore();
   const { user: adminUser, role: adminRole, isUserLoading } = useUser();
   const { toast } = useToast();
   const isAdmin = adminRole === 'admin' || adminRole === 'manager';
+
+  const setView = (view: 'doctors' | 'reps') => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (view === 'reps') params.set('view', 'reps');
+    else params.delete('view');
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   const [editDoctor, setEditDoctor] = React.useState<WithId<Doctor> | null>(null);
   const [doctorToEditDetails, setDoctorToEditDetails] = React.useState<WithId<Doctor> | null>(null);
@@ -436,27 +560,53 @@ export default function DoctorsPage() {
             </Button>
           )}
           <h1 className="font-headline text-3xl font-bold tracking-tight">
-            Manage Doctors {cityFilter && <span className="opacity-70">({cityFilter})</span>}
+            Doctors &amp; Reps {cityFilter && <span className="opacity-70">({cityFilter})</span>}
           </h1>
         </div>
-        <AddDoctorDialog
-          onDoctorAdded={handleDoctorAdded}
-          defaultCity={cityFilter || undefined}
-          triggerButton={
-            <Button disabled={!!isSubmitting} className="rounded-xl shadow-md hover:shadow-lg transition-all">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Doctor
+        <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-1 rounded-xl border bg-muted/40 p-1">
+            <Button
+              variant={activeView === 'doctors' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setView('doctors')}
+              className="rounded-lg"
+            >
+              <HeartPulse className="mr-1.5 h-4 w-4" /> Doctors
             </Button>
-          }
-        />
+            <Button
+              variant={activeView === 'reps' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setView('reps')}
+              className="rounded-lg"
+            >
+              <Users className="mr-1.5 h-4 w-4" /> Reps
+            </Button>
+          </div>
+          {activeView === 'doctors' && (
+            <AddDoctorDialog
+              onDoctorAdded={handleDoctorAdded}
+              defaultCity={cityFilter || undefined}
+              triggerButton={
+                <Button disabled={!!isSubmitting} className="rounded-xl shadow-md hover:shadow-lg transition-all">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Doctor
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
       <Card className="shadow-sm">
         <CardHeader>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <CardTitle>All Doctors</CardTitle>
+              <CardTitle>{activeView === 'reps' ? 'All Representatives' : 'All Doctors'}</CardTitle>
               <CardDescription>
-                {cityFilter
+                {activeView === 'reps'
+                  ? cityFilter
+                    ? `Representatives assigned to ${cityFilter}.`
+                    : 'Browse field representatives and where they\'re assigned.'
+                  : cityFilter
                   ? `Doctors in ${cityFilter}. Click the back arrow to view all cities.`
                   : 'Manage all doctors and their presentations.'}
               </CardDescription>
@@ -464,7 +614,7 @@ export default function DoctorsPage() {
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search doctors, districts, or cities..."
+                placeholder={activeView === 'reps' ? 'Search representatives...' : 'Search doctors, districts, or cities...'}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 h-10 shadow-sm border-muted-foreground/20 focus-visible:ring-primary focus-visible:border-primary transition-all bg-card"
@@ -473,7 +623,9 @@ export default function DoctorsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {activeView === 'reps' ? (
+            <RepsSection cityFilter={cityFilter} searchTerm={searchTerm} />
+          ) : isLoading ? (
             <div className="flex h-64 items-center justify-center">
               <Loader className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-4 text-muted-foreground">Loading doctors...</p>

@@ -6,12 +6,11 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { HeartPulse, Users, Loader, PlusCircle, Building, Trash2, MapPin, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { HeartPulse, Users, Loader, PlusCircle, Building, Trash2, MapPin, ChevronDown, ChevronUp, X, ArrowUpRight } from 'lucide-react';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import {
   collection,
@@ -281,12 +280,20 @@ function DistrictCard({
 
   return (
     <>
-      <Card className="group relative overflow-hidden backdrop-blur-sm bg-card/50 border-2 rounded-2xl transition-all duration-200 hover:shadow-lg hover:border-accent hover:bg-accent/5">
+      <Card className="group relative overflow-hidden rounded-2xl border-2 bg-card/60 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl">
+        {/* Signature gradient accent bar */}
+        <div className="h-1.5 w-full bg-brand-gradient" />
+
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <CardTitle className="font-headline text-2xl">{district.name}</CardTitle>
-              <CardDescription className="text-xs">District management hub</CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gradient text-primary shadow-sm">
+                <Building className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="font-headline text-2xl leading-tight">{district.name}</CardTitle>
+                <CardDescription className="text-xs">District management hub</CardDescription>
+              </div>
             </div>
             {isAdmin && (
               <Tooltip>
@@ -315,26 +322,34 @@ function DistrictCard({
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Stats */}
+          {/* Stats — clickable, jump straight to a filtered Doctors/Reps view */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-2.5">
-              <div className="p-1.5 rounded-md bg-primary/10">
-                <HeartPulse className="h-4 w-4 text-primary" />
+            <Link
+              href={`/admin/doctors?city=${encodeURIComponent(district.name)}`}
+              className="group/tile flex items-center gap-2 rounded-xl bg-primary/5 p-2.5 transition-colors hover:bg-primary/10"
+            >
+              <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                <HeartPulse className="h-4 w-4" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-1 flex-col">
                 <span className="text-xs text-muted-foreground">Doctors</span>
                 <span className="font-bold text-lg">{doctorCount}</span>
               </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-2.5">
-              <div className="p-1.5 rounded-md bg-primary/10">
-                <Users className="h-4 w-4 text-primary" />
+              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-primary/40 transition-all group-hover/tile:translate-x-0.5 group-hover/tile:-translate-y-0.5 group-hover/tile:text-primary" />
+            </Link>
+            <Link
+              href={`/admin/doctors?city=${encodeURIComponent(district.name)}&view=reps`}
+              className="group/tile flex items-center gap-2 rounded-xl bg-violet-500/5 p-2.5 transition-colors hover:bg-violet-500/10"
+            >
+              <div className="p-1.5 rounded-md bg-violet-500/10 text-violet-600">
+                <Users className="h-4 w-4" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-1 flex-col">
                 <span className="text-xs text-muted-foreground">Reps</span>
                 <span className="font-bold text-lg">{repCount}</span>
               </div>
-            </div>
+              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-violet-600/40 transition-all group-hover/tile:translate-x-0.5 group-hover/tile:-translate-y-0.5 group-hover/tile:text-violet-600" />
+            </Link>
           </div>
 
           {/* Cities Section */}
@@ -389,14 +404,6 @@ function DistrictCard({
             )}
           </div>
         </CardContent>
-
-        <CardFooter className="border-t bg-muted/20 p-4">
-          <Button asChild className="w-full">
-            <Link href={`/admin/doctors?city=${district.name}`}>
-              Manage Doctors
-            </Link>
-          </Button>
-        </CardFooter>
       </Card>
 
       {/* Delete City Confirmation */}
