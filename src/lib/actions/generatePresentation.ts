@@ -7,7 +7,7 @@ import { adminFirestore } from '@/lib/firebaseAdmin';
 import { allSlides } from '@/lib/slides';
 import { Timestamp } from 'firebase-admin/firestore';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // Define the input schema for the generation action
 const PdfGenerationInputSchema = z.object({
@@ -86,11 +86,28 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
         return `${process.env.R2_PUBLIC_URL}/${key}`;
     }
 
+    const deleteOldFileIfPresent = async (oldPdfUrl: string | null | undefined) => {
+        const publicUrlBase = process.env.R2_PUBLIC_URL!;
+        if (!oldPdfUrl || !oldPdfUrl.startsWith(publicUrlBase)) return; // legacy/foreign URL (e.g. old Supabase link) — nothing to clean up
+        const oldKey = oldPdfUrl.slice(publicUrlBase.length).replace(/^\//, '');
+        if (!oldKey) return;
+        try {
+            await s3.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: oldKey }));
+        } catch (delErr) {
+            console.error('[generateAndUpsertPresentation] Failed to delete superseded file from R2:', delErr);
+        }
+    };
 
     try {
         if (selectedSlides.length === 0) {
             throw new Error('No slides were selected for the presentation.');
         }
+
+        // 0. Look up any existing presentation for this doctor, to know which file (if any) gets replaced
+        const presentationsRef = adminFirestore.collection('presentations');
+        const existingQuery = presentationsRef.where('doctorId', '==', doctorId);
+        const existingSnapshot = await existingQuery.get();
+        const previousPdfUrl: string | null = existingSnapshot.empty ? null : (existingSnapshot.docs[0].data().pdfUrl ?? null);
 
         // 1. Create a new PDF document
         const pdfDoc = await PDFDocument.create();
@@ -192,10 +209,6 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
         const downloadUrl = await uploadToR2(Buffer.from(pdfBytes), fileName);
 
         // 5. Upsert the presentation record in Firestore
-        const presentationsRef = adminFirestore.collection('presentations');
-        const q = presentationsRef.where('doctorId', '==', doctorId);
-        const snapshot = await q.get();
-
         const presentationData = {
             doctorId,
             city,
@@ -207,16 +220,19 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
         };
 
         let presentationId: string;
-        if (snapshot.empty) {
+        if (existingSnapshot.empty) {
             // Create new presentation document
             const docRef = await presentationsRef.add(presentationData);
             presentationId = docRef.id;
         } else {
             // Update existing presentation document
-            const docRef = snapshot.docs[0].ref;
+            const docRef = existingSnapshot.docs[0].ref;
             await docRef.update(presentationData);
             presentationId = docRef.id;
         }
+
+        // 6. New file is live and Firestore points to it — safe to remove the superseded one
+        await deleteOldFileIfPresent(previousPdfUrl);
 
         // Return a direct JSON object on success
         return { presentationId, pdfUrl: downloadUrl };

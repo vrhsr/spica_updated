@@ -1,13 +1,18 @@
-name: Weekly R2 dated snapshot + retention + restore check
+name: R2 dated snapshot + retention + restore check
 
 on:
   schedule:
-    # Every Sunday 03:00 UTC
-    - cron: '0 3 * * 0'
+    # Runs daily — actual snapshot only fires when the trigger conditions below are met.
+    - cron: '0 3 * * *'
   workflow_dispatch: {}
 
 env:
-  # How many weekly snapshots to keep before pruning the oldest.
+  # Snapshot fires when EITHER of these is true:
+  #  - at least this many days have passed since the last snapshot
+  #  - at least this many new/changed files have landed since the last snapshot
+  MAX_DAYS_BETWEEN_SNAPSHOTS: 7
+  MIN_NEW_FILES_TO_TRIGGER: 10
+  # How many snapshots to keep before pruning the oldest.
   RETENTION_WEEKS: 8
 
 jobs:
@@ -30,23 +35,62 @@ jobs:
           acl = private
           EOF
 
+      - name: Decide whether to run a snapshot
+        id: decide
+        run: |
+          STATE_FILE="r2:${{ secrets.R2_BACKUP_BUCKET }}/backup-state.json"
+          STATE=$(rclone cat "$STATE_FILE" 2>/dev/null || echo '{}')
+          LAST_COUNT=$(echo "$STATE" | jq -r '.lastFileCount // 0')
+          LAST_DATE=$(echo "$STATE" | jq -r '.lastSnapshotDate // empty')
+
+          CURRENT_COUNT=$(rclone lsf "r2:${{ secrets.R2_BUCKET }}" | grep -c . || true)
+          echo "Current file count in primary bucket: $CURRENT_COUNT (last snapshot had $LAST_COUNT)"
+
+          NEW_FILES=$((CURRENT_COUNT - LAST_COUNT))
+          if [ "$NEW_FILES" -lt 0 ]; then NEW_FILES=0; fi
+
+          DAYS_SINCE=999999
+          if [ -n "$LAST_DATE" ]; then
+            LAST_EPOCH=$(date -d "$LAST_DATE" +%s 2>/dev/null || echo 0)
+            NOW_EPOCH=$(date -u +%s)
+            DAYS_SINCE=$(( (NOW_EPOCH - LAST_EPOCH) / 86400 ))
+          fi
+
+          RUN="false"
+          REASON="no trigger met"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RUN="true"; REASON="manual trigger"
+          elif [ "$NEW_FILES" -ge "$MIN_NEW_FILES_TO_TRIGGER" ]; then
+            RUN="true"; REASON="$NEW_FILES new files >= threshold of $MIN_NEW_FILES_TO_TRIGGER"
+          elif [ "$DAYS_SINCE" -ge "$MAX_DAYS_BETWEEN_SNAPSHOTS" ]; then
+            RUN="true"; REASON="$DAYS_SINCE days since last snapshot >= $MAX_DAYS_BETWEEN_SNAPSHOTS"
+          fi
+
+          echo "Decision: run=$RUN ($REASON)"
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "current_count=$CURRENT_COUNT" >> "$GITHUB_OUTPUT"
+
       - name: Set snapshot date
+        if: steps.decide.outputs.run == 'true'
         id: vars
         run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
       - name: Copy primary bucket into dated snapshot
+        if: steps.decide.outputs.run == 'true'
         run: |
           rclone copy "r2:${{ secrets.R2_BUCKET }}" \
             "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/${{ steps.vars.outputs.date }}" \
             --progress
 
       - name: Verify snapshot integrity (checksum vs source)
+        if: steps.decide.outputs.run == 'true'
         run: |
           rclone check "r2:${{ secrets.R2_BUCKET }}" \
             "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/${{ steps.vars.outputs.date }}" \
             --one-way
 
       - name: Restore drill — pull a sample file back and sanity-check it
+        if: steps.decide.outputs.run == 'true'
         run: |
           SNAP="r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/${{ steps.vars.outputs.date }}"
           SAMPLE=$(rclone lsf "$SNAP" | shuf -n 1)
@@ -67,7 +111,8 @@ jobs:
           fi
           echo "Restore verification passed for sample file: $SAMPLE"
 
-      - name: Apply retention policy (keep last N weekly snapshots)
+      - name: Apply retention policy (keep last N snapshots)
+        if: steps.decide.outputs.run == 'true'
         run: |
           ALL_SNAPSHOTS=$(rclone lsf "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/" --dirs-only | sed 's#/$##' | sort)
           TOTAL=$(echo "$ALL_SNAPSHOTS" | grep -c . || true)
@@ -78,5 +123,11 @@ jobs:
               rclone purge "r2:${{ secrets.R2_BACKUP_BUCKET }}/snapshots/$OLD"
             done
           else
-            echo "Nothing to prune — $TOTAL snapshot(s) within retention of $RETENTION_WEEKS weeks."
+            echo "Nothing to prune — $TOTAL snapshot(s) within retention of $RETENTION_WEEKS."
           fi
+
+      - name: Record snapshot state
+        if: steps.decide.outputs.run == 'true'
+        run: |
+          echo "{\"lastSnapshotDate\": \"${{ steps.vars.outputs.date }}\", \"lastFileCount\": ${{ steps.decide.outputs.current_count }}}" \
+            | rclone rcat "r2:${{ secrets.R2_BACKUP_BUCKET }}/backup-state.json"
