@@ -3,63 +3,139 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Offline Mode</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#4F46E5" />
+  <title>Offline — SPICA SG</title>
   <style>
+    :root {
+      color-scheme: light;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 2rem;
-      text-align: center;
-      background: #f9fafb;
+      margin: 0;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 2rem 1.5rem;
+      padding-top: max(env(safe-area-inset-top), 2rem);
+      padding-bottom: max(env(safe-area-inset-bottom), 2rem);
+      background: linear-gradient(160deg, #eef0ff 0%, #f7f4ff 45%, #f8fafc 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
 
-    .container {
-      max-width: 400px;
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: #ffffff;
+      border-radius: 1.75rem;
+      padding: 2.25rem 1.75rem 2rem;
+      text-align: center;
+      box-shadow: 0 20px 45px -20px rgba(79, 70, 229, 0.35);
+      border: 1px solid rgba(79, 70, 229, 0.08);
     }
 
-    h2 {
-      color: #111827;
+    .logo {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1.25rem;
+      display: block;
+      object-fit: contain;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(249, 115, 22, 0.12);
+      color: #c2410c;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
       margin-bottom: 1rem;
     }
 
+    .badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    h1 {
+      font-size: 1.375rem;
+      font-weight: 800;
+      color: #1e1b4b;
+      margin: 0 0 0.6rem;
+      letter-spacing: -0.01em;
+    }
+
     p {
-      color: #6b7280;
-      margin-bottom: 2rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #64748b;
+      margin: 0 0 1.75rem;
     }
 
-    .loader {
-      border: 3px solid #e5e7eb;
-      border-top: 3px solid #0066CC;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
+    .cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.9rem 1.5rem;
+      background: linear-gradient(135deg, #4f46e5, #6d28d9);
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 0.9rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      box-shadow: 0 10px 25px -8px rgba(79, 70, 229, 0.6);
+      transition: transform 0.15s ease;
     }
 
-    @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
+    .cta:active {
+      transform: scale(0.97);
+    }
 
-      100% {
-        transform: rotate(360deg);
-      }
+    .hint {
+      margin-top: 1.25rem;
+      font-size: 0.75rem;
+      color: #94a3b8;
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <h2>Offline Mode</h2>
-    <p>You are currently offline. Your saved presentations are available.</p>
-    <a href="/rep/offline"
-      style="display: inline-block; margin-top: 1.5rem; padding: 0.75rem 1.5rem; background: #0066CC; color: white; text-decoration: none; border-radius: 0.5rem; font-weight: 500;">Go
-      to Offline Dashboard</a>
+  <div class="card">
+    <img class="logo" src="/spicasg-logo.png" alt="SPICA SG" />
+    <div class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+      Offline
+    </div>
+    <h1>No connection right now</h1>
+    <p>No problem — your downloaded presentations are saved on this device. Open your offline dashboard to keep presenting.</p>
+    <a class="cta" href="/rep/offline">
+      Go to Offline Dashboard
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+        <polyline points="12 5 19 12 12 19"></polyline>
+      </svg>
+    </a>
+    <p class="hint">Reconnect any time to sync new presentations and updates.</p>
   </div>
 </body>
 

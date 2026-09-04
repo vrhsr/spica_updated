@@ -42,6 +42,16 @@ export default function LandingPage() {
     };
   }, []);
 
+  // Inside the Android app, a cold start with no connection lands here
+  // (this marketing page is the root route). Reps opening the app offline
+  // want their downloaded presentations, not a "Login" button they'd have
+  // to notice is now labeled "Offline Presentations" — skip straight there.
+  useEffect(() => {
+    if (isCapApp && !navigator.onLine) {
+      router.replace('/rep/offline');
+    }
+  }, [isCapApp, router]);
+
   // Handle Login click - open in WebView if Capacitor, else navigate normally
   const handleLoginClick = async (e: React.MouseEvent) => {
     if (!isOnline) {

@@ -41,6 +41,17 @@ export function UpdateNotification() {
             // Periodic checks
             const interval = setInterval(checkForUpdates, 30 * 60 * 1000);
 
+            // Also check whenever the app comes back to the foreground —
+            // reps background/reopen the app throughout the day far more
+            // often than every 30 minutes, and each foregrounding is a
+            // natural moment to pick up a fresh deploy.
+            const handleVisibility = () => {
+                if (document.visibilityState === 'visible') {
+                    checkForUpdates();
+                }
+            };
+            document.addEventListener('visibilitychange', handleVisibility);
+
             // Listen for new service worker installations
             navigator.serviceWorker.ready.then(reg => {
                 setRegistration(reg);
@@ -51,7 +62,25 @@ export function UpdateNotification() {
                     if (newWorker) {
                         newWorker.addEventListener('statechange', () => {
                             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                // New version available!
+                                // New version available! Inside the Capacitor app there's
+                                // no "browser tab" habit of noticing/dismissing an update
+                                // card, and the WebView process can sit backgrounded for
+                                // days without ever fully closing — so a passive card
+                                // (as shown on the web) would leave reps stuck on stale
+                                // cached content indefinitely. Auto-apply it instead,
+                                // unless they're mid-presentation right now.
+                                if (isCapacitorApp()) {
+                                    const path = window.location.pathname;
+                                    const isPresenting = path.includes('/rep/present/') || path.includes('/rep/pdf/viewer');
+                                    if (!isPresenting) {
+                                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                                            window.location.reload();
+                                        });
+                                    }
+                                    return;
+                                }
+
                                 setShowUpdate(true);
 
                                 // Show toast notification
@@ -68,6 +97,7 @@ export function UpdateNotification() {
 
             return () => {
                 clearInterval(interval);
+                document.removeEventListener('visibilitychange', handleVisibility);
             };
         }
     }, [toast]);
