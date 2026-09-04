@@ -5,21 +5,29 @@ import React, { Suspense, useEffect, useState, useRef, useCallback } from 'react
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader, Expand, Minimize, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Loader, Expand, Minimize, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 
 // PDF.js - Use standard import for compatibility
 import * as pdfjsLib from "pdfjs-dist";
 
-// Worker setup - Force version to prevent caching issues
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
+// Local worker file (bundled in /public, same one used by the offline
+// presentation viewer) — avoids depending on a third-party CDN being
+// reachable, and keeps the version always in lockstep with pdfjs-dist.
+if (typeof window !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+}
 
 function PDFError({ message }: { message: string }) {
     return (
-        <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground">
-            <h1 className="text-2xl font-bold text-destructive mb-4">Error</h1>
-            <p className="mb-6">{message}</p>
-            <Button asChild>
+        <div className="flex h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-center text-white">
+            <div className="rounded-2xl bg-destructive/15 p-4">
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+            </div>
+            <div>
+                <h1 className="font-headline text-xl font-bold">Couldn't open presentation</h1>
+                <p className="mt-1.5 max-w-sm text-sm text-slate-400">{message}</p>
+            </div>
+            <Button asChild size="lg" className="mt-2 rounded-full px-6">
                 <Link href="/rep/doctors">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Doctors
@@ -143,9 +151,12 @@ function PDFViewer() {
 
     if (isLoading) {
         return (
-            <div className="flex h-screen w-full items-center justify-center bg-background">
-                <Loader className="h-10 w-10 animate-spin text-primary" />
-                <p className="ml-4 text-lg text-muted-foreground">Loading PDF...</p>
+            <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-950">
+                <div className="relative flex h-16 w-16 items-center justify-center">
+                    <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20 blur-xl" />
+                    <Loader className="h-9 w-9 animate-spin text-primary" />
+                </div>
+                <p className="text-sm font-medium text-slate-400">Loading presentation…</p>
             </div>
         );
     }
@@ -155,7 +166,7 @@ function PDFViewer() {
     return (
         <div
             ref={containerRef}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black p-4"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 p-4"
             style={{
                 paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)',
@@ -163,8 +174,8 @@ function PDFViewer() {
         >
             {/* Top Controls - only visible if NOT in presentation mode */}
             {!isPresenting && (
-                <div className="absolute top-4 left-4 z-10">
-                    <Button asChild variant="secondary" size="sm">
+                <div className="absolute top-4 left-4 z-10" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>
+                    <Button asChild variant="secondary" size="sm" className="rounded-full bg-white/10 text-white shadow-lg backdrop-blur-md hover:bg-white/20">
                         <Link href="/rep/doctors">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Link>
@@ -174,7 +185,7 @@ function PDFViewer() {
 
             {/* Main Canvas */}
             <div className="flex-grow flex items-center justify-center w-full h-full max-h-[calc(100vh-8rem)]">
-                <canvas ref={canvasRef} className="max-w-full max-h-full object-contain" />
+                <canvas ref={canvasRef} className="max-w-full max-h-full rounded-lg object-contain shadow-2xl shadow-black/50" />
             </div>
 
             {/* Bottom Controls */}
@@ -183,23 +194,24 @@ function PDFViewer() {
                 style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
             >
                 {isPresenting ? (
-                    <div className="flex items-center gap-4 rounded-full bg-black/50 p-2 shadow-lg backdrop-blur-sm border border-white/20 text-white">
-                        <Button variant="ghost" size="icon" onClick={goToPrevPage} disabled={currentPage <= 1} className="text-white hover:bg-white/20 hover:text-white">
+                    <div className="flex items-center gap-4 rounded-full bg-black/60 p-2 shadow-lg backdrop-blur-md border border-white/10 text-white">
+                        <Button variant="ghost" size="icon" onClick={goToPrevPage} disabled={currentPage <= 1} className="rounded-full text-white hover:bg-white/20 hover:text-white">
                             <ChevronLeft className="h-6 w-6" />
                         </Button>
-                        <span className="text-sm font-medium tabular-nums">
+                        <span className="text-sm font-semibold tabular-nums">
                             {currentPage} / {totalPages}
                         </span>
-                        <Button variant="ghost" size="icon" onClick={goToNextPage} disabled={currentPage >= totalPages} className="text-white hover:bg-white/20 hover:text-white">
+                        <Button variant="ghost" size="icon" onClick={goToNextPage} disabled={currentPage >= totalPages} className="rounded-full text-white hover:bg-white/20 hover:text-white">
                             <ChevronRight className="h-6 w-6" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={exitPresentation} className="text-white hover:bg-white/20 hover:text-white">
+                        <div className="h-6 w-px bg-white/20" />
+                        <Button variant="ghost" size="icon" onClick={exitPresentation} className="rounded-full text-white hover:bg-white/20 hover:text-white">
                             <Minimize className="h-5 w-5" />
                         </Button>
                     </div>
                 ) : (
                     <div className="flex items-center gap-4">
-                        <Button variant="secondary" onClick={startPresentation}>
+                        <Button size="lg" onClick={startPresentation} className="rounded-full px-6 shadow-lg shadow-primary/30">
                             <Expand className="mr-2 h-4 w-4" />
                             Start Presentation
                         </Button>
@@ -213,7 +225,7 @@ function PDFViewer() {
 
 export default function PDFViewerPage() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-slate-950"><Loader className="h-9 w-9 animate-spin text-primary" /></div>}>
             <PDFViewer />
         </Suspense>
     )

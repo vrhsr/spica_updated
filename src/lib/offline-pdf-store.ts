@@ -17,8 +17,14 @@ export async function savePDFOffline(
     if (!pdfUrl) throw new Error("No PDF URL provided");
 
     try {
-        // Download the PDF
-        const response = await fetch(pdfUrl);
+        // Download the PDF via our own same-origin proxy rather than
+        // fetching the Cloudflare R2 URL directly — R2's public bucket
+        // doesn't send CORS headers for arbitrary origins, so a direct
+        // fetch() (unlike a plain navigation/window.open) is blocked by the
+        // browser with an opaque "Failed to fetch" TypeError. The proxy
+        // fetches server-side (no CORS involved) and streams the bytes back
+        // same-origin.
+        const response = await fetch(`/api/view-pdf?url=${encodeURIComponent(pdfUrl)}`);
         if (!response.ok) throw new Error(`Failed to download PDF: ${response.statusText}`);
 
         const blob = await response.blob();

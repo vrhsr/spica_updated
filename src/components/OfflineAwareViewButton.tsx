@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Eye, Loader } from 'lucide-react';
 import { getPresentationOffline, isAvailableOffline } from '@/lib/offline-storage';
@@ -25,6 +26,7 @@ export function OfflineAwareViewButton({
     const [isOffline, setIsOffline] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const { toast } = useToast();
+    const router = useRouter();
 
     useEffect(() => {
         // Check online status
@@ -47,9 +49,15 @@ export function OfflineAwareViewButton({
     }, [doctorId]);
 
     const handleView = async () => {
-        // If online, open normal URL
+        // If online, view it in-app via our own PDF viewer. IMPORTANT: do not
+        // window.open() the raw pdfUrl — it points at Cloudflare R2, a
+        // different origin than spicasg.in, and the Android app's WebView
+        // (capacitor.config.json allowNavigation only allows *spicasg.in*)
+        // silently blocks navigation there, leaving a blank screen with no
+        // error. Routing to our own /rep/pdf/viewer keeps navigation
+        // in-origin; that page fetches the PDF itself via /api/view-pdf.
         if (!isOffline && pdfUrl) {
-            window.open(pdfUrl, '_blank');
+            router.push(`/rep/pdf/viewer?url=${encodeURIComponent(pdfUrl)}`);
             return;
         }
 
