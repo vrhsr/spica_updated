@@ -5,10 +5,11 @@ import React, { Suspense, useEffect, useState, useRef, useCallback } from 'react
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader, Expand, Minimize, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader, AlertTriangle, FileText } from 'lucide-react';
 
 // PDF.js - Use standard import for compatibility
 import * as pdfjsLib from "pdfjs-dist";
+import { getOfflinePDF } from '@/lib/offline-pdf-store';
 
 // Local worker file (bundled in /public, same one used by the offline
 // presentation viewer) — avoids depending on a third-party CDN being
@@ -19,13 +20,13 @@ if (typeof window !== 'undefined') {
 
 function PDFError({ message }: { message: string }) {
     return (
-        <div className="flex h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-6 text-center text-white">
-            <div className="rounded-2xl bg-destructive/15 p-4">
+        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 p-6 text-center">
+            <div className="rounded-2xl bg-destructive/10 p-4">
                 <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
             <div>
-                <h1 className="font-headline text-xl font-bold">Couldn't open presentation</h1>
-                <p className="mt-1.5 max-w-sm text-sm text-slate-400">{message}</p>
+                <h1 className="font-headline text-xl font-bold text-foreground">Couldn't open presentation</h1>
+                <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{message}</p>
             </div>
             <Button asChild size="lg" className="mt-2 rounded-full px-6">
                 <Link href="/rep/doctors">
@@ -37,126 +38,154 @@ function PDFError({ message }: { message: string }) {
     )
 }
 
+// One rendered slide, sized to the width of its scroll container. Rendered
+// at devicePixelRatio (capped at 2x) for crisp text on high-density phone
+// screens without blowing up canvas memory unnecessarily.
+function PDFPage({ page, containerWidth, pageNumber }: { page: pdfjsLib.PDFPageProxy; containerWidth: number; pageNumber: number }) {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [isRendered, setIsRendered] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        const baseViewport = page.getViewport({ scale: 1 });
+        const displayScale = containerWidth / baseViewport.width;
+        const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+        const renderViewport = page.getViewport({ scale: displayScale * dpr });
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
+        canvas.width = renderViewport.width;
+        canvas.height = renderViewport.height;
+        canvas.style.width = `${containerWidth}px`;
+        canvas.style.height = `${baseViewport.height * displayScale}px`;
+
+        const renderTask = page.render({ canvasContext: context, viewport: renderViewport });
+        renderTask.promise
+            .then(() => {
+                if (!cancelled) setIsRendered(true);
+            })
+            .catch((err) => {
+                if (!cancelled) console.error(`Error rendering page ${pageNumber}:`, err);
+            });
+
+        return () => {
+            cancelled = true;
+            renderTask.cancel();
+        };
+    }, [page, containerWidth, pageNumber]);
+
+    const baseViewport = page.getViewport({ scale: 1 });
+    const displayHeight = containerWidth * (baseViewport.height / baseViewport.width);
+
+    return (
+        <div className="relative overflow-hidden rounded-lg bg-white shadow-md ring-1 ring-black/5">
+            {!isRendered && (
+                <div
+                    className="absolute inset-0 flex items-center justify-center bg-slate-100"
+                    style={{ height: displayHeight }}
+                >
+                    <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+            )}
+            <canvas ref={canvasRef} className="block w-full" />
+            <span className="absolute bottom-2 right-2.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+                {pageNumber}
+            </span>
+        </div>
+    );
+}
+
 function PDFViewer() {
     const searchParams = useSearchParams();
     const pdfUrlFromParams = searchParams.get('url');
+    const doctorIdFromParams = searchParams.get('doctorId');
+    const doctorName = searchParams.get('name');
 
-    const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
-
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(0);
+    const [pages, setPages] = useState<pdfjsLib.PDFPageProxy[]>([]);
+    const [containerWidth, setContainerWidth] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isPresenting, setIsPresenting] = useState(false);
 
-    const renderPage = useCallback(async (pageNumber: number) => {
-        if (!pdfDoc) return;
-        try {
-            const page = await pdfDoc.getPage(pageNumber);
-            const viewport = page.getViewport({ scale: 2.0 }); // Render at higher scale
-            const canvas = canvasRef.current;
-            if (canvas) {
-                const context = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                if (context) {
-                    await page.render({ canvasContext: context, viewport }).promise;
+    useEffect(() => {
+        let cancelled = false;
+
+        async function load() {
+            if (!pdfUrlFromParams && !doctorIdFromParams) {
+                setError("No presentation was specified.");
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                let doc: pdfjsLib.PDFDocumentProxy;
+
+                if (doctorIdFromParams) {
+                    // Offline path: read the previously-downloaded PDF straight
+                    // out of IndexedDB — no network involved at all.
+                    const record = await getOfflinePDF(doctorIdFromParams);
+                    if (!record) {
+                        throw new Error('This presentation has not been saved offline on this device.');
+                    }
+                    const data = await record.fileBlob.arrayBuffer();
+                    doc = await pdfjsLib.getDocument({ data }).promise;
+                } else {
+                    // Online path: through our same-origin proxy — the PDF
+                    // lives on Cloudflare R2, a different origin than
+                    // spicasg.in, so pdf.js can't fetch it directly.
+                    const actualPdfSrc = `/api/view-pdf?url=${encodeURIComponent(pdfUrlFromParams!)}`;
+                    doc = await pdfjsLib.getDocument({ url: actualPdfSrc, withCredentials: false }).promise;
                 }
-            }
-        } catch (e: any) {
-            console.error("Error rendering page:", e);
-            setError(`Failed to render page ${pageNumber}.`);
-        }
-    }, [pdfDoc]);
 
-    const startPresentation = useCallback(() => {
-        const elem = containerRef.current;
-        if (elem?.requestFullscreen) {
-            elem.requestFullscreen().catch(err => {
-                console.warn("Could not enter fullscreen automatically:", err.message);
-            }).then(() => setIsPresenting(true));
-        }
-    }, []);
-
-    const exitPresentation = () => {
-        if (document.fullscreenElement) {
-            document.exitFullscreen().then(() => setIsPresenting(false));
-        }
-    }
-
-    useEffect(() => {
-        if (!pdfUrlFromParams) {
-            setError("No PDF URL provided.");
-            setIsLoading(false);
-            return;
-        }
-
-        // The viewer now receives the raw Supabase URL and calls the proxy route itself.
-        const actualPdfSrc = `/api/view-pdf?url=${encodeURIComponent(pdfUrlFromParams)}`;
-
-        const loadingTask = pdfjsLib.getDocument({ url: actualPdfSrc, withCredentials: false });
-
-        loadingTask.promise.then(
-            (doc: pdfjsLib.PDFDocumentProxy) => {
+                if (cancelled) return;
                 setPdfDoc(doc);
-                setTotalPages(doc.numPages);
+
+                const loadedPages = await Promise.all(
+                    Array.from({ length: doc.numPages }, (_, i) => doc.getPage(i + 1))
+                );
+                if (cancelled) return;
+                setPages(loadedPages);
                 setIsLoading(false);
-            },
-            (reason: any) => {
-                // Log the detailed error to the console for visibility
-                console.error("PDF load error:", reason);
-                setError("Failed to load the PDF file. Check the console for details. It might be corrupted or inaccessible.");
+            } catch (e: any) {
+                if (cancelled) return;
+                console.error("PDF load error:", e);
+                setError(e?.message || "Failed to load the PDF file. It might be corrupted or inaccessible.");
                 setIsLoading(false);
             }
-        );
-    }, [pdfUrlFromParams]);
-
-
-    useEffect(() => {
-        if (pdfDoc) {
-            renderPage(currentPage);
         }
-    }, [pdfDoc, currentPage, renderPage]);
 
-    const goToPrevPage = () => setCurrentPage(p => Math.max(1, p - 1));
-    const goToNextPage = () => setCurrentPage(p => Math.min(totalPages, p + 1));
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "ArrowRight") goToNextPage();
-            if (e.key === "ArrowLeft") goToPrevPage();
-            if (e.key === "Escape") exitPresentation();
-        };
-
-        const handleFullscreenChange = () => {
-            if (!document.fullscreenElement) {
-                setIsPresenting(false);
-            } else {
-                setIsPresenting(true);
-            }
-        };
-
-        document.addEventListener("keydown", handleKeyDown);
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        load();
         return () => {
-            document.removeEventListener("keydown", handleKeyDown);
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            cancelled = true;
         };
+    }, [pdfUrlFromParams, doctorIdFromParams]);
 
-    }, [totalPages, currentPage, goToNextPage, goToPrevPage, exitPresentation]);
+    // Track the scroll container's width so pages can be sized to fit it.
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
 
+        const updateWidth = () => setContainerWidth(el.clientWidth);
+        updateWidth();
+
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     if (isLoading) {
         return (
-            <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-950">
+            <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
                 <div className="relative flex h-16 w-16 items-center justify-center">
-                    <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20 blur-xl" />
+                    <div className="absolute inset-0 animate-pulse rounded-full bg-primary/15 blur-xl" />
                     <Loader className="h-9 w-9 animate-spin text-primary" />
                 </div>
-                <p className="text-sm font-medium text-slate-400">Loading presentation…</p>
+                <p className="text-sm font-medium text-muted-foreground">Loading presentation…</p>
             </div>
         );
     }
@@ -164,59 +193,34 @@ function PDFViewer() {
     if (error) return <PDFError message={error} />;
 
     return (
-        <div
-            ref={containerRef}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 p-4"
-            style={{
-                paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)',
-                paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)',
-            }}
-        >
-            {/* Top Controls - only visible if NOT in presentation mode */}
-            {!isPresenting && (
-                <div className="absolute top-4 left-4 z-10" style={{ top: 'calc(env(safe-area-inset-top) + 1rem)' }}>
-                    <Button asChild variant="secondary" size="sm" className="rounded-full bg-white/10 text-white shadow-lg backdrop-blur-md hover:bg-white/20">
-                        <Link href="/rep/doctors">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-                        </Link>
-                    </Button>
-                </div>
-            )}
-
-            {/* Main Canvas */}
-            <div className="flex-grow flex items-center justify-center w-full h-full max-h-[calc(100vh-8rem)]">
-                <canvas ref={canvasRef} className="max-w-full max-h-full rounded-lg object-contain shadow-2xl shadow-black/50" />
-            </div>
-
-            {/* Bottom Controls */}
-            <div
-                className="absolute left-0 right-0 z-10 flex items-center justify-center gap-4"
-                style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+        <div className="flex min-h-screen flex-col bg-slate-100">
+            <header
+                className="sticky top-0 z-10 flex items-center gap-3 border-b bg-white/90 px-3 py-2.5 backdrop-blur-md"
+                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.6rem)' }}
             >
-                {isPresenting ? (
-                    <div className="flex items-center gap-4 rounded-full bg-black/60 p-2 shadow-lg backdrop-blur-md border border-white/10 text-white">
-                        <Button variant="ghost" size="icon" onClick={goToPrevPage} disabled={currentPage <= 1} className="rounded-full text-white hover:bg-white/20 hover:text-white">
-                            <ChevronLeft className="h-6 w-6" />
-                        </Button>
-                        <span className="text-sm font-semibold tabular-nums">
-                            {currentPage} / {totalPages}
-                        </span>
-                        <Button variant="ghost" size="icon" onClick={goToNextPage} disabled={currentPage >= totalPages} className="rounded-full text-white hover:bg-white/20 hover:text-white">
-                            <ChevronRight className="h-6 w-6" />
-                        </Button>
-                        <div className="h-6 w-px bg-white/20" />
-                        <Button variant="ghost" size="icon" onClick={exitPresentation} className="rounded-full text-white hover:bg-white/20 hover:text-white">
-                            <Minimize className="h-5 w-5" />
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-4">
-                        <Button size="lg" onClick={startPresentation} className="rounded-full px-6 shadow-lg shadow-primary/30">
-                            <Expand className="mr-2 h-4 w-4" />
-                            Start Presentation
-                        </Button>
-                    </div>
-                )}
+                <Button asChild variant="ghost" size="icon" className="shrink-0 rounded-full">
+                    <Link href="/rep/doctors">
+                        <ArrowLeft className="h-5 w-5" />
+                    </Link>
+                </Button>
+                <div className="min-w-0 flex-1">
+                    <p className="truncate font-headline text-sm font-bold text-foreground sm:text-base">
+                        {doctorName || 'Presentation'}
+                    </p>
+                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <FileText className="h-3 w-3" />
+                        {pdfDoc?.numPages ?? 0} {pdfDoc?.numPages === 1 ? 'slide' : 'slides'}
+                    </p>
+                </div>
+            </header>
+
+            <div
+                ref={containerRef}
+                className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-3 py-4 sm:px-6"
+            >
+                {containerWidth > 0 && pages.map((page, i) => (
+                    <PDFPage key={i} page={page} pageNumber={i + 1} containerWidth={containerWidth} />
+                ))}
             </div>
         </div>
     );
@@ -225,7 +229,7 @@ function PDFViewer() {
 
 export default function PDFViewerPage() {
     return (
-        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-slate-950"><Loader className="h-9 w-9 animate-spin text-primary" /></div>}>
+        <Suspense fallback={<div className="flex min-h-screen w-full items-center justify-center bg-slate-50"><Loader className="h-9 w-9 animate-spin text-primary" /></div>}>
             <PDFViewer />
         </Suspense>
     )
