@@ -52,19 +52,20 @@ export default function LandingPage() {
     }
   }, [isCapApp, router]);
 
-  // Handle Login click - open in WebView if Capacitor, else navigate normally
+  // Handle Login click - only intercepted when offline; otherwise the
+  // plain <Link href="/login"> below handles it. This used to jump out to
+  // https://spicasg.in/login (a full remote-site navigation) whenever
+  // running in Capacitor — that's exactly the "goes to a website instead
+  // of staying in the app" behavior this app must never do. /login is
+  // part of the same locally-bundled offline-capable shell as this page,
+  // so a normal in-app navigation is all that's needed here.
   const handleLoginClick = async (e: React.MouseEvent) => {
     if (!isOnline) {
       e.preventDefault();
       router.push('/rep/offline');
       return;
     }
-    if (isCapApp) {
-      e.preventDefault();
-      // Navigate to the live website inside the Capacitor WebView
-      window.location.href = 'https://spicasg.in/login';
-    }
-    // If not Capacitor, let the default Link behavior work
+    // Online: let the default Link behavior navigate to /login in-app.
   };
 
   return (
