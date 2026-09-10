@@ -41,6 +41,13 @@ const FOLDERS_TO_MOVE = [
     // Admin section (uses server actions for user management / presentation generation)
     { src: path.join(PROJECT_ROOT, 'src', 'app', 'admin'), backup: path.join(BACKUP_ROOT, 'app-admin') },
     { src: path.join(PROJECT_ROOT, 'src', 'app', 'admin-login'), backup: path.join(BACKUP_ROOT, 'app-admin-login') },
+    // First-time password setup — imports markInviteAccepted from
+    // admin/users/actions.ts (Admin SDK). Always reached via an emailed
+    // link and inherently a one-time online-only action, so it's fine for
+    // this one path to not exist in the offline-capable local bundle; a
+    // tap on that link opens fine in any regular browser, and this app
+    // isn't registered as the default handler for it.
+    { src: path.join(PROJECT_ROOT, 'src', 'app', 'accept-invite'), backup: path.join(BACKUP_ROOT, 'app-accept-invite') },
     // Server actions (Firebase Admin - server-side only)
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'actions'), backup: path.join(BACKUP_ROOT, 'lib-actions') },
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'firebaseAdmin.ts'), backup: path.join(BACKUP_ROOT, 'lib-firebaseAdmin.ts') },
