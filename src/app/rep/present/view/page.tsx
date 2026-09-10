@@ -201,6 +201,30 @@ function PresentationViewerContent() {
         }
     }, [pdfDoc, currentPage, renderPage]);
 
+    // Re-render at the correct size once the screen actually finishes
+    // rotating to landscape. ScreenOrientation.lock() (called on mount,
+    // above) resolves asynchronously and the OS rotation itself can lag
+    // behind that — the very first renderPage() call above often fires
+    // while the WebView is still sized for portrait, baking that stale
+    // width/height into the canvas. Nothing previously re-rendered after
+    // the resize actually landed, so the slide stayed stuck at the small
+    // portrait-fitted size inside the new landscape screen. Re-running
+    // renderPage on resize/orientationchange (debounced) fixes it.
+    useEffect(() => {
+        let timeout: ReturnType<typeof setTimeout>;
+        const handleResize = () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => renderPage(currentPage), 150);
+        };
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        return () => {
+            clearTimeout(timeout);
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+        };
+    }, [currentPage, renderPage]);
+
     const goToPrevPage = useCallback(() => {
         setCurrentPage(p => Math.max(1, p - 1));
     }, []);
@@ -392,7 +416,7 @@ function PresentationViewerContent() {
             {/* Bottom Control Bar */}
             <div
                 className="absolute left-0 right-0 z-10 flex items-center justify-center"
-                style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+                style={{ bottom: 'calc(max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) + 0.75rem)' }}
             >
                 <div className="flex items-center gap-3 rounded-full bg-black/50 p-2 shadow-lg backdrop-blur-sm border border-white/20 text-white">
                     <Button

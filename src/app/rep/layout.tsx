@@ -169,7 +169,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex min-h-screen flex-col">
             <OfflineBanner />
-            <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'env(safe-area-inset-top)', minHeight: 'calc(4rem + env(safe-area-inset-top))' }}>
+            <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'max(env(safe-area-inset-top), var(--android-inset-top, 0px))', minHeight: 'calc(4rem + max(env(safe-area-inset-top), var(--android-inset-top, 0px)))' }}>
                 <div className="flex items-center gap-4">
                     <Link href={isOfflineMode ? "/rep/offline" : "/rep"} className="flex items-center gap-2">
                         <img
@@ -236,7 +236,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
         {user && !isOfflineMode && (
             <nav
                 className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur-sm shadow-lg"
-                style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+                style={{ paddingBottom: 'max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px))' }}
             >
                 <div className="flex items-center justify-around h-16 md:h-20 max-w-screen-xl mx-auto px-2">
                     <Link

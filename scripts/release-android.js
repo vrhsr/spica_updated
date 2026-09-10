@@ -50,6 +50,20 @@ function bumpVersion(newVersionName) {
     return { versionCode: nextCode, versionName: nextName };
 }
 
+function buildOfflineShellAndSync() {
+    // The app's cold-start entry shell (landing page, login, offline
+    // dashboard, PDF viewer/present) is bundled locally into the APK so it
+    // works with zero network — see scripts/build-capacitor.js. Without
+    // this step, `gradlew assembleRelease` would just re-package whatever
+    // static export happens to already be sitting in
+    // android/app/src/main/assets/public/ from whenever someone last ran
+    // this by hand — silently shipping a stale (or missing) offline shell.
+    console.log('\n📦 Building offline-capable app shell (static export)...\n');
+    execSync('npm run build:capacitor', { cwd: PROJECT_ROOT, stdio: 'inherit' });
+    console.log('\n🔄 Syncing web assets into the native project...\n');
+    execSync('npx cap sync android', { cwd: PROJECT_ROOT, stdio: 'inherit' });
+}
+
 function buildReleaseApk() {
     console.log('\n🔨 Building signed release APK...\n');
     // Absolute path avoids relying on the shell's current-directory search order,
@@ -73,6 +87,7 @@ function main() {
     const { versionName, versionCode } = bumpVersion(versionNameArg);
 
     try {
+        buildOfflineShellAndSync();
         buildReleaseApk();
     } catch (error) {
         console.error('\n❌ Release build failed:', error.message);

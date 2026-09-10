@@ -108,7 +108,15 @@ function PDFViewer() {
 
     const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
     const [pages, setPages] = useState<pdfjsLib.PDFPageProxy[]>([]);
-    const [containerWidth, setContainerWidth] = useState(0);
+    // Seeded from window.innerWidth (not 0) so the first paint already has
+    // something to render slides at, instead of waiting on the
+    // ResizeObserver's first callback — previously this stayed 0 long
+    // enough (or indefinitely, nested inside rep/layout.tsx's own flex
+    // chrome) that pages.map() below never ran and the screen showed only
+    // the "N slides" header with a blank body underneath.
+    const [containerWidth, setContainerWidth] = useState(() =>
+        typeof window !== 'undefined' ? window.innerWidth : 0
+    );
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -193,10 +201,18 @@ function PDFViewer() {
     if (error) return <PDFError message={error} />;
 
     return (
-        <div className="flex min-h-screen flex-col bg-slate-100">
+        // Fixed full-screen overlay rather than normal document flow — this
+        // route is nested under rep/layout.tsx (no override layout.tsx in
+        // rep/pdf/), so without this it rendered squeezed inside the rep
+        // shell's own sticky header + fixed bottom tab bar, which is what
+        // made the slides invisible: two stacked sticky headers fighting
+        // for the same top:0 slot, and the shell's bottom nav bar (z-30)
+        // sitting on top of the content below it. present/view/page.tsx
+        // uses this same "escape via fixed inset-0" pattern successfully.
+        <div className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-slate-100">
             <header
                 className="sticky top-0 z-10 flex items-center gap-3 border-b bg-white/90 px-3 py-2.5 backdrop-blur-md"
-                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.6rem)' }}
+                style={{ paddingTop: 'calc(max(env(safe-area-inset-top), var(--android-inset-top, 0px)) + 0.6rem)' }}
             >
                 <Button asChild variant="ghost" size="icon" className="shrink-0 rounded-full">
                     <Link href="/rep/doctors">
@@ -216,7 +232,8 @@ function PDFViewer() {
 
             <div
                 ref={containerRef}
-                className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-3 py-4 sm:px-6"
+                className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-3 pt-4 sm:px-6"
+                style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) + 1rem)' }}
             >
                 {containerWidth > 0 && pages.map((page, i) => (
                     <PDFPage key={i} page={page} pageNumber={i + 1} containerWidth={containerWidth} />

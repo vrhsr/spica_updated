@@ -29,6 +29,13 @@
        login and landing screens, formalized so it stays consistent
        everywhere instead of being re-typed with slightly different stops. */
     --brand-gradient: linear-gradient(135deg, hsl(243 75% 96%), hsl(262 70% 94%), hsl(243 75% 92%));
+
+    /* Real Android system-bar inset px, pushed in from MainActivity.java —
+       CSS env(safe-area-inset-*) isn't reliably populated by the Android
+       WebView. Defaults to 0 on web/iOS/before the native bridge runs;
+       always combine with env() via max(), never use alone. */
+    --android-inset-top: 0px;
+    --android-inset-bottom: 0px;
   }
 }
 

@@ -9,9 +9,14 @@ import android.os.Bundle;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
+import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
     private boolean hasRetriedAfterLoadError = false;
@@ -27,6 +32,33 @@ public class MainActivity extends BridgeActivity {
         // Prompt for an app update if a newer release has been pushed to
         // Firebase App Distribution (see scripts/deploy-to-firebase.js).
         UpdateManager.checkForUpdate(this);
+
+        // Opt in to edge-to-edge ourselves (this app's targetSdk already
+        // forces it on Android 15+ anyway, but older OS versions on the
+        // same APK wouldn't get it automatically) and forward the real
+        // system-bar insets to the web layer as CSS custom properties. The
+        // WebView does NOT reliably populate CSS env(safe-area-inset-*) the
+        // way iOS Safari does, so the bottom tab bar (rep/layout.tsx) was
+        // rendering flush with the screen edge and getting hidden behind
+        // the 3-button/gesture nav bar. Web CSS reads these as
+        // var(--android-inset-bottom) / var(--android-inset-top), with a
+        // max() against env() so nothing changes on platforms where env()
+        // already works.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        final WebView insetWebView = this.bridge.getWebView();
+        ViewCompat.setOnApplyWindowInsetsListener(insetWebView, (view, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            float density = getResources().getDisplayMetrics().density;
+            float topPx = bars.top / density;
+            float bottomPx = bars.bottom / density;
+            String js = String.format(Locale.US,
+                    "document.documentElement.style.setProperty('--android-inset-top','%.1fpx');"
+                            + "document.documentElement.style.setProperty('--android-inset-bottom','%.1fpx');",
+                    topPx, bottomPx);
+            view.post(() -> ((WebView) view).evaluateJavascript(js, null));
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(insetWebView);
 
         // Work around a cold-start race: the very first main-frame
         // navigation to spicasg.in can be dispatched before the WebView's

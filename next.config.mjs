@@ -1,6 +1,7 @@
 import withPWA from "next-pwa";
 
 const isProd = process.env.NODE_ENV === "production";
+const isCapacitor = process.env.BUILD_TARGET === "capacitor";
 
 const baseConfig = {
     reactStrictMode: true,
@@ -11,6 +12,7 @@ const baseConfig = {
         ignoreDuringBuilds: process.env.CI === 'true',
     },
     images: {
+        unoptimized: isCapacitor, // next/image's optimizer needs a server — required for static export
         remotePatterns: [
             { protocol: 'https', hostname: 'placehold.co', pathname: '/**' },
             { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
@@ -38,10 +40,22 @@ const baseConfig = {
     },
 };
 
-// Web build: PWA with Service Worker. The Android app loads the live site
-// directly (capacitor.config.json server.url) rather than a bundled static
-// export, so there's no separate Capacitor build target here anymore.
-export default isProd
+// Capacitor build: static export, bundled locally into the Android app so
+// its entry shell (landing page, login, offline dashboard, PDF
+// viewer/present) works with zero network — see scripts/build-capacitor.js
+// for why and what gets excluded. No PWA/Service Worker here: a real local
+// bundle doesn't need a SW-based offline fallback.
+if (isCapacitor) {
+    baseConfig.output = 'export';
+    baseConfig.trailingSlash = true; // Better for file-based routing
+}
+
+// Web build: PWA with Service Worker, deployed to Vercel — this is also
+// what the Android app's *authenticated* session runs against once a rep
+// logs in online (src/app/page.tsx jumps to https://spicasg.in from the
+// locally-bundled landing page), so it still gets instant content updates
+// with no APK rebuild needed for that part of the flow.
+export default isProd && !isCapacitor
     ? withPWA({
         dest: "public",
         register: true,

@@ -4,7 +4,6 @@
   "webDir": "out",
   "bundledWebRuntime": false,
   "server": {
-    "url": "https://spicasg.in",
     "androidScheme": "https",
     "allowNavigation": ["*spicasg.in*"],
     "cleartext": false
