@@ -44,17 +44,31 @@ public class MainActivity extends BridgeActivity {
         // var(--android-inset-bottom) / var(--android-inset-top), with a
         // max() against env() so nothing changes on platforms where env()
         // already works.
+        // NOTE ON THE KEYBOARD: opting into edge-to-edge here means
+        // android:windowSoftInputMode="adjustResize" (AndroidManifest.xml)
+        // no longer automatically shrinks the window when the keyboard
+        // shows — that's an Android platform behavior, not a bug in this
+        // app, but the two together used to mean the keyboard just
+        // covered whatever input was focused (e.g. the login password
+        // field) with nothing compensating. Fixed the same way as the
+        // nav-bar inset above: also read the IME (keyboard) inset here
+        // and forward its height as --android-keyboard-inset, which
+        // src/app/login/page.tsx uses to shrink its own layout so the
+        // focused field stays above the keyboard.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         final WebView insetWebView = this.bridge.getWebView();
         ViewCompat.setOnApplyWindowInsetsListener(insetWebView, (view, windowInsets) -> {
             Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
             float density = getResources().getDisplayMetrics().density;
             float topPx = bars.top / density;
             float bottomPx = bars.bottom / density;
+            float keyboardPx = ime.bottom / density;
             String js = String.format(Locale.US,
                     "document.documentElement.style.setProperty('--android-inset-top','%.1fpx');"
-                            + "document.documentElement.style.setProperty('--android-inset-bottom','%.1fpx');",
-                    topPx, bottomPx);
+                            + "document.documentElement.style.setProperty('--android-inset-bottom','%.1fpx');"
+                            + "document.documentElement.style.setProperty('--android-keyboard-inset','%.1fpx');",
+                    topPx, bottomPx, keyboardPx);
             view.post(() -> ((WebView) view).evaluateJavascript(js, null));
             return windowInsets;
         });

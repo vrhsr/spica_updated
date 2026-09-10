@@ -243,45 +243,45 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                         href="/rep"
                         className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-200 ${
                             pathname === '/rep'
-                                ? 'text-blue-700'
+                                ? 'text-violet-700'
                                 : 'text-slate-500 hover:text-slate-900'
                         }`}
                     >
                         <div className={`flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-2xl transition-all duration-200 ${
-                            pathname === '/rep' ? 'bg-blue-100 shadow-sm ring-1 ring-blue-200 scale-105' : ''
+                            pathname === '/rep' ? 'bg-violet-100 shadow-sm ring-1 ring-violet-200 scale-105' : ''
                         }`}>
-                            <LayoutDashboard className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep' ? 'text-blue-600' : ''}`} />
-                            <span className={`text-[10px] md:text-xs ${pathname === '/rep' ? 'font-bold text-blue-800' : 'font-medium'}`}>Dashboard</span>
+                            <LayoutDashboard className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep' ? 'text-violet-600' : ''}`} />
+                            <span className={`text-[10px] md:text-xs ${pathname === '/rep' ? 'font-bold text-violet-800' : 'font-medium'}`}>Dashboard</span>
                         </div>
                     </Link>
                     <Link
                         href="/rep/doctors"
                         className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-200 ${
                             pathname === '/rep/doctors'
-                                ? 'text-blue-700'
+                                ? 'text-violet-700'
                                 : 'text-slate-500 hover:text-slate-900'
                         }`}
                     >
                         <div className={`flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-2xl transition-all duration-200 ${
-                            pathname === '/rep/doctors' ? 'bg-blue-100 shadow-sm ring-1 ring-blue-200 scale-105' : ''
+                            pathname === '/rep/doctors' ? 'bg-violet-100 shadow-sm ring-1 ring-violet-200 scale-105' : ''
                         }`}>
-                            <Stethoscope className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep/doctors' ? 'text-blue-600' : ''}`} />
-                            <span className={`text-[10px] md:text-xs ${pathname === '/rep/doctors' ? 'font-bold text-blue-800' : 'font-medium'}`}>Doctors</span>
+                            <Stethoscope className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep/doctors' ? 'text-violet-600' : ''}`} />
+                            <span className={`text-[10px] md:text-xs ${pathname === '/rep/doctors' ? 'font-bold text-violet-800' : 'font-medium'}`}>Doctors</span>
                         </div>
                     </Link>
                     <Link
                         href="/rep/requests"
                         className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-200 ${
                             pathname === '/rep/requests'
-                                ? 'text-blue-700'
+                                ? 'text-violet-700'
                                 : 'text-slate-500 hover:text-slate-900'
                         }`}
                     >
                         <div className={`flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-2xl transition-all duration-200 ${
-                            pathname === '/rep/requests' ? 'bg-blue-100 shadow-sm ring-1 ring-blue-200 scale-105' : ''
+                            pathname === '/rep/requests' ? 'bg-violet-100 shadow-sm ring-1 ring-violet-200 scale-105' : ''
                         }`}>
-                            <ClipboardList className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep/requests' ? 'text-blue-600' : ''}`} />
-                            <span className={`text-[10px] md:text-xs ${pathname === '/rep/requests' ? 'font-bold text-blue-800' : 'font-medium'}`}>Requests</span>
+                            <ClipboardList className={`h-5 w-5 md:h-6 md:w-6 ${pathname === '/rep/requests' ? 'text-violet-600' : ''}`} />
+                            <span className={`text-[10px] md:text-xs ${pathname === '/rep/requests' ? 'font-bold text-violet-800' : 'font-medium'}`}>Requests</span>
                         </div>
                     </Link>
                 </div>

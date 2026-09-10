@@ -25,6 +25,7 @@ import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import { listOfflinePresentations } from '@/lib/offline-storage';
 import { isCapacitorApp } from '@/lib/capacitor-utils';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { Browser } from '@capacitor/browser';
 
 /** Where a signed-in user lands, based on their custom-claim role. */
 function destinationForRole(role: unknown): string | null {
@@ -111,7 +112,23 @@ export default function LoginPage() {
 
   const routeToDestination = async (user: import('firebase/auth').User) => {
     const idTokenResult = await user.getIdTokenResult();
-    const destination = destinationForRole(idTokenResult.claims.role);
+    const role = idTokenResult.claims.role;
+
+    // Admin/manager portal needs the Firebase Admin SDK (user management,
+    // presentation generation) — that can never ship inside this local,
+    // offline-capable bundle (it'd mean packaging real admin credentials
+    // into the APK). Rather than authenticating successfully and then
+    // dead-ending on a route that doesn't exist locally, hand off to the
+    // live admin dashboard in a dismissible in-app browser tab — the rep
+    // flow below is completely unaffected and stays fully in-app.
+    if ((role === 'admin' || role === 'manager') && isCapacitorApp()) {
+      await Browser.open({ url: 'https://spicasg.in/login' });
+      await auth?.signOut();
+      router.replace('/');
+      return;
+    }
+
+    const destination = destinationForRole(role);
     if (!destination) {
       await auth?.signOut();
       setError('This account is not set up yet. Please contact your administrator.');
@@ -174,7 +191,10 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="flex min-h-screen w-full items-center justify-center bg-brand-gradient p-4">
+      <div
+        className="flex min-h-screen w-full items-center justify-center overflow-y-auto bg-brand-gradient p-4"
+        style={{ minHeight: 'calc(100vh - var(--android-keyboard-inset, 0px))' }}
+      >
         <div className="w-full max-w-4xl rounded-xl bg-card/50 shadow-2xl backdrop-blur-lg md:grid md:grid-cols-2">
 
           {/* Left Side: Branding */}

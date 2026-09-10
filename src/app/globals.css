@@ -36,6 +36,11 @@
        always combine with env() via max(), never use alone. */
     --android-inset-top: 0px;
     --android-inset-bottom: 0px;
+    /* Keyboard height, pushed in from MainActivity.java's IME inset —
+       edge-to-edge mode defeats windowSoftInputMode="adjustResize"'s
+       automatic window shrink, so pages with a focusable input compensate
+       manually via this var (see src/app/login/page.tsx). */
+    --android-keyboard-inset: 0px;
   }
 }
 
