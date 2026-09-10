@@ -1,0 +1,295 @@
+
+'use client';
+
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarTrigger,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarInset,
+  SidebarFooter,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import {
+  LayoutDashboard,
+  Users,
+  HeartPulse,
+  Presentation,
+  LogOut,
+  Stethoscope,
+  Building,
+  GalleryThumbnails,
+  Loader,
+  ShieldCheck,
+  KeyRound,
+  Mail,
+  AlertTriangle,
+  MapPin,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useUser, useAuth } from '@/firebase';
+import { PasswordResetDialog } from '@/components/PasswordResetDialog';
+import { cn } from '@/lib/utils';
+import { useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { Badge } from '@/components/ui/badge';
+import { useRequireRole } from '@/hooks/useRequireRole';
+
+const navItems = [
+  { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/admin/users', icon: ShieldCheck, label: 'Users & Roles' },
+  { href: '/admin/doctors', icon: HeartPulse, label: 'Doctors & Reps' },
+  { href: '/admin/cities', icon: Building, label: 'Districts' },
+  { href: '/admin/slides', icon: GalleryThumbnails, label: 'Slides Library' },
+  { href: '/admin/presentations', icon: Presentation, label: 'Presentations' },
+  { href: '/admin/requests?status=pending', icon: Mail, label: 'Change Requests' },
+  { href: '/admin/visit-logs', icon: MapPin, label: 'Visit Logs' },
+];
+
+// Separate component to use useSidebar hook (must be inside SidebarProvider)
+function SidebarNavMenu({ pathname, pendingCount, role }: { pathname: string; pendingCount: number; role?: string | null }) {
+  const { setOpenMobile, isMobile } = useSidebar();
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  // Users & Roles and Slides Library are admin-only — Project Managers no
+  // longer manage accounts or the master slide library.
+  const adminOnlyHrefs = ['/admin/users', '/admin/slides'];
+  const visibleNavItems = navItems.filter((item) => !adminOnlyHrefs.includes(item.href) || role === 'admin');
+
+  return (
+    <SidebarMenu>
+      {visibleNavItems.map((item) => {
+        const isRequestsItem = item.href.startsWith('/admin/requests');
+        const showBadge = isRequestsItem && pendingCount > 0;
+        const hrefPath = item.href.split('?')[0]; // Strip query params for active check
+
+        return (
+          <SidebarMenuItem key={item.label}>
+            <Link href={item.href} onClick={handleNavClick}>
+              <SidebarMenuButton isActive={pathname.startsWith(hrefPath)} className="text-base py-3">
+                <item.icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+                {showBadge && (
+                  <div className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm">
+                    {pendingCount}
+                  </div>
+                )}
+              </SidebarMenuButton>
+            </Link>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
+}
+
+type Request = {
+  status: 'pending' | 'approved' | 'rejected';
+  repId: string;
+};
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const auth = useAuth();
+  const { user, role } = useUser();
+  const roleLabel = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Project Manager' : '';
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
+  const adminAvatar = PlaceHolderImages.find((img) => img.id === 'admin-avatar');
+
+  // Gate on admin/manager access. `isChecking` stays true until role is
+  // actually confirmed, so `children` (and every Firestore query inside
+  // them) never mounts for a role that doesn't have access — that race was
+  // what caused permission-denied crashes here before.
+  const { isChecking, isTimedOut } = useRequireRole(['admin', 'manager']);
+
+  // Fetch pending requests count for badge — only once access is confirmed;
+  // rules only allow admin/manager to list this collection.
+  const firestore = useFirestore();
+  const requestsCollection = useMemoFirebase(
+    () => (firestore && user?.uid && !isChecking ? collection(firestore, 'requests') : null),
+    [firestore, user?.uid, isChecking]
+  );
+  const { data: requests } = useCollection<Request>(requestsCollection);
+  const pendingCount = requests?.filter((r) => r.status === 'pending').length || 0;
+
+  if (isTimedOut) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-background p-4 text-center">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground mb-6">It's taking longer than expected to load your profile. Please try logging in again.</p>
+        <Button onClick={() => {
+          auth?.signOut();
+          window.location.href = '/login';
+        }}>
+          Login Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (isChecking || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground animate-pulse">Loading secure portal...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleLogout = () => {
+    if (auth) {
+      auth.signOut();
+    }
+    router.push('/');
+  };
+
+  return (
+    <SidebarProvider>
+      <Sidebar>
+        <SidebarHeader className="border-b border-sidebar-border" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
+          <Link href="/admin/dashboard" className="flex items-center gap-4 p-4 rounded-lg transition-colors">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm border border-primary/10">
+              <img
+                src="/icon-192.png"
+                alt="SG HEALTH PHARMA Logo"
+                className="h-10 w-10 object-contain"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-headline text-lg font-bold leading-tight tracking-tight">
+                SG HEALTH
+              </span>
+              <span className="font-headline text-sm font-semibold text-primary/80 leading-tight">
+                PHARMA
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] mt-1 font-medium">
+                {roleLabel || 'Admin Portal'}
+              </span>
+            </div>
+          </Link>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarNavMenu pathname={pathname} pendingCount={pendingCount} role={role} />
+        </SidebarContent>
+        <SidebarFooter>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="flex h-auto w-full items-center justify-start gap-3 px-3 py-2"
+              >
+                <Avatar>
+                  <AvatarImage
+                    src={adminAvatar?.imageUrl}
+                    data-ai-hint={adminAvatar?.imageHint}
+                  />
+                  <AvatarFallback>AD</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col items-start text-left">
+                  <span className="text-sm font-semibold">
+                    {user.displayName || 'Admin User'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {user.email}
+                  </span>
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setIsPasswordResetOpen(true)}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                <span>Change Password</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarFooter>
+      </Sidebar>
+      <SidebarInset className="bg-secondary/50">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'env(safe-area-inset-top)', minHeight: 'calc(3.5rem + env(safe-area-inset-top))' }}>
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="lg:hidden" />
+          </div>
+
+          {/* Mobile Logout Button */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage
+                      src={adminAvatar?.imageUrl}
+                      data-ai-hint={adminAvatar?.imageHint}
+                    />
+                    <AvatarFallback>AD</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold">
+                      {user.displayName || 'Admin User'}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {user.email}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setIsPasswordResetOpen(true)}>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  <span>Change Password</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+        <main className="flex-1 p-3 md:p-6 lg:p-8 overflow-x-auto min-h-[calc(100vh-4rem)]">{children}</main>
+      </SidebarInset>
+
+      <PasswordResetDialog open={isPasswordResetOpen} onOpenChange={setIsPasswordResetOpen} userEmail={user.email || ''} />
+
+    </SidebarProvider>
+  );
+}
