@@ -73,7 +73,7 @@ export function isAvailableOffline(doctorId: string): boolean {
  * List all offline presentations (metadata only)
  */
 export async function listOfflinePresentations(): Promise<
-    Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number }>
+    Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number; state?: 'READY' | 'FAILED' | 'STALE' }>
 > {
     try {
         const allPDFs = await listOfflinePDFs();
@@ -83,6 +83,12 @@ export async function listOfflinePresentations(): Promise<
             doctorName: data.doctorName,
             downloadedAt: new Date(data.downloadedAt),
             fileSize: data.fileSize,
+            // Set by the startup verification pass (offline-pdf-store.ts) —
+            // 'FAILED' means the cached file didn't pass its %PDF-/%%EOF
+            // validity check (corrupt or a truncated download) and needs a
+            // re-sync once back online. Surfaced here so a rep can see
+            // that BEFORE trying to present, not discover it mid-visit.
+            state: data.state,
         }));
     } catch (error) {
         console.error('Error listing offline presentations:', error);

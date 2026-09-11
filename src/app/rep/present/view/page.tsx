@@ -45,6 +45,15 @@ function PresentationViewerContent() {
     const [isOffline, setIsOffline] = useState(false);
     const [doctorName, setDoctorName] = useState<string>('');
     const [showExitDialog, setShowExitDialog] = useState(false);
+    // Flips once ScreenOrientation.lock() has resolved AND a short settle
+    // delay has passed for the WebView's own layout to actually catch up
+    // with the new landscape dimensions (the promise resolving doesn't
+    // guarantee the layout pass has happened yet). The render effect below
+    // depends on this so the very first real render — not just a
+    // resize-triggered correction afterwards — already uses the correct
+    // full landscape size instead of momentarily using stale portrait
+    // dimensions.
+    const [orientationSettled, setOrientationSettled] = useState(false);
 
     // Touch gesture handling
     const touchStartX = useRef(0);
@@ -60,12 +69,21 @@ function PresentationViewerContent() {
         window.addEventListener('offline', handleOffline);
 
         // Lock screen orientation to landscape and go full screen
+        let settleTimer: ReturnType<typeof setTimeout>;
         const enterPresentationMode = async () => {
             try {
                 await ScreenOrientation.lock({ orientation: 'landscape' });
                 await StatusBar.hide();
             } catch (error) {
                 console.log('Presentation mode setup skipped - not supported in this environment');
+            } finally {
+                // Give the WebView's layout a moment to actually catch up
+                // with the new orientation before treating it as settled —
+                // the lock() promise resolving doesn't guarantee the
+                // resize/layout pass has landed yet. Runs even if the lock
+                // itself failed/isn't supported, so the render effect below
+                // still fires once with whatever the current size is.
+                settleTimer = setTimeout(() => setOrientationSettled(true), 350);
             }
         };
         enterPresentationMode();
@@ -83,7 +101,8 @@ function PresentationViewerContent() {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
             if (backListener) backListener.remove();
-            
+            clearTimeout(settleTimer);
+
             const exitPresentationMode = async () => {
                 try {
                     await ScreenOrientation.unlock();
@@ -199,7 +218,12 @@ function PresentationViewerContent() {
         if (pdfDoc && currentPage) {
             renderPage(currentPage);
         }
-    }, [pdfDoc, currentPage, renderPage]);
+        // orientationSettled is intentionally a dependency, not just read —
+        // it flipping true after mount is what triggers the "for real, at
+        // the correct landscape size" render, on top of whatever render
+        // already happened (correctly or not) the moment pdfDoc first
+        // became available.
+    }, [pdfDoc, currentPage, renderPage, orientationSettled]);
 
     // Re-render at the correct size once the screen actually finishes
     // rotating to landscape. ScreenOrientation.lock() (called on mount,
@@ -238,7 +262,17 @@ function PresentationViewerContent() {
         if (navigator.onLine) {
             setShowExitDialog(true);
         } else {
-            // Offline: redirect without asking
+            // Offline: redirect without asking. window.location.replace()
+            // is a hard navigation — it tears down this page's JS context
+            // before React gets a reliable chance to run this component's
+            // own unmount cleanup (which is what calls
+            // ScreenOrientation.unlock()/StatusBar.show() below normally).
+            // That's exactly why the screen was staying stuck in
+            // landscape after exiting a presentation offline: the unlock
+            // call was being skipped, not failing. Call it explicitly
+            // here, before navigating away, so it actually runs.
+            ScreenOrientation.unlock().catch(() => {});
+            StatusBar.show().catch(() => {});
             window.location.replace('/rep/offline');
         }
     };
@@ -250,6 +284,12 @@ function PresentationViewerContent() {
             // User confirmed they presented - save visit log
             await saveVisitLog(doctorId, 'VISITED', doctorName);
         }
+
+        // Explicit, not just relying on this component's unmount cleanup
+        // to call these — belt and suspenders alongside the same fix in
+        // handleClose's offline branch above.
+        ScreenOrientation.unlock().catch(() => {});
+        StatusBar.show().catch(() => {});
 
         // Use router to navigate without hard reloading the app
         router.replace('/rep');

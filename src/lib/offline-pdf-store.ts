@@ -6,6 +6,30 @@
 import { getDB, STORES, PDFRecord } from './indexeddb-utils';
 
 /**
+ * A real, complete PDF starts with the %PDF- magic bytes and ends with an
+ * %%EOF trailer (allowing for a little trailing whitespace/incremental-
+ * update noise after it, which is normal). Checking only the header isn't
+ * enough — a download that gets cut off mid-transfer (flaky connection
+ * during a sync) still starts with a perfectly valid header, passes that
+ * check, but is missing everything from wherever it got cut off onward,
+ * including the trailer. pdf.js then fails on it later with a generic
+ * "Invalid PDF structure"/parse error instead of the sync itself catching
+ * the truncation.
+ */
+async function isValidPdfBlob(blob: Blob): Promise<boolean> {
+    if (blob.size < 1024) return false; // no real presentation PDF is this small
+
+    const header = await blob.slice(0, 5).text();
+    if (header !== '%PDF-') return false;
+
+    const tailSize = Math.min(2048, blob.size);
+    const tail = await blob.slice(blob.size - tailSize, blob.size).text();
+    if (!tail.includes('%%EOF')) return false;
+
+    return true;
+}
+
+/**
  * Save PDF Offline (Cloud → Local)
  */
 export async function savePDFOffline(
@@ -40,14 +64,15 @@ export async function savePDFOffline(
         const blob = await response.blob();
         const pdfSize = blob.size;
 
-        // Fail loudly right here if what we downloaded isn't actually a
-        // PDF (magic bytes %PDF-) — catches a broken proxy/network path
-        // immediately as a clear download error, instead of silently
-        // saving bad data that only surfaces later as a pdf.js "Invalid
-        // PDF structure" crash when the rep is mid-presentation.
-        const header = await blob.slice(0, 5).text();
-        if (header !== '%PDF-') {
-            throw new Error('Downloaded file is not a valid PDF. Please try syncing again.');
+        // Fail loudly right here if what we downloaded isn't a real,
+        // complete PDF — catches a broken proxy path OR a download that
+        // got cut off mid-transfer (a flaky connection during sync)
+        // immediately as a clear, retryable sync error, instead of
+        // silently saving bad/partial data that only surfaces later as a
+        // pdf.js "Invalid PDF structure" crash when the rep is
+        // mid-presentation.
+        if (!(await isValidPdfBlob(blob))) {
+            throw new Error('Downloaded file is not a complete, valid PDF. Please try syncing again.');
         }
 
         // Check storage quota
@@ -260,15 +285,13 @@ async function verifyPDFRecord(record: PDFRecord): Promise<boolean> {
             return false;
         }
 
-        // Check 3.5: Actually a PDF, not some other content masquerading as
-        // one (e.g. an HTML error/fallback page a broken proxy fetch saved
-        // as if it were the file — a real bug this caught: nonzero size,
-        // right size, but "Invalid PDF structure" the moment pdf.js
-        // actually tried to open it). A real PDF always starts with the
-        // %PDF- magic bytes.
-        const header = await record.fileBlob.slice(0, 5).text();
-        if (header !== '%PDF-') {
-            console.warn(`[PDF Verify] Not a valid PDF for ${record.doctorId} (header: "${header}")`);
+        // Check 3.5: Actually a complete, valid PDF — not an HTML
+        // error/fallback page a broken proxy fetch saved as if it were the
+        // file (nonzero size, right size, but "Invalid PDF structure" the
+        // moment pdf.js opened it), and not a download truncated mid-
+        // transfer either (has a valid header but is missing its trailer).
+        if (!(await isValidPdfBlob(record.fileBlob))) {
+            console.warn(`[PDF Verify] Not a valid/complete PDF for ${record.doctorId} (size: ${record.fileBlob.size})`);
             return false;
         }
 

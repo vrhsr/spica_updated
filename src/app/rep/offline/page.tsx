@@ -14,7 +14,7 @@ import { isVisitedToday } from '@/lib/visit-logs-store';
 
 export default function OfflineDashboardPage() {
     const { isReady, isLoading: isDBLoading, error: dbError, retry } = useOfflineReady();
-    const [presentations, setPresentations] = useState<Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number }>>([]);
+    const [presentations, setPresentations] = useState<Array<{ doctorId: string; doctorName: string; downloadedAt: Date; fileSize: number; state?: 'READY' | 'FAILED' | 'STALE' }>>([]);
     const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -119,14 +119,25 @@ export default function OfflineDashboardPage() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {filtered.map((p) => {
                         const visited = visitedIds.has(p.doctorId);
+                        // Set by the startup verification pass — the cached
+                        // file didn't pass its validity check (corrupt, or
+                        // a download that got cut off mid-transfer). Shown
+                        // here so a rep can see it's not trustworthy BEFORE
+                        // walking into a visit, not discover it mid-present.
+                        const failed = p.state === 'FAILED';
                         return (
-                            <Card key={p.doctorId} className={`group overflow-hidden border rounded-lg transition-all duration-200 hover:border-accent hover:shadow-md ${visited ? 'bg-green-50/30 border-green-300/50' : 'hover:bg-accent/5'}`}>
+                            <Card key={p.doctorId} className={`group overflow-hidden border rounded-lg transition-all duration-200 hover:shadow-md ${failed ? 'bg-destructive/5 border-destructive/40' : visited ? 'bg-green-50/30 border-green-300/50 hover:border-accent' : 'hover:border-accent hover:bg-accent/5'}`}>
                                 <CardHeader className="pb-3">
                                     <div className="flex justify-between items-start gap-3">
                                         <div className="flex-1 space-y-1.5">
                                             <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
                                                 {p.doctorName}
-                                                {visited && (
+                                                {failed ? (
+                                                    <Badge variant="destructive" className="h-5 px-2 gap-1">
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        Needs re-sync
+                                                    </Badge>
+                                                ) : visited && (
                                                     <Badge className="bg-green-600 hover:bg-green-700 h-5 px-2 gap-1">
                                                         <CheckCircle className="h-3 w-3" />
                                                         Visited
@@ -134,7 +145,9 @@ export default function OfflineDashboardPage() {
                                                 )}
                                             </CardTitle>
                                             <CardDescription className="text-xs">
-                                                Saved on {format(p.downloadedAt, 'MMM d, yyyy')}
+                                                {failed
+                                                    ? 'Download is corrupted or incomplete — connect to the internet and tap Start Day / Sync to fix.'
+                                                    : `Saved on ${format(p.downloadedAt, 'MMM d, yyyy')}`}
                                             </CardDescription>
                                         </div>
                                         <Badge variant="outline" className="text-[10px] shrink-0">
@@ -143,11 +156,18 @@ export default function OfflineDashboardPage() {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="pt-3">
-                                    <Button asChild className="w-full h-11" variant={visited ? "secondary" : "default"}>
-                                        <Link href={`/rep/present/view?id=${p.doctorId}`}>
-                                            <Monitor className="mr-2 h-4 w-4" />
-                                            {visited ? 'Present Again' : 'Present Now'}
-                                        </Link>
+                                    <Button asChild={!failed} disabled={failed} className="w-full h-11" variant={failed ? 'outline' : visited ? 'secondary' : 'default'}>
+                                        {failed ? (
+                                            <span>
+                                                <AlertTriangle className="mr-2 h-4 w-4" />
+                                                Unavailable until re-synced
+                                            </span>
+                                        ) : (
+                                            <Link href={`/rep/present/view?id=${p.doctorId}`}>
+                                                <Monitor className="mr-2 h-4 w-4" />
+                                                {visited ? 'Present Again' : 'Present Now'}
+                                            </Link>
+                                        )}
                                     </Button>
                                 </CardContent>
                             </Card>

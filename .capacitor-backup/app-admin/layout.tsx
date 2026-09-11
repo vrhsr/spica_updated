@@ -199,7 +199,7 @@ export default function AdminLayout({
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader className="border-b border-sidebar-border" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
+        <SidebarHeader className="border-b border-sidebar-border" style={{ paddingTop: 'max(env(safe-area-inset-top), var(--android-inset-top, 0px), 0.5rem)' }}>
           <Link href="/admin/dashboard" className="flex items-center gap-4 p-4 rounded-lg transition-colors">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 shadow-sm border border-primary/10">
               <img
@@ -224,7 +224,7 @@ export default function AdminLayout({
         <SidebarContent>
           <SidebarNavMenu pathname={pathname} pendingCount={pendingCount} role={role} />
         </SidebarContent>
-        <SidebarFooter>
+        <SidebarFooter style={{ paddingBottom: 'max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px))' }}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -264,7 +264,7 @@ export default function AdminLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="bg-secondary/50">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'env(safe-area-inset-top)', minHeight: 'calc(3.5rem + env(safe-area-inset-top))' }}>
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'max(env(safe-area-inset-top), var(--android-inset-top, 0px))', minHeight: 'calc(3.5rem + max(env(safe-area-inset-top), var(--android-inset-top, 0px)))' }}>
           <div className="flex items-center gap-2">
             <SidebarTrigger className="lg:hidden" />
           </div>
@@ -307,7 +307,10 @@ export default function AdminLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-3 md:p-6 lg:p-8 overflow-x-auto min-h-[calc(100vh-4rem)]">{children}</main>
+        <main
+          className="flex-1 p-3 md:p-6 lg:p-8 overflow-x-auto min-h-[calc(100vh-4rem)]"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom), var(--android-inset-bottom, 0px))' }}
+        >{children}</main>
       </SidebarInset>
 
       <PasswordResetDialog open={isPasswordResetOpen} onOpenChange={setIsPasswordResetOpen} userEmail={user.email || ''} />
