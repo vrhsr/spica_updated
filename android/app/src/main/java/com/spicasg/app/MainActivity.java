@@ -1,5 +1,9 @@
 package com.spicasg.app;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -7,10 +11,13 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
+import android.view.animation.AccelerateInterpolator;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import androidx.core.graphics.Insets;
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -26,6 +33,50 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Must be called before super.onCreate() per the SplashScreen API
+        // contract. AndroidManifest/styles.xml already point the launch
+        // theme at Theme.SplashScreen + the new splash_icon/splash_background
+        // artwork (see resources/splash.jpg -> the generated drawables) —
+        // this is what was actually MISSING despite the
+        // androidx.core:core-splashscreen dependency already being in
+        // build.gradle: without installSplashScreen(), there's no hook to
+        // customize the dismiss, so it just cuts away instantly instead of
+        // the icon transitioning out. Custom exit: a quick confident pop
+        // (scale up slightly) then fade, instead of an abrupt cut.
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+        splashScreen.setOnExitAnimationListener(splashScreenView -> {
+            final long duration = 420L;
+            View icon = splashScreenView.getIconView();
+
+            ObjectAnimator scaleUpX = ObjectAnimator.ofFloat(icon, View.SCALE_X, 1f, 1.15f);
+            ObjectAnimator scaleUpY = ObjectAnimator.ofFloat(icon, View.SCALE_Y, 1f, 1.15f);
+            scaleUpX.setDuration(duration / 3);
+            scaleUpY.setDuration(duration / 3);
+
+            ObjectAnimator scaleDownX = ObjectAnimator.ofFloat(icon, View.SCALE_X, 1.15f, 0f);
+            ObjectAnimator scaleDownY = ObjectAnimator.ofFloat(icon, View.SCALE_Y, 1.15f, 0f);
+            scaleDownX.setStartDelay(duration / 3);
+            scaleDownY.setStartDelay(duration / 3);
+            scaleDownX.setDuration(duration * 2 / 3);
+            scaleDownY.setDuration(duration * 2 / 3);
+            scaleDownX.setInterpolator(new AccelerateInterpolator());
+            scaleDownY.setInterpolator(new AccelerateInterpolator());
+
+            ObjectAnimator fadeOut = ObjectAnimator.ofFloat(splashScreenView.getView(), View.ALPHA, 1f, 0f);
+            fadeOut.setStartDelay(duration / 2);
+            fadeOut.setDuration(duration / 2);
+
+            AnimatorSet set = new AnimatorSet();
+            set.playTogether(scaleUpX, scaleUpY, scaleDownX, scaleDownY, fadeOut);
+            set.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    splashScreenView.remove();
+                }
+            });
+            set.start();
+        });
+
         super.onCreate(savedInstanceState);
         // Register Google Auth plugin
         registerPlugin(GoogleAuth.class);
