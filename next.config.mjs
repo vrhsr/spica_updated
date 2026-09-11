@@ -24,6 +24,18 @@ const baseConfig = {
     experimental: {
         turbo: {},
         serverComponentsExternalPackages: ["@aws-sdk/*"],
+        // This dev machine is memory-constrained (often well under 2GB free
+        // RAM — see CLAUDE.md). By default `next build`'s static-page-
+        // generation phase spawns one worker PROCESS per CPU core, each
+        // loading its own copy of the whole build graph — on a low-memory
+        // machine that's exactly what crashes the build with a raw native
+        // access violation (exit code 3221226505 / 0xC0000005) rather than
+        // a normal JS error. Forcing this down to 1 makes prerendering
+        // fully sequential (slower, but it only needs one worker's worth
+        // of memory instead of several at once) so the build actually
+        // completes here instead of crashing partway through.
+        cpus: 1,
+        workerThreads: false,
     },
     async headers() {
         return [
