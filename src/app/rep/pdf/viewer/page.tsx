@@ -20,7 +20,14 @@ if (typeof window !== 'undefined') {
 
 function PDFError({ message }: { message: string }) {
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 p-6 text-center">
+        // Fixed full-screen overlay, same as the loaded-viewer state below —
+        // this early-return was still using min-h-screen (normal document
+        // flow), which left it nested inside rep/layout.tsx's own header +
+        // fixed bottom tab bar (that layout still renders around whatever
+        // this page returns). The "Back to Doctors" button rendering
+        // underneath/behind that stacked chrome is exactly why tapping it
+        // didn't seem to respond.
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-slate-50 p-6 text-center">
             <div className="rounded-2xl bg-destructive/10 p-4">
                 <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
@@ -143,10 +150,16 @@ function PDFViewer() {
                     const data = await record.fileBlob.arrayBuffer();
                     doc = await pdfjsLib.getDocument({ data }).promise;
                 } else {
-                    // Online path: through our same-origin proxy — the PDF
-                    // lives on Cloudflare R2, a different origin than
-                    // spicasg.in, so pdf.js can't fetch it directly.
-                    const actualPdfSrc = `/api/view-pdf?url=${encodeURIComponent(pdfUrlFromParams!)}`;
+                    // Online path: through our proxy — the PDF lives on
+                    // Cloudflare R2, a different origin than this app, so
+                    // pdf.js can't fetch it directly. Absolute URL, not a
+                    // relative /api/view-pdf path: this page can run from
+                    // the Android app's locally-bundled shell (see
+                    // scripts/build-capacitor.js), which has no /api/* of
+                    // its own — that only exists on the live site, and the
+                    // route's CORS headers (src/app/api/view-pdf/route.ts)
+                    // allow this cross-origin call.
+                    const actualPdfSrc = `https://spicasg.in/api/view-pdf?url=${encodeURIComponent(pdfUrlFromParams!)}`;
                     doc = await pdfjsLib.getDocument({ url: actualPdfSrc, withCredentials: false }).promise;
                 }
 
@@ -188,7 +201,7 @@ function PDFViewer() {
 
     if (isLoading) {
         return (
-            <div className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
+            <div className="fixed inset-0 z-40 flex w-full flex-col items-center justify-center gap-4 bg-slate-50">
                 <div className="relative flex h-16 w-16 items-center justify-center">
                     <div className="absolute inset-0 animate-pulse rounded-full bg-primary/15 blur-xl" />
                     <Loader className="h-9 w-9 animate-spin text-primary" />
@@ -246,7 +259,7 @@ function PDFViewer() {
 
 export default function PDFViewerPage() {
     return (
-        <Suspense fallback={<div className="flex min-h-screen w-full items-center justify-center bg-slate-50"><Loader className="h-9 w-9 animate-spin text-primary" /></div>}>
+        <Suspense fallback={<div className="fixed inset-0 z-40 flex w-full items-center justify-center bg-slate-50"><Loader className="h-9 w-9 animate-spin text-primary" /></div>}>
             <PDFViewer />
         </Suspense>
     )

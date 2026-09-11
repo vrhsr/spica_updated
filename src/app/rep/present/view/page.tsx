@@ -311,9 +311,17 @@ function PresentationViewerContent() {
         };
     }, [goToNextPage, goToPrevPage]);
 
+    // All early-return states below are fixed full-screen overlays (z-50,
+    // same as the loaded-presentation view further down) rather than plain
+    // h-screen document flow. They used to render nested inside
+    // rep/layout.tsx's own header + fixed bottom tab bar (that layout still
+    // wraps around whatever this page returns) — which is why the buttons
+    // on these error/empty states (e.g. "No presentation selected") looked
+    // like they weren't responding to taps: they were sitting underneath
+    // that stacked chrome instead of on their own clear black screen.
     if (!doctorId) {
         return (
-            <div className="flex h-screen w-full items-center justify-center bg-black">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
                 <div className="text-center text-white">
                     <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
                     <p className="text-xl">No presentation selected</p>
@@ -327,7 +335,7 @@ function PresentationViewerContent() {
 
     if (dbError) {
         return (
-            <div className="flex h-screen w-full items-center justify-center bg-black">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
                 <div className="text-center text-white">
                     <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
                     <p className="text-xl">Storage Error</p>
@@ -344,7 +352,7 @@ function PresentationViewerContent() {
 
     if (isDBLoading || loading) {
         return (
-            <div className="flex h-screen w-full items-center justify-center bg-black">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
                 <Loader className="h-12 w-12 animate-spin text-white" />
                 <p className="ml-4 text-white">
                     {isDBLoading ? 'Initializing storage...' : 'Loading presentation...'}
@@ -355,7 +363,7 @@ function PresentationViewerContent() {
 
     if (!pdfDoc) {
         return (
-            <div className="flex h-screen w-full items-center justify-center bg-black">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
                 <div className="text-center text-white">
                     <p className="text-xl">Presentation not available</p>
                     <Button variant="outline" className="mt-4" onClick={handleClose}>
@@ -499,7 +507,7 @@ function PresentationViewerContent() {
 export default function PresentationViewerPage() {
     return (
         <Suspense fallback={
-            <div className="flex h-screen w-full items-center justify-center bg-black">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
                 <Loader className="h-12 w-12 animate-spin text-white" />
             </div>
         }>

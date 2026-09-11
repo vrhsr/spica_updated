@@ -90,6 +90,36 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
         };
     }, [pathname]);
 
+    // Prune offline downloads whose doctor no longer has a live
+    // presentation on the server (e.g. an admin deleted/regenerated it).
+    // There's no way to reach into a rep's phone remotely, so this is the
+    // only path for a server-side cleanup to actually catch up on-device —
+    // runs once per city/online-state resolution, and only ever deletes
+    // based on a successful query result (never on an empty/errored one).
+    useEffect(() => {
+        if (!firestore || !userProfile?.city || !isOnline || isOfflineMode) return;
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const { collection, query, where, getDocs } = await import('firebase/firestore');
+                const snap = await getDocs(
+                    query(collection(firestore, 'presentations'), where('city', '==', userProfile.city))
+                );
+                if (cancelled) return;
+                const activeDoctorIds = snap.docs.map((d) => d.data().doctorId as string);
+                const { pruneOrphanedOfflinePDFs } = await import('@/lib/offline-pdf-store');
+                await pruneOrphanedOfflinePDFs(activeDoctorIds);
+            } catch (e) {
+                console.warn('[Rep Layout] Orphan cleanup check failed (safe to ignore):', e);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [firestore, userProfile?.city, isOnline, isOfflineMode]);
+
     // Automatically redirect to offline mode if offline and not already there
     useEffect(() => {
         if (!isOnline && !isOfflineMode && !hasCheckedOffline) {

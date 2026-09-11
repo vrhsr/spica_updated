@@ -25,7 +25,6 @@ import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import { listOfflinePresentations } from '@/lib/offline-storage';
 import { isCapacitorApp } from '@/lib/capacitor-utils';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
-import { Browser } from '@capacitor/browser';
 
 /** Where a signed-in user lands, based on their custom-claim role. */
 function destinationForRole(role: unknown): string | null {
@@ -119,12 +118,30 @@ export default function LoginPage() {
     // offline-capable bundle (it'd mean packaging real admin credentials
     // into the APK). Rather than authenticating successfully and then
     // dead-ending on a route that doesn't exist locally, hand off to the
-    // live admin dashboard in a dismissible in-app browser tab — the rep
-    // flow below is completely unaffected and stays fully in-app.
+    // live admin dashboard — same WebView, no visible browser chrome at
+    // all (a Custom Tab was tried first and rejected: it shows a real
+    // browser UI and can't see this session, forcing a second login).
+    // Mint a short-lived custom token first so admin/layout.tsx can sign
+    // the user straight in on that origin instead of asking for the
+    // password again. The rep flow below is completely unaffected.
     if ((role === 'admin' || role === 'manager') && isCapacitorApp()) {
-      await Browser.open({ url: 'https://spicasg.in/login' });
+      let handoffUrl = 'https://spicasg.in/login';
+      try {
+        const idToken = await user.getIdToken();
+        const resp = await fetch('https://spicasg.in/api/mint-handoff-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        });
+        const data = await resp.json();
+        if (data.customToken) {
+          handoffUrl = `https://spicasg.in/admin/dashboard?handoff=${encodeURIComponent(data.customToken)}`;
+        }
+      } catch (e) {
+        console.error('[Login] Admin handoff token mint failed, falling back to live login:', e);
+      }
       await auth?.signOut();
-      router.replace('/');
+      window.location.href = handoffUrl;
       return;
     }
 

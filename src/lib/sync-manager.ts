@@ -201,10 +201,13 @@ class SyncManager {
                 if (!isCached) {
                     toDownload.push(item);
                 } else {
-                    // Check if stale
+                    // Check if stale — or previously marked FAILED (e.g. a
+                    // corrupt download from a broken proxy path, caught by
+                    // verifyAllOfflinePDFs' startup check) — either way it
+                    // needs a fresh download, not to be treated as "ready".
                     const cached = await getOfflinePDF(item.doctorId);
-                    if (cached && cached.downloadedAt < item.updatedAt) {
-                        // It's stale, re-download
+                    if (cached && (cached.state === 'FAILED' || cached.downloadedAt < item.updatedAt)) {
+                        // Needs (re-)downloading
                         toDownload.push(item);
                     } else {
                         // Already ready

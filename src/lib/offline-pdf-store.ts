@@ -17,18 +17,38 @@ export async function savePDFOffline(
     if (!pdfUrl) throw new Error("No PDF URL provided");
 
     try {
-        // Download the PDF via our own same-origin proxy rather than
-        // fetching the Cloudflare R2 URL directly — R2's public bucket
-        // doesn't send CORS headers for arbitrary origins, so a direct
-        // fetch() (unlike a plain navigation/window.open) is blocked by the
-        // browser with an opaque "Failed to fetch" TypeError. The proxy
-        // fetches server-side (no CORS involved) and streams the bytes back
-        // same-origin.
-        const response = await fetch(`/api/view-pdf?url=${encodeURIComponent(pdfUrl)}`);
+        // Download the PDF via our own proxy rather than fetching the
+        // Cloudflare R2 URL directly — R2's public bucket doesn't send CORS
+        // headers for arbitrary origins, so a direct fetch() (unlike a
+        // plain navigation/window.open) is blocked by the browser with an
+        // opaque "Failed to fetch" TypeError. The proxy fetches
+        // server-side (no CORS involved) and streams the bytes back.
+        //
+        // Absolute URL, not a relative /api/view-pdf path: this code also
+        // runs from the Android app's locally-bundled, offline-capable
+        // shell (see scripts/build-capacitor.js), which has no server of
+        // its own — /api/* only exists on the live site. A relative fetch
+        // from that local origin was silently resolving to *something*
+        // other than the actual PDF bytes (the local server has no such
+        // route), which got saved to IndexedDB as if it were the PDF and
+        // then failed with "Invalid PDF structure" the moment pdf.js
+        // actually tried to parse it. The route's CORS headers (see
+        // src/app/api/view-pdf/route.ts) make this cross-origin call work.
+        const response = await fetch(`https://spicasg.in/api/view-pdf?url=${encodeURIComponent(pdfUrl)}`);
         if (!response.ok) throw new Error(`Failed to download PDF: ${response.statusText}`);
 
         const blob = await response.blob();
         const pdfSize = blob.size;
+
+        // Fail loudly right here if what we downloaded isn't actually a
+        // PDF (magic bytes %PDF-) — catches a broken proxy/network path
+        // immediately as a clear download error, instead of silently
+        // saving bad data that only surfaces later as a pdf.js "Invalid
+        // PDF structure" crash when the rep is mid-presentation.
+        const header = await blob.slice(0, 5).text();
+        if (header !== '%PDF-') {
+            throw new Error('Downloaded file is not a valid PDF. Please try syncing again.');
+        }
 
         // Check storage quota
         const { hasEnoughStorage } = await import('./storage-quota');
@@ -134,6 +154,45 @@ export async function listOfflinePDFs() {
 }
 
 /**
+ * Remove any locally-downloaded PDF whose doctor no longer has a live
+ * presentation record on the server. Lets an admin-side wipe (or a normal
+ * doctor/presentation removal) actually reach reps' phones too — there's
+ * no way to remotely touch a rep's device, so this runs client-side the
+ * next time that rep's app is online, comparing what's on-device against
+ * `activeDoctorIds` (the doctorIds the caller just queried fresh from
+ * Firestore) and deleting anything that's fallen out of that set.
+ *
+ * Callers MUST only pass activeDoctorIds from a successful query — never
+ * call this with an empty list from a failed/errored fetch, or it will
+ * look like every download is orphaned and wipe them all.
+ */
+export async function pruneOrphanedOfflinePDFs(
+    activeDoctorIds: string[]
+): Promise<{ removed: number; removedIds: string[] }> {
+    const activeSet = new Set(activeDoctorIds);
+    const removedIds: string[] = [];
+
+    try {
+        const all = await listOfflinePDFs();
+        for (const pdf of all) {
+            if (!activeSet.has(pdf.doctorId)) {
+                await removePDFOffline(pdf.doctorId);
+                removedIds.push(pdf.doctorId);
+            }
+        }
+    } catch (error) {
+        console.error('[PDF Store] Orphan cleanup failed:', error);
+    }
+
+    if (removedIds.length > 0) {
+        console.log(`[PDF Store] Pruned ${removedIds.length} orphaned offline presentation(s):`, removedIds);
+        window.dispatchEvent(new Event('offline-updated'));
+    }
+
+    return { removed: removedIds.length, removedIds };
+}
+
+/**
  * WHATSAPP-STYLE: Verify all PDFs on app startup
  * Checks that blobs exist and are valid, marks any failures
  * This ensures UI is always derived from verified storage state
@@ -198,6 +257,18 @@ async function verifyPDFRecord(record: PDFRecord): Promise<boolean> {
         // Check 3: Blob size matches stored size (if available)
         if (record.fileSize && record.fileBlob.size !== record.fileSize) {
             console.warn(`[PDF Verify] Size mismatch for ${record.doctorId}: expected ${record.fileSize}, got ${record.fileBlob.size}`);
+            return false;
+        }
+
+        // Check 3.5: Actually a PDF, not some other content masquerading as
+        // one (e.g. an HTML error/fallback page a broken proxy fetch saved
+        // as if it were the file — a real bug this caught: nonzero size,
+        // right size, but "Invalid PDF structure" the moment pdf.js
+        // actually tried to open it). A real PDF always starts with the
+        // %PDF- magic bytes.
+        const header = await record.fileBlob.slice(0, 5).text();
+        if (header !== '%PDF-') {
+            console.warn(`[PDF Verify] Not a valid PDF for ${record.doctorId} (header: "${header}")`);
             return false;
         }
 

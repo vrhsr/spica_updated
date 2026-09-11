@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { signInWithCustomToken } from 'firebase/auth';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser, useAuth } from '@/firebase';
 import { PasswordResetDialog } from '@/components/PasswordResetDialog';
@@ -123,6 +124,27 @@ export default function AdminLayout({
   const roleLabel = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Project Manager' : '';
   const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
   const adminAvatar = PlaceHolderImages.find((img) => img.id === 'admin-avatar');
+
+  // Consume a one-time handoff token minted by the Capacitor app's login
+  // screen (src/app/login/page.tsx + api/mint-handoff-token/route.ts). The
+  // app's local bundle runs on a different origin than this live site, so
+  // Firebase Auth's session can't carry over on its own — without this, an
+  // admin/manager who already signed in inside the app would land here
+  // and have to type their password a second time for no real reason.
+  // Reads window.location.search directly (not useSearchParams()) so this
+  // doesn't need a Suspense boundary. Stripped from the URL immediately —
+  // single-use, shouldn't linger in history.
+  useEffect(() => {
+    if (!auth) return;
+    const params = new URLSearchParams(window.location.search);
+    const handoffToken = params.get('handoff');
+    if (!handoffToken) return;
+
+    window.history.replaceState({}, '', window.location.pathname);
+    signInWithCustomToken(auth, handoffToken).catch((err) => {
+      console.error('[AdminLayout] Handoff sign-in failed:', err);
+    });
+  }, [auth]);
 
   // Gate on admin/manager access. `isChecking` stays true until role is
   // actually confirmed, so `children` (and every Firestore query inside

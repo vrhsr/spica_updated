@@ -5,6 +5,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -85,6 +86,29 @@ public class MainActivity extends BridgeActivity {
         // presentations without a connection). One retry gives the SW time
         // to come up so the reload gets served from cache/fallback instead.
         this.bridge.getWebView().setWebViewClient(new BridgeWebViewClient(this.bridge) {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                // Capacitor's own default WebViewClient hands any
+                // top-level navigation to a domain other than this app's
+                // own (local bundle) origin off to Android's Intent
+                // system — which is exactly what was popping the
+                // admin/manager handoff (login/page.tsx navigating to
+                // https://spicasg.in/admin/dashboard) open in the
+                // system's default browser (a full separate Chrome tab)
+                // instead of staying in the app. Force any spicasg.in
+                // navigation to load in THIS SAME WebView instead —
+                // covers the admin/manager handoff, Firebase Auth email
+                // action links, etc. Everything else keeps Capacitor's
+                // normal handling.
+                Uri uri = request.getUrl();
+                String host = uri.getHost();
+                if (host != null && host.contains("spicasg.in")) {
+                    view.loadUrl(uri.toString());
+                    return true;
+                }
+                return super.shouldOverrideUrlLoading(view, request);
+            }
+
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
