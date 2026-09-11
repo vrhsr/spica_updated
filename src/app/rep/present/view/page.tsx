@@ -55,6 +55,28 @@ function PresentationViewerContent() {
     // dimensions.
     const [orientationSettled, setOrientationSettled] = useState(false);
 
+    // Whether to show the "Navigation Tips" hint. Used to always reappear
+    // every single time slide 1 was on screen — including mid-presentation,
+    // if a rep swiped back to the start while actually presenting to a
+    // doctor — sitting there covering the slide with no way to auto-dismiss.
+    // Now: shown once ever per device (localStorage), and auto-dismisses on
+    // its own after a few seconds instead of persisting indefinitely.
+    const [showNavTip, setShowNavTip] = useState(false);
+
+    useEffect(() => {
+        try {
+            if (!localStorage.getItem('present-nav-tip-seen')) {
+                setShowNavTip(true);
+                localStorage.setItem('present-nav-tip-seen', 'true');
+                const timer = setTimeout(() => setShowNavTip(false), 4000);
+                return () => clearTimeout(timer);
+            }
+        } catch (e) {
+            // localStorage unavailable — skip the tip rather than risk it
+            // getting stuck with no way to dismiss.
+        }
+    }, []);
+
     // Touch gesture handling
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
@@ -501,9 +523,12 @@ function PresentationViewerContent() {
                 </div>
             </div>
 
-            {/* Navigation Tip (first slide only) */}
-            {currentPage === 1 && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-black/70 rounded-lg px-6 py-3 text-white text-sm text-center max-w-md">
+            {/* Navigation Tip — shown once ever, auto-dismisses; tappable to dismiss immediately too */}
+            {currentPage === 1 && showNavTip && (
+                <div
+                    onClick={() => setShowNavTip(false)}
+                    className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-black/70 rounded-lg px-6 py-3 text-white text-sm text-center max-w-md cursor-pointer"
+                >
                     <p className="font-semibold mb-1">Navigation Tips:</p>
                     <p className="text-xs">• Swipe left/right to change slides</p>
                     <p className="text-xs">• Tap left/right side of screen</p>
