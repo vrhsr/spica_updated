@@ -56,8 +56,9 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentation';
 import { Doctor, CreateDoctorInput, Presentation } from '@/types';
-import useSWR from 'swr';
+import useSWR, { mutate as mutateSWR } from 'swr';
 import { listAllUsers } from '../users/actions';
+import { AddUserDialog } from '../users/AddUserDialog';
 
 
 
@@ -213,6 +214,12 @@ export default function DoctorsPage() {
     }
     return doctorsCollection;
   }, [firestore, cityFilter, isAdmin]);
+
+  const citiesQuery = useMemoFirebase(
+    () => (firestore && isAdmin ? collection(firestore, 'cities') : null),
+    [firestore, isAdmin]
+  );
+  const { data: cities, isLoading: isLoadingCities } = useCollection<{ id: string; name: string }>(citiesQuery);
 
   const presentationsQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
@@ -590,6 +597,20 @@ export default function DoctorsPage() {
                 <Button disabled={!!isSubmitting} className="rounded-xl shadow-md hover:shadow-lg transition-all">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Doctor
+                </Button>
+              }
+            />
+          )}
+          {activeView === 'reps' && adminRole === 'admin' && (
+            <AddUserDialog
+              cities={cities || []}
+              isLoadingCities={isLoadingCities}
+              defaultCity={cityFilter || undefined}
+              onUserAdded={() => mutateSWR('allUsers-reps-view')}
+              triggerButton={
+                <Button className="rounded-xl shadow-md hover:shadow-lg transition-all">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Rep
                 </Button>
               }
             />
