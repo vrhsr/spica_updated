@@ -438,7 +438,7 @@ function PresentationsComponent() {
           <AddDoctorDialog 
             onDoctorAdded={handleDoctorAdded} 
             triggerButton={
-              <Button className="w-full sm:w-auto shadow-md px-6">
+              <Button className="w-full sm:w-auto shrink-0 shadow-md px-6">
                 <PlusCircle className="mr-2 h-4 w-4 shrink-0" /> Create Presentation
               </Button>
             } 

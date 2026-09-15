@@ -115,7 +115,37 @@ export function AdminPdfViewer({ pdfUrl }: { pdfUrl: string }) {
   }, []);
 
   return (
-    <div ref={containerRef} className="h-full w-full overflow-y-auto rounded-md border bg-muted/20 p-2 sm:p-4">
+    <div
+      ref={containerRef}
+      className="pdf-viewer-scrollarea h-full w-full overflow-y-auto overflow-x-hidden rounded-md border bg-muted/20 p-2 sm:p-4"
+    >
+      <style jsx>{`
+        /* Overriding overflow-y alone left overflow-x at its spec-mandated
+           'auto' too (a visible axis paired with a non-visible one computes
+           to auto), and with no custom styling both axes fell back to the
+           thick, arrow-button OS/browser default scrollbar instead of a
+           slim one — overflow-x-hidden above removes the horizontal one
+           entirely (content never needs it, it's centered and width-capped)
+           and this restyles the vertical one. */
+        .pdf-viewer-scrollarea {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
+        }
+        .pdf-viewer-scrollarea::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .pdf-viewer-scrollarea::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .pdf-viewer-scrollarea::-webkit-scrollbar-thumb {
+          background-color: hsl(var(--muted-foreground) / 0.4);
+          border-radius: 9999px;
+        }
+        .pdf-viewer-scrollarea::-webkit-scrollbar-thumb:hover {
+          background-color: hsl(var(--muted-foreground) / 0.6);
+        }
+      `}</style>
       {isLoading ? (
         <div className="flex h-full w-full items-center justify-center">
           <Loader className="h-8 w-8 animate-spin text-primary" />
