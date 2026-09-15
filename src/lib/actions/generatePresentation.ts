@@ -79,7 +79,11 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
                 Key: key,
                 Body: fileBuffer,
                 ContentType: "application/pdf",
-                ContentDisposition: `inline; filename="${safeFileName}.pdf"`
+                ContentDisposition: `inline; filename="${safeFileName}.pdf"`,
+                // Key embeds Date.now(), so it's unique per generation — safe to cache
+                // forever. Without this, every "View"/open re-downloads the full PDF
+                // from R2 instead of hitting the browser's disk cache.
+                CacheControl: 'public, max-age=31536000, immutable',
             })
         );
 

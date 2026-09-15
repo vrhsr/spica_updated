@@ -187,7 +187,7 @@ export default function LoginPage() {
     }
   };
 
-  const handlePasswordLogin = async (e: React.FormEvent) => {
+  const handlePasswordLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setIsLoadingPassword(true);
@@ -196,8 +196,17 @@ export default function LoginPage() {
       setIsLoadingPassword(false);
       return;
     }
+    // Read straight off the DOM instead of trusting the `email`/`password`
+    // state: clicking a saved-credential suggestion from the browser's
+    // password manager fills the inputs visually but doesn't reliably fire
+    // the React `onChange` that keeps that state in sync, so the first
+    // submit went out with stale (often empty) values and only a second
+    // click — after some other event happened to sync the state — worked.
+    const form = e.currentTarget;
+    const emailValue = (form.elements.namedItem('email') as HTMLInputElement)?.value ?? email;
+    const passwordValue = (form.elements.namedItem('password') as HTMLInputElement)?.value ?? password;
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, emailValue, passwordValue);
       await routeToDestination(userCredential.user);
     } catch (err: any) {
       handleAuthError(err);
@@ -253,6 +262,7 @@ export default function LoginPage() {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="you@example.com"
                   required
@@ -276,6 +286,7 @@ export default function LoginPage() {
                 <div className="relative">
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     required
                     value={password}

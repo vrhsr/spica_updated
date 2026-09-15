@@ -33,6 +33,7 @@ import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentatio
 import { Doctor, CreateDoctorInput, Presentation, EnrichedPresentation } from '@/types';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { AdminPdfViewer } from '@/components/AdminPdfViewer';
 import { AddDoctorDialog, EditSlidesForm } from '../doctors/AddDoctorDialog';
 import {
   AlertDialog,
@@ -804,7 +805,7 @@ function PresentationsComponent() {
       <Dialog open={!!viewPresentation} onOpenChange={(open) => !open && setViewPresentation(null)}>
         <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-4 w-full sm:w-[90vw]">
           {viewPresentation?.pdfUrl ? (
-            <iframe src={`${viewPresentation.pdfUrl}#toolbar=0`} className="w-full h-full rounded-md border" title="Presentation PDF" />
+            <AdminPdfViewer pdfUrl={viewPresentation.pdfUrl} />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground flex-col bg-muted/20 rounded-md border">
               <FileQuestion className="h-10 w-10 opacity-50 mb-2" />
