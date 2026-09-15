@@ -97,6 +97,13 @@ export function AdminPdfViewer({ pdfUrl }: { pdfUrl: string }) {
     };
   }, [pdfUrl]);
 
+  // The container is now rendered unconditionally below (loading/error states
+  // are children of it, not separate early-return branches), so this ref is
+  // attached from the very first render — attaching it only once loading
+  // finished used to leave containerWidth stuck at 0 forever (the effect
+  // that measures it had already run, against a still-null ref, before the
+  // switch to the "loaded" branch ever happened), which silently skipped
+  // rendering every page canvas and left a blank white pane.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -107,30 +114,24 @@ export function AdminPdfViewer({ pdfUrl }: { pdfUrl: string }) {
     return () => observer.disconnect();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center rounded-md border bg-muted/20">
-        <Loader className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center rounded-md border bg-muted/20 text-muted-foreground">
-        <FileQuestion className="mb-2 h-10 w-10 opacity-50" />
-        <p className="max-w-sm text-center text-sm">{error}</p>
-      </div>
-    );
-  }
-
   return (
     <div ref={containerRef} className="h-full w-full overflow-y-auto rounded-md border bg-muted/20 p-2 sm:p-4">
-      <div className="mx-auto flex max-w-2xl flex-col gap-3">
-        {containerWidth > 0 && pages.map((page, i) => (
-          <PdfPageCanvas key={i} page={page} pageNumber={i + 1} containerWidth={containerWidth} />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="flex h-full w-full items-center justify-center">
+          <Loader className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : error ? (
+        <div className="flex h-full w-full flex-col items-center justify-center text-muted-foreground">
+          <FileQuestion className="mb-2 h-10 w-10 opacity-50" />
+          <p className="max-w-sm text-center text-sm">{error}</p>
+        </div>
+      ) : (
+        <div className="mx-auto flex max-w-2xl flex-col gap-3">
+          {containerWidth > 0 && pages.map((page, i) => (
+            <PdfPageCanvas key={i} page={page} pageNumber={i + 1} containerWidth={containerWidth} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
