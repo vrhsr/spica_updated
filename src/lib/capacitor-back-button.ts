@@ -10,6 +10,16 @@ type BackButtonListenerHandle = {
 };
 
 let isInitialized = false;
+let lastHandledAt = 0;
+// Some Android devices/OS versions (gesture nav in particular) dispatch the
+// 'backButton' event more than once for what the rep experiences as a
+// single press/swipe. Each firing independently called window.history.back(),
+// so one physical back gesture could silently consume several history
+// entries at once — a rep several screens deep would suddenly land many
+// screens further back than expected. Collapsing any event that arrives
+// within this window of the last one we actually acted on turns that back
+// into a no-op instead of another navigation.
+const BACK_BUTTON_DEBOUNCE_MS = 400;
 
 /**
  * Initialize Android back button handler for Capacitor app
@@ -26,6 +36,12 @@ export function initializeBackButtonHandler(
     isInitialized = true;
 
     App.addListener('backButton', ({ canGoBack }) => {
+        const now = Date.now();
+        if (now - lastHandledAt < BACK_BUTTON_DEBOUNCE_MS) {
+            return;
+        }
+        lastHandledAt = now;
+
         const pathname = pathnameRef.current;
         // Normalize pathname for robust matching
         const normalizedPath = pathname.split('?')[0].split('#')[0];

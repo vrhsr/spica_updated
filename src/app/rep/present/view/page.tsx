@@ -110,10 +110,17 @@ function PresentationViewerContent() {
         };
         enterPresentationMode();
 
-        // Hardware Back Button Handling (Capacitor)
+        // Hardware Back Button Handling (Capacitor). Some devices dispatch
+        // 'backButton' more than once for a single physical press/gesture —
+        // debounce so that doesn't fire handleClose() (and its offline
+        // branch's hard navigation) more than once per press.
         let backListener: any;
+        let lastBackHandledAt = 0;
         const setupBackListener = async () => {
             backListener = await App.addListener('backButton', () => {
+                const now = Date.now();
+                if (now - lastBackHandledAt < 400) return;
+                lastBackHandledAt = now;
                 handleClose();
             });
         };

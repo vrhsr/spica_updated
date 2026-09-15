@@ -27,6 +27,11 @@ import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
 import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
+    // The rep-facing fallback screen, always present in the local bundle
+    // (out/rep/offline/) regardless of connectivity — trailing slash matters,
+    // next.config.mjs's capacitor build sets trailingSlash: true, so this is
+    // the exact path the static export was written to.
+    private static final String LOCAL_OFFLINE_URL = "https://localhost/rep/offline/";
     private boolean hasRetriedAfterLoadError = false;
     private volatile boolean isShowingLoadError = false;
     private ConnectivityManager.NetworkCallback networkCallback;
@@ -166,8 +171,26 @@ public class MainActivity extends BridgeActivity {
                 if (request.isForMainFrame()) {
                     isShowingLoadError = true;
                     if (!hasRetriedAfterLoadError) {
+                        // First failure: might be transient (DNS still
+                        // resolving, brief blip) — give it one reload.
                         hasRetriedAfterLoadError = true;
                         view.postDelayed(view::reload, 400);
+                    } else {
+                        // The retry ALSO failed — this is what a rep hit
+                        // mid-session: browsing a live page (e.g. the
+                        // admin/manager handoff to spicasg.in, which needs
+                        // real network) when connectivity drops. Reloading
+                        // the same unreachable URL again would just show
+                        // Chromium's raw "Webpage not available" page
+                        // forever, since nothing about a live URL becomes
+                        // reachable by retrying it while still offline.
+                        // Send the WebView to the app's own always-local,
+                        // always-available offline screen instead — this is
+                        // the "get me back to the offline page" fallback,
+                        // not another attempt at the failed URL. The
+                        // NetworkCallback below still reloads automatically
+                        // once real connectivity returns.
+                        view.postDelayed(() -> view.loadUrl(LOCAL_OFFLINE_URL), 400);
                     }
                 }
             }

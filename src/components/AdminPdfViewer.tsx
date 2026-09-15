@@ -156,7 +156,16 @@ export function AdminPdfViewer({ pdfUrl }: { pdfUrl: string }) {
           <p className="max-w-sm text-center text-sm">{error}</p>
         </div>
       ) : (
-        <div className="mx-auto flex max-w-2xl flex-col gap-3">
+        // No max-width cap here: PdfPageCanvas sizes each canvas to exactly
+        // `containerWidth`, which is measured off this same scroll
+        // container's clientWidth. Capping this wrapper's width (the
+        // previous max-w-2xl mx-auto) while sizing canvases to the
+        // uncapped measurement made every canvas wider than its own
+        // centered parent — it overflowed the parent's right edge, got
+        // clipped by the scroll container's overflow-x-hidden, and the
+        // mx-auto centering of the (too-narrow) parent showed up as a dead
+        // gap on the left with content cut off on the right.
+        <div className="flex flex-col gap-3">
           {containerWidth > 0 && pages.map((page, i) => (
             <PdfPageCanvas key={i} page={page} pageNumber={i + 1} containerWidth={containerWidth} />
           ))}
