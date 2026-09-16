@@ -29,7 +29,7 @@ export default function RootLayout({
   useEffect(() => {
     // Skip offline redirect if already in offline mode or special routes
     const isOfflineRoute = pathname.includes('/rep/offline') || pathname.includes('/rep/present/');
-    const isPublicRoute = pathname === '/' || pathname.includes('/login') || pathname.includes('/rep-login') || pathname.includes('/admin-login') || pathname.includes('/accept-invite');
+    const isPublicRoute = pathname === '/' || pathname.includes('/login') || pathname.includes('/rep-login') || pathname.includes('/admin-login') || pathname.includes('/accept-invite') || pathname.includes('/privacy-policy') || pathname.includes('/delete-account');
 
     if (!navigator.onLine && !isOfflineRoute && !isPublicRoute) {
       // Only redirect to offline if not already there
