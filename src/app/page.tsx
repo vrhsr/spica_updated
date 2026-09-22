@@ -133,8 +133,8 @@ export default function LandingPage() {
       <nav
         className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200"
         style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          minHeight: 'calc(4.5rem + env(safe-area-inset-top))',
+          paddingTop: 'max(env(safe-area-inset-top), var(--android-inset-top, 0px))',
+          minHeight: 'calc(4.5rem + max(env(safe-area-inset-top), var(--android-inset-top, 0px)))',
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

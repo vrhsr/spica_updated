@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -47,4 +48,11 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-feature android:name="android.hardware.location.gps" />
+
+    <!-- Injected by com.google.firebase:firebase-appdistribution (used for the in-app
+         update checker, see UpdateManager.java). SPICA SG does not qualify for Play's
+         permitted REQUEST_INSTALL_PACKAGES use cases, so it's stripped from the merged
+         manifest here. This also disables self-install of downloaded updates via that
+         SDK — see the follow-up note about UpdateManager's install flow. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
 </manifest>

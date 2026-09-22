@@ -88,11 +88,6 @@
   }
 }
 
-/* Toast: push below Android status bar */
-[data-radix-toast-viewport] {
-  padding-top: max(env(safe-area-inset-top), 0.75rem) !important;
-}
-
 @layer utilities {
   /* The signature blue/violet wash, as a class instead of retyping the
      gradient stops on every login/landing/empty-state screen. */
