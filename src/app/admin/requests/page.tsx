@@ -159,8 +159,11 @@ export default function AdminRequestsPage() {
             console.log(`Auto-created city "${cityName}" under district "${districtName}"`);
           }
 
-          // 4. Mark the request as 'approved' and persist final slide selection
-          await updateDoc(requestRef, { status: 'approved', selectedSlides: request.selectedSlides });
+          // 4. Mark the request as 'approved', persist final slide selection, and
+          // link back to the doctor it created — without this, there's no way to
+          // tell later (e.g. if the doctor gets deleted) that this request's
+          // denormalized name/city refers to a doctor that no longer exists.
+          await updateDoc(requestRef, { status: 'approved', selectedSlides: request.selectedSlides, doctorId: newDoctorRef.id });
 
           // 5. Trigger presentation generation
           const result = await generateAndUpsertPresentation({

@@ -566,13 +566,20 @@ export default function RepRequestsPage() {
   const repDistrict = userProfile?.city;
   const isLoading = isAuthLoading || isProfileLoading || isLoadingRequests || isLoadingDoctors;
 
-  const sortedRequests = useMemo(() => {
-    return requests?.sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime()) || [];
-  }, [requests]);
-
   const doctorMap = useMemo(() => {
     return new Map(doctors?.map(d => [d.id, d.name]) || []);
   }, [doctors]);
+
+  const sortedRequests = useMemo(() => {
+    return (requests || [])
+      // A request with a doctorId whose doctor no longer exists (admin deleted
+      // it) points at a dead record — drop it instead of showing a doctor
+      // the rep can no longer act on. Requests without a doctorId (pending/
+      // rejected "new doctor" proposals, or approvals from before this link
+      // existed) can't be checked this way, so they're left alone.
+      .filter(req => !req.doctorId || doctorMap.has(req.doctorId))
+      .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
+  }, [requests, doctorMap]);
 
   const getStatusBadge = (status: Request['status']) => {
     switch (status) {
