@@ -149,7 +149,10 @@ export function EditSlidesForm({
                     </div>
                 )}
             </div>
-            <DialogFooter className="sticky bottom-0 z-10 flex flex-row gap-2 border-t bg-background/95 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+            <DialogFooter
+                className="sticky bottom-0 z-10 flex flex-row gap-2 border-t bg-background/95 pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/75"
+                style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) + 0.5rem)' }}
+            >
                 <DialogClose asChild>
                     <Button variant="outline" disabled={isSaving} className="h-12 flex-1 text-sm font-semibold sm:flex-none">Cancel</Button>
                 </DialogClose>

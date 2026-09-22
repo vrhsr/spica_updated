@@ -284,7 +284,10 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
 
       <DialogContent
         className="w-[calc(100vw-1rem)] max-w-2xl rounded-2xl p-0 overflow-hidden gap-0 grid-rows-[auto_minmax(0,1fr)] sm:w-[calc(100vw-2rem)]"
-        style={{ maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 0.75rem)' }}
+        style={{
+          maxHeight: 'calc(100dvh - max(env(safe-area-inset-top), var(--android-inset-top, 0px)) - max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) - var(--android-keyboard-inset, 0px) - 0.75rem)',
+          overflowY: 'hidden',
+        }}
       >
         {/* Gradient header band */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-6 pt-6 pb-4 border-b">
@@ -303,7 +306,7 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
 
         <div
           className="flex-1 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-5"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+          style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) + 1rem)' }}
         >
           <StepIndicator step={step} />
 
