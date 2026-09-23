@@ -167,7 +167,11 @@ export default function LoginPage() {
         await GoogleAuth.initialize({
           clientId: '731200978852-8mvn08dar40n0pr1u276hbgmlt9nsqjm.apps.googleusercontent.com',
           scopes: ['profile', 'email'],
-          grantOfflineAccess: true,
+          // Deliberately NOT requesting offline access. It made the plugin call
+          // requestServerAuthCode(), which needs the web OAuth client to be
+          // configured for offline access and throws DEVELOPER_ERROR (10) when
+          // it isn't — and nothing here ever read the resulting serverAuthCode.
+          // Only the idToken below is used, so this was pure failure surface.
         });
         // Force account picker by signing out first
         await GoogleAuth.signOut();
@@ -202,11 +206,20 @@ export default function LoginPage() {
         setError(null);
       } else if (isCapacitorApp() && !isFirebaseError) {
         console.error('Google Sign-In failed (native plugin, non-Firebase error):', err);
-        // Showing the raw code/message on-screen (not just logcat, which
-        // isn't reachable without a plugged-in device) so this can be
-        // diagnosed from a screenshot instead of another round of guessing.
+        // Showing the raw code and the build number on-screen (logcat isn't
+        // reachable without a plugged-in device) so this can be diagnosed from
+        // a screenshot — the build number in particular tells us whether the
+        // device is actually running the build that carries a given fix, which
+        // otherwise can't be distinguished from the fix not working.
+        let build = '?';
+        try {
+          const { App } = await import('@capacitor/app');
+          build = (await App.getInfo()).build;
+        } catch {
+          /* non-native or plugin unavailable — leave as '?' */
+        }
         setError(
-          `Google Sign-In isn't available on this build right now (code: ${err?.code ?? 'n/a'}). Please sign in with your email and password instead.`
+          `Google Sign-In isn't available on this build right now (code: ${err?.code ?? 'n/a'}, build: ${build}). Please sign in with your email and password instead.`
         );
       } else {
         handleAuthError(err);
