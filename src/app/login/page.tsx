@@ -154,6 +154,51 @@ export default function LoginPage() {
     router.replace(destination);
   };
 
+  /**
+   * Google authenticates by identity provider, not by email — a Google
+   * sign-in gets its own Firebase uid, entirely separate from the uid an
+   * admin's invite created for that same email address, so by default it
+   * has no role and no access at all (a "ghost" account, in this project's
+   * own terms). This is what makes Google Sign-In only work for someone an
+   * admin already invited, at that exact address: call the server (which
+   * verifies the ID token itself — an email is never trusted from the
+   * client) to check for a matching invite and migrate its role onto this
+   * uid if one exists; sign back out if not, same as the existing "role
+   * never resolved" path below already does for any other reason.
+   *
+   * Always the absolute https://spicasg.in/... URL, never a relative path —
+   * relative would resolve against the local offline bundle's own origin
+   * inside the Capacitor app, where this route doesn't exist.
+   */
+  const routeGoogleSignIn = async (user: import('firebase/auth').User) => {
+    try {
+      const idToken = await user.getIdToken();
+      const resp = await fetch('https://spicasg.in/api/link-invited-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = await resp.json();
+      if (!data.linked) {
+        await auth?.signOut();
+        setError(
+          "This Google account hasn't been invited by an administrator. Please contact your administrator, or sign in with your email and password if you already have an account."
+        );
+        return;
+      }
+      // Custom claims just changed server-side; this client's cached ID
+      // token still has the old (empty) ones, so force a refresh before
+      // routeToDestination reads the role claim off it.
+      await user.getIdToken(true);
+    } catch (e) {
+      console.error('[Login] Invite-link check failed:', e);
+      await auth?.signOut();
+      setError('Could not verify your invite. Please check your connection and try again.');
+      return;
+    }
+    await routeToDestination(user);
+  };
+
   const handleGoogleLogin = async () => {
     setError(null);
     setIsLoadingGoogle(true);
@@ -178,11 +223,11 @@ export default function LoginPage() {
         const googleUser = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
         const userCredential = await signInWithCredential(auth, credential);
-        await routeToDestination(userCredential.user);
+        await routeGoogleSignIn(userCredential.user);
       } else {
         const provider = new GoogleAuthProvider();
         const userCredential = await signInWithPopup(auth, provider);
-        await routeToDestination(userCredential.user);
+        await routeGoogleSignIn(userCredential.user);
       }
     } catch (err: any) {
       // @codetrix-studio/capacitor-google-auth's Android side always rejects
