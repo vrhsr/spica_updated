@@ -498,10 +498,31 @@ export default function DoctorsPage() {
       const q = query(presentationsRef, where('doctorId', '==', doctorToDelete.id));
 
       const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        const presentationDocRef = snapshot.docs[0].ref;
-        batch.delete(presentationDocRef);
-      }
+      // Delete every matching presentation, not just the first — a doctor that
+      // was regenerated more than once can have duplicates, and leaving one
+      // behind orphans a PDF that reps can still open.
+      snapshot.docs.forEach(d => batch.delete(d.ref));
+
+      // Drop the rep-facing proposal records for this doctor too, so a deleted
+      // doctor stops appearing in the rep's "My Proposals" history. Requests
+      // are linked by doctorId; approvals from before that link existed carry
+      // only the denormalized name, so match those on name + district.
+      const requestsRef = collection(firestore, 'requests');
+      const [byId, byName] = await Promise.all([
+        getDocs(query(requestsRef, where('doctorId', '==', doctorToDelete.id))),
+        getDocs(query(requestsRef, where('doctorName', '==', doctorToDelete.name))),
+      ]);
+      const doctorDistrict = (doctorToDelete.city || '').trim().toUpperCase();
+      const requestIdsToDelete = new Set<string>();
+      byId.docs.forEach(d => requestIdsToDelete.add(d.id));
+      byName.docs.forEach(d => {
+        const reqDistrict = ((d.data().doctorDistrict as string) || '').trim().toUpperCase();
+        // Same name in another district is a different doctor — leave it alone.
+        if (!reqDistrict || !doctorDistrict || reqDistrict === doctorDistrict) {
+          requestIdsToDelete.add(d.id);
+        }
+      });
+      requestIdsToDelete.forEach(id => batch.delete(doc(firestore, 'requests', id)));
 
       batch.delete(doctorRef);
 

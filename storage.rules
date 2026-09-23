@@ -2,12 +2,14 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow public read access to all files.
-    // This is useful for images, etc. that need to be displayed in the app.
-    // Restrict write access to only authenticated users.
+    // This app does not use Firebase Storage — presentation PDFs live in
+    // Cloudflare R2 (see src/lib/actions/generatePresentation.ts). The old
+    // rule here allowed unauthenticated reads of every path and writes from
+    // any signed-in account, which made the bucket a world-readable file host
+    // that anyone with an account could upload to. Denied while unused; if
+    // Storage is ever adopted, scope these per path instead of reopening.
     match /{allPaths=**} {
-      allow read;
-      allow write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

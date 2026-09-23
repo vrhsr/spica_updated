@@ -34,7 +34,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400, headers: CORS_HEADERS });
   }
 
-  if (!ALLOWED_PREFIXES.some((prefix) => target.startsWith(prefix))) {
+  // Compare parsed origins, not string prefixes: a prefix check lets
+  // https://<allowed-host>.attacker.com/... through, turning this route into
+  // an open proxy that fetches attacker-chosen URLs from our server.
+  let targetOrigin: string;
+  try {
+    targetOrigin = new URL(target).origin;
+  } catch {
+    return NextResponse.json({ error: 'Invalid url parameter' }, { status: 400, headers: CORS_HEADERS });
+  }
+
+  const allowedOrigins = ALLOWED_PREFIXES.map((prefix) => {
+    try {
+      return new URL(prefix).origin;
+    } catch {
+      return null;
+    }
+  }).filter((origin): origin is string => origin !== null);
+
+  if (!allowedOrigins.includes(targetOrigin)) {
     return NextResponse.json({ error: 'URL is not from an allowed source' }, { status: 403, headers: CORS_HEADERS });
   }
 

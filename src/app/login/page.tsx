@@ -181,7 +181,36 @@ export default function LoginPage() {
         await routeToDestination(userCredential.user);
       }
     } catch (err: any) {
-      handleAuthError(err);
+      // @codetrix-studio/capacitor-google-auth's Android side always rejects
+      // with a hardcoded message ("Something went wrong" / "Something went
+      // wrong while retrieving access token") and passes the real
+      // GoogleSignInStatusCodes value only as `code` — a bare number as a
+      // string (e.g. "10" for DEVELOPER_ERROR, but plenty of other codes
+      // exist depending on exactly what failed), never the constant name.
+      // Matching specific codes/text against that is fragile and already
+      // missed the code actually seen on this app's signed build once
+      // (surfaced as the generic "unexpected error" fallback instead of this
+      // message). Firebase's own errors are reliably namespaced as
+      // "auth/...", so use that as the split instead of guessing at every
+      // native status code: anything NOT an "auth/*" code came from the
+      // native plugin itself, which in practice means a signing-certificate
+      // problem (the cert this build was actually signed with — e.g. Google
+      // Play's re-signing certificate — isn't registered in Firebase).
+      const isCancel = /cancel/i.test(err?.message ?? '');
+      const isFirebaseError = typeof err?.code === 'string' && err.code.startsWith('auth/');
+      if (isCancel) {
+        setError(null);
+      } else if (isCapacitorApp() && !isFirebaseError) {
+        console.error('Google Sign-In failed (native plugin, non-Firebase error):', err);
+        // Showing the raw code/message on-screen (not just logcat, which
+        // isn't reachable without a plugged-in device) so this can be
+        // diagnosed from a screenshot instead of another round of guessing.
+        setError(
+          `Google Sign-In isn't available on this build right now (code: ${err?.code ?? 'n/a'}). Please sign in with your email and password instead.`
+        );
+      } else {
+        handleAuthError(err);
+      }
     } finally {
       setIsLoadingGoogle(false);
     }

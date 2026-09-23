@@ -86,10 +86,6 @@ public class MainActivity extends BridgeActivity {
         // Register Google Auth plugin
         registerPlugin(GoogleAuth.class);
 
-        // Prompt for an app update if a newer release has been pushed to
-        // Firebase App Distribution (see scripts/deploy-to-firebase.js).
-        UpdateManager.checkForUpdate(this);
-
         // Opt in to edge-to-edge ourselves (this app's targetSdk already
         // forces it on Android 15+ anyway, but older OS versions on the
         // same APK wouldn't get it automatically) and forward the real

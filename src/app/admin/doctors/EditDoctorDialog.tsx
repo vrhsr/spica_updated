@@ -52,7 +52,7 @@ export function EditDoctorDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
         {doctor && (
           <DoctorForm
             doctor={doctor}

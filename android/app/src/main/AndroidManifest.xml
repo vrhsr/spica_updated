@@ -2,7 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -47,7 +48,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-feature android:name="android.hardware.location.gps" />
+    <!-- required="false": without it this defaults to required, and Play hides
+         the app from every device with no GPS chip — including the Wi-Fi-only
+         tablets reps actually present on. Visit logging degrades gracefully. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <!-- Injected by com.google.firebase:firebase-appdistribution (used for the in-app
          update checker, see UpdateManager.java). SPICA SG does not qualify for Play's

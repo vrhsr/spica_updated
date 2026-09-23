@@ -65,11 +65,14 @@ function buildOfflineShellAndSync() {
 }
 
 function buildReleaseApk() {
-    console.log('\n🔨 Building signed release APK...\n');
+    console.log('\n🔨 Building signed release APK + AAB...\n');
     // Absolute path avoids relying on the shell's current-directory search order,
     // which is inconsistent across cmd.exe/Git Bash invocations on Windows.
     const gradlew = path.join(ANDROID_DIR, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
-    execSync(`"${gradlew}" assembleRelease`, { cwd: ANDROID_DIR, stdio: 'inherit' });
+    // APK for Firebase App Distribution (which can't take an AAB) and AAB for
+    // the Play Store (which no longer accepts an APK for a new release).
+    execSync(`"${gradlew}" assembleRelease bundleRelease`, { cwd: ANDROID_DIR, stdio: 'inherit' });
+    console.log('\n📦 Play Store bundle: android/app/build/outputs/bundle/release/app-release.aab');
 }
 
 function deploy(releaseNotes) {

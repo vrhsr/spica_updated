@@ -106,7 +106,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                 const snap = await getDocs(
                     query(collection(firestore, 'presentations'), where('city', '==', userProfile.city))
                 );
-                if (cancelled) return;
+                if (cancelled || snap.empty) return;
                 const activeDoctorIds = snap.docs.map((d) => d.data().doctorId as string);
                 const { pruneOrphanedOfflinePDFs } = await import('@/lib/offline-pdf-store');
                 await pruneOrphanedOfflinePDFs(activeDoctorIds);

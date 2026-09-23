@@ -41,6 +41,35 @@
        automatic window shrink, so pages with a focusable input compensate
        manually via this var (see src/app/login/page.tsx). */
     --android-keyboard-inset: 0px;
+
+    /* The actually-visible viewport, tracked from window.visualViewport in
+       src/app/layout.tsx. Neither the Android WebView (edge-to-edge defeats
+       the window resize) nor a mobile browser shrinks the layout viewport
+       when the keyboard opens, but visualViewport shrinks in both — so this
+       is the only cross-platform measure of the space a centered overlay can
+       actually occupy. Defaults to the full viewport before JS runs. */
+    --visual-viewport-height: 100dvh;
+    --visual-viewport-offset-top: 0px;
+
+    /* Single source of truth for dialog sizing/positioning — see
+       components/ui/dialog.tsx and alert-dialog.tsx. Takes whichever of the
+       two keyboard signals is more conservative so it never double-subtracts,
+       and still works if only one of them is available. */
+    --dialog-viewport-height: min(
+      var(--visual-viewport-height),
+      calc(100dvh - var(--android-keyboard-inset, 0px))
+    );
+    --dialog-max-height: calc(
+      var(--dialog-viewport-height)
+      - max(env(safe-area-inset-top), var(--android-inset-top, 0px))
+      - max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px))
+      - 2rem
+    );
+    /* Centre point of the visible area, not of the full screen — a dialog
+       centred on the full screen drops its footer behind the keyboard. */
+    --dialog-center-top: calc(
+      var(--visual-viewport-offset-top) + var(--dialog-viewport-height) / 2
+    );
   }
 }
 

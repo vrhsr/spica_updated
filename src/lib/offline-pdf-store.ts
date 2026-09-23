@@ -194,6 +194,18 @@ export async function listOfflinePDFs() {
 export async function pruneOrphanedOfflinePDFs(
     activeDoctorIds: string[]
 ): Promise<{ removed: number; removedIds: string[] }> {
+    // Enforce the contract above rather than trusting every caller to. An
+    // empty list is indistinguishable from "every download is orphaned", and
+    // a query can legitimately succeed with zero rows (rep's city was just
+    // reassigned, a district was renamed, presentations mid-regeneration) —
+    // which would silently wipe a rep's entire offline library, possibly
+    // right before they present with no signal. Deleting nothing is always
+    // the safe failure here; a genuinely orphaned file is just wasted space.
+    if (activeDoctorIds.length === 0) {
+        console.warn('[PDF Store] Orphan cleanup skipped: empty active list.');
+        return { removed: 0, removedIds: [] };
+    }
+
     const activeSet = new Set(activeDoctorIds);
     const removedIds: string[] = [];
 

@@ -38,6 +38,14 @@
           }
         },
         {
+          "client_id": "731200978852-u7n16faoj7kqe1g9ea86vpga5jrviu2l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spicasg.app",
+            "certificate_hash": "e1ed35c82329630bb8b4c86c5ba25deff8ee5413"
+          }
+        },
+        {
           "client_id": "731200978852-8mvn08dar40n0pr1u276hbgmlt9nsqjm.apps.googleusercontent.com",
           "client_type": 3
         }

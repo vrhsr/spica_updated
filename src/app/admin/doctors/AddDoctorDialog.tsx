@@ -131,7 +131,9 @@ export function DoctorForm({
           {' '}{defaultCity && `They will be added to ${defaultCity}.`}
         </DialogDescription>
       </DialogHeader>
-      <div className="space-y-4">
+      {/* Scrolls on its own so the footer below stays reachable when the
+          on-screen keyboard shrinks the dialog. */}
+      <div className="min-h-0 space-y-4 overflow-y-auto">
         {/* Doctor Name */}
         <div>
           <Label htmlFor="doctor-name">Doctor Name</Label>
@@ -224,12 +226,12 @@ export function DoctorForm({
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-2 shadow-sm animate-in fade-in slide-in-from-top-1">
+                <div className="space-y-2 rounded-lg border bg-muted/40 p-2 shadow-sm animate-in fade-in slide-in-from-top-1">
                   <Input
                     placeholder="Enter new city name..."
                     value={inlineCityName}
                     onChange={(e) => setInlineCityName(e.target.value)}
-                    className="h-8 text-xs bg-background"
+                    className="h-10 w-full bg-background text-sm"
                     disabled={isAddingCity}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -238,25 +240,25 @@ export function DoctorForm({
                       }
                     }}
                   />
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={handleInlineAddCity}
-                    disabled={!inlineCityName.trim() || isAddingCity}
-                  >
-                    {isAddingCity ? <Loader className="h-3 w-3 animate-spin" /> : 'Add'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-xs text-muted-foreground"
-                    onClick={() => setShowInlineCityAdd(false)}
-                    disabled={isAddingCity}
-                  >
-                    Cancel
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      className="h-10 flex-1 text-sm"
+                      onClick={handleInlineAddCity}
+                      disabled={!inlineCityName.trim() || isAddingCity}
+                    >
+                      {isAddingCity ? <Loader className="h-4 w-4 animate-spin" /> : 'Add'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 flex-1 text-sm"
+                      onClick={() => setShowInlineCityAdd(false)}
+                      disabled={isAddingCity}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -323,7 +325,7 @@ export function AddDoctorDialog({
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{triggerButton}</DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
         {step === 'form' ? (
           <DoctorForm
             onSave={handleDoctorFormSave}

@@ -167,6 +167,14 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
     setStep('details');
   };
 
+  const confirmNewCity = () => {
+    const name = newCityName.trim().toUpperCase();
+    if (!name) return;
+    setDoctorCity(name);
+    setIsAddingNewCity(false);
+    setNewCityName('');
+  };
+
   const handleNext = () => {
     if (requestType === 'new_doctor' && doctorName.trim()) {
       const finalName = doctorName.trim().startsWith('Dr.') ? doctorName.trim() : `Dr. ${doctorName.trim()}`;
@@ -283,11 +291,8 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
       </DialogTrigger>
 
       <DialogContent
-        className="w-[calc(100vw-1rem)] max-w-2xl rounded-2xl p-0 overflow-hidden gap-0 grid-rows-[auto_minmax(0,1fr)] sm:w-[calc(100vw-2rem)]"
-        style={{
-          maxHeight: 'calc(100dvh - max(env(safe-area-inset-top), var(--android-inset-top, 0px)) - max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) - var(--android-keyboard-inset, 0px) - 0.75rem)',
-          overflowY: 'hidden',
-        }}
+        className="w-[calc(100vw-1rem)] max-w-2xl rounded-2xl p-0 overflow-hidden gap-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:w-[calc(100vw-2rem)]"
+        style={{ overflowY: 'hidden' }}
       >
         {/* Gradient header band */}
         <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-6 pt-6 pb-4 border-b">
@@ -390,38 +395,39 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
                       )}
                     </div>
                     {isAddingNewCity ? (
-                      <div className="flex gap-2">
+                      <div className="space-y-2">
                         <Input
                           placeholder="Type new city name..."
                           value={newCityName}
                           onChange={(e) => setNewCityName(e.target.value)}
-                          autoFocus
-                          className="h-11"
-                        />
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="sm"
-                          className="h-11 px-3 whitespace-nowrap"
-                          onClick={() => {
-                            if (newCityName.trim()) {
-                              setDoctorCity(newCityName.trim().toUpperCase());
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              confirmNewCity();
                             }
-                            setIsAddingNewCity(false);
-                            setNewCityName('');
                           }}
-                        >
-                          Confirm
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-11"
-                          onClick={() => { setIsAddingNewCity(false); setNewCityName(''); setDoctorCity(cityOptions[0] || repCity); }}
-                        >
-                          Cancel
-                        </Button>
+                          autoFocus
+                          className="h-11 w-full"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="h-11 flex-1"
+                            disabled={!newCityName.trim()}
+                            onClick={confirmNewCity}
+                          >
+                            Confirm
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-11 flex-1"
+                            onClick={() => { setIsAddingNewCity(false); setNewCityName(''); setDoctorCity(cityOptions[0] || repCity); }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <Select value={doctorCity} onValueChange={setDoctorCity}>
@@ -502,18 +508,6 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
                 </div>
               )}
 
-              <DialogFooter className="sticky bottom-0 z-10 flex flex-row gap-2 border-t bg-background/95 pb-2 pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-                <Button variant="outline" onClick={() => setStep('type')} className="h-12 flex-1 text-sm font-semibold sm:flex-none">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back
-                </Button>
-                <Button
-                  onClick={handleNext}
-                  disabled={requestType === 'new_doctor' ? !doctorName.trim() : !selectedDoctorId}
-                  className="h-12 flex-1 text-sm font-semibold sm:flex-none"
-                >
-                  Next: Select Slides <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </DialogFooter>
             </div>
           )}
 
@@ -526,6 +520,26 @@ function ProposeChangesDialog({ repId, repCity, repDistrict, doctors, onSubmitte
             />
           ) : null}
         </div>
+
+        {/* Footer lives outside the scroll area so the keyboard can never
+            bury it and there's nothing to scroll past to reach it. */}
+        {step === 'details' && (
+          <DialogFooter
+            className="flex flex-row gap-2 border-t bg-background px-4 pt-3 sm:px-6"
+            style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) + 0.75rem)' }}
+          >
+            <Button variant="outline" onClick={() => setStep('type')} className="h-12 flex-1 text-sm font-semibold sm:flex-none">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <Button
+              onClick={handleNext}
+              disabled={requestType === 'new_doctor' ? !doctorName.trim() : !selectedDoctorId}
+              className="h-12 flex-1 text-sm font-semibold sm:flex-none"
+            >
+              Next: Select Slides <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -570,16 +584,29 @@ export default function RepRequestsPage() {
     return new Map(doctors?.map(d => [d.id, d.name]) || []);
   }, [doctors]);
 
+  const liveDoctorNames = useMemo(
+    () => new Set((doctors || []).map(d => d.name.trim().toUpperCase())),
+    [doctors]
+  );
+
   const sortedRequests = useMemo(() => {
     return (requests || [])
-      // A request with a doctorId whose doctor no longer exists (admin deleted
-      // it) points at a dead record — drop it instead of showing a doctor
-      // the rep can no longer act on. Requests without a doctorId (pending/
-      // rejected "new doctor" proposals, or approvals from before this link
-      // existed) can't be checked this way, so they're left alone.
-      .filter(req => !req.doctorId || doctorMap.has(req.doctorId))
+      .filter(req => {
+        // Linked to a doctor that no longer exists → admin deleted it, so the
+        // rep has nothing left to act on. Drop it.
+        if (req.doctorId) return doctorMap.has(req.doctorId);
+        // Approved "new doctor" proposals from before that link existed carry
+        // only the name they were created with. If no live doctor has that
+        // name, the doctor it created has since been deleted.
+        if (req.status === 'approved' && req.doctorName) {
+          return liveDoctorNames.has(req.doctorName.trim().toUpperCase());
+        }
+        // Pending/rejected proposals never created a doctor, so there's
+        // nothing to have been deleted — they stay as the rep's own history.
+        return true;
+      })
       .sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
-  }, [requests, doctorMap]);
+  }, [requests, doctorMap, liveDoctorNames]);
 
   const getStatusBadge = (status: Request['status']) => {
     switch (status) {

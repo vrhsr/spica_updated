@@ -25,6 +25,26 @@ export default function RootLayout({
   const pathname = usePathname();
   const { isExitDialogOpen, setIsExitDialogOpen, confirmExit } = useBackButtonHandler();
 
+  // Track the visually-available viewport so centred overlays can size and
+  // position themselves against the space the keyboard leaves, rather than
+  // against the full screen. See --visual-viewport-* in globals.css.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => {
+      const root = document.documentElement;
+      root.style.setProperty('--visual-viewport-height', `${vv.height}px`);
+      root.style.setProperty('--visual-viewport-offset-top', `${vv.offsetTop}px`);
+    };
+    apply();
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    return () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+    };
+  }, []);
+
   // Offline detection and auto-redirect
   useEffect(() => {
     // Skip offline redirect if already in offline mode or special routes

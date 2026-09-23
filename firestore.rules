@@ -43,7 +43,10 @@ service cloud.firestore {
       allow get: if isAdmin() || isOwner(userId);
 
       // Owners can update their own profile (except restricted fields)
-      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+      // 'city' is blocked alongside 'role': the rep-facing screens read their
+      // territory from this document, so a self-write would hand a rep
+      // another territory's doctor list.
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'city']);
       // Admins can update anything
       allow write: if isAdmin();
 
@@ -85,8 +88,12 @@ service cloud.firestore {
       // Admins/Project Managers can read any doctor.
       // Reps can only read doctors that are in their assigned city.
       allow get: if isAdminOrManager() || isRepInCity(resource.data.city);
-      // Allow listing for any authenticated user.
-      allow list: if request.auth != null;
+      // Scoped the same way as `get` (and the same way `presentations` below
+      // already does it). Rules are evaluated per returned document, so a
+      // rep's city-filtered query still passes while an unfiltered one that
+      // would return another territory's doctors is denied. Previously any
+      // authenticated account could list every doctor in the country.
+      allow list: if isAdminOrManager() || isRepInCity(resource.data.city);
       // Admins and Project Managers can create, update, or delete doctors.
       allow write: if isAdminOrManager();
     }
@@ -108,8 +115,10 @@ service cloud.firestore {
       allow get: if isAdminOrManager() || (isRep() && resource.data.repId == request.auth.uid);
       // Admins and Project Managers can update (approve/reject/edit) a request.
       allow update: if isAdminOrManager();
-      // Admins/Project Managers can list all requests. A rep can list their own requests (will be filtered by queries in the app).
-      allow list: if isAdminOrManager() || isRep();
+      // Enforce the "own requests only" scoping here rather than relying on
+      // the app's query to do it — a rep could otherwise list every rep's
+      // proposals. Their existing repId-filtered query still passes.
+      allow list: if isAdminOrManager() || (isRep() && resource.data.repId == request.auth.uid);
       // Only the admin can delete requests.
       allow delete: if isAdmin();
     }
@@ -118,9 +127,11 @@ service cloud.firestore {
     match /visit_logs/{logId} {
       // Reps can create logs, but only for themselves.
       allow create: if isRep() && request.resource.data.repId == request.auth.uid;
-      // TEMPORARY: Allow any authenticated user to read visit logs (debugging custom claims)
-      // TODO: Change back to isAdminOrManager() once custom claims are working
-      allow read, list: if request.auth != null;
+      // Visit logs carry each rep's precise GPS coordinates and the doctors
+      // they visited. Previously left open to any authenticated account for
+      // claims debugging, which included roleless accounts created by an
+      // uninvited Google sign-in. No rep-facing screen reads this collection.
+      allow read, list: if isAdminOrManager();
       allow update: if isAdminOrManager();
       // Only the admin can delete visit logs.
       allow delete: if isAdmin();

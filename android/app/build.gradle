@@ -19,6 +19,18 @@ if (keystorePropsFile.exists()) {
     keystorePropsFile.withInputStream { keystoreProps.load(it) }
 }
 
+// Without this, a machine missing keystore.properties (CI, a fresh clone — it's
+// gitignored) silently falls through to signingConfigs.debug below and emits a
+// debug-signed "release". The Play Store rejects that, and if one ever were
+// accepted it would establish the wrong upload identity. Fail loudly instead,
+// and only when a release is actually being built so debug builds still work.
+if (!keystorePropsFile.exists()
+        && gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+    throw new org.gradle.api.GradleException(
+            "android/keystore.properties is missing, so this release would be signed with the debug key. " +
+            "Restore the upload keystore before building a release.")
+}
+
 android {
     namespace = "com.spicasg.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -82,11 +94,12 @@ dependencies {
     implementation 'com.google.firebase:firebase-auth'
     // Google Play Services Auth (for Google Sign-In)
     implementation 'com.google.android.gms:play-services-auth:21.0.0'
-    // In-app update checker: pairs with `firebase appdistribution:distribute` in
-    // scripts/deploy-to-firebase.js. Only relevant for builds installed outside the
-    // Play Store (which is how this app is currently distributed to representatives).
-    // Not covered by the Firebase BoM above (still beta) so it's version-pinned here.
-    implementation 'com.google.firebase:firebase-appdistribution:16.0.0-beta20'
+    // NOTE: firebase-appdistribution was removed when this app moved to Play
+    // Store distribution. Its SDK drives an interactive "Enable testing
+    // features" tester-enrollment prompt on launch before it can determine
+    // whether it's even relevant, which every Play Store user would see.
+    // Play Store owns updates now; App Distribution builds can still be
+    // installed via the App Distribution app, just without the in-app prompt.
 }
 
 apply from: 'capacitor.build.gradle'
