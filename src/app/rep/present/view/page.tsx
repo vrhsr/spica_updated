@@ -37,6 +37,17 @@ function PresentationViewerContent() {
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    // pdf.js's page.render() writes straight to the canvas context it's
+    // given, with no guard against a second render starting on the same
+    // context before the first finishes. Rapid page navigation, or the
+    // resize/orientation-triggered re-render firing while the initial render
+    // is still in flight, could start two overlapping renders — each with
+    // its own viewport transform composited onto the same canvas — which is
+    // exactly what garbled/mirrored-looking slides are: two transforms drawn
+    // on top of each other, never a genuinely rotated PDF page. A fresh
+    // mount gets a clean canvas, which is why reloading "fixed" it. Tracking
+    // the in-flight task here lets a new render cancel the old one first.
+    const renderTaskRef = useRef<ReturnType<pdfjsLib.PDFPageProxy['render']> | null>(null);
 
     const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -213,6 +224,20 @@ function PresentationViewerContent() {
     const renderPage = useCallback(async (pageNumber: number) => {
         if (!pdfDoc || !canvasRef.current) return;
 
+        // Cancel whatever's still drawing to this canvas before starting a
+        // new render — see renderTaskRef's comment above for why this
+        // matters. cancel() rejects that task's own .promise with a
+        // RenderingCancelledException; swallow it, it's expected.
+        if (renderTaskRef.current) {
+            renderTaskRef.current.cancel();
+            try {
+                await renderTaskRef.current.promise;
+            } catch {
+                /* expected: the cancelled render's promise rejects */
+            }
+            renderTaskRef.current = null;
+        }
+
         try {
             const page = await pdfDoc.getPage(pageNumber);
             const canvas = canvasRef.current;
@@ -234,12 +259,21 @@ function PresentationViewerContent() {
             canvas.height = scaledViewport.height;
             canvas.width = scaledViewport.width;
 
-            await page.render({
+            const renderTask = page.render({
                 canvasContext: context,
                 viewport: scaledViewport,
-            }).promise;
-        } catch (error) {
-            console.error('Error rendering page:', error);
+            });
+            renderTaskRef.current = renderTask;
+            await renderTask.promise;
+            if (renderTaskRef.current === renderTask) {
+                renderTaskRef.current = null;
+            }
+        } catch (error: any) {
+            // A cancelled render rejects its own promise by design — not a
+            // real error, just this render losing a race to a newer one.
+            if (error?.name !== 'RenderingCancelledException') {
+                console.error('Error rendering page:', error);
+            }
         }
     }, [pdfDoc]);
 

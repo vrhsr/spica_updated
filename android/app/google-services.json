@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "731200978852-30ptjhppe1lk85h8idil1r52phbbncau.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.spicasg.app",
+            "certificate_hash": "7ab81d803c10debd422cfa89737a86142fda3ae4"
+          }
+        },
+        {
           "client_id": "731200978852-fk59k8qfobhapm0iqql229mc4slarrgu.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

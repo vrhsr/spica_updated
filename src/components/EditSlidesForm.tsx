@@ -73,7 +73,19 @@ export function EditSlidesForm({
     });
 
     return (
-        <>
+        // A single scroll region for everything below, sized against the same
+        // --dialog-max-height every dialog already uses (so it shrinks with
+        // the keyboard too) — NOT the slide grid having its own separate
+        // max-height/overflow while the footer's "sticky" sticks to whatever
+        // the *parent* dialog happens to scroll. Two independent scrollers
+        // meant the footer could end up pinned mid-grid, overlapping slide
+        // cards that hadn't scrolled into the outer view yet. One scroll
+        // region — the one the sticky footer actually lives inside — means
+        // there's nothing left for it to overlap.
+        <div
+            className="overflow-y-auto"
+            style={{ maxHeight: 'calc(var(--dialog-max-height, 80vh) - 8rem)' }}
+        >
             <DialogHeader>
                 <DialogTitle>Assign Slides for {doctor.name}</DialogTitle>
                 <DialogDescription>
@@ -106,7 +118,7 @@ export function EditSlidesForm({
                 />
             </div>
 
-            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 max-h-[42vh] overflow-y-auto p-2 border rounded-md sm:max-h-[52vh]">
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 p-2 border rounded-md">
                 {filteredSlides.length > 0 ? (
                     filteredSlides.map((slide) => {
                         const isMandatory = slide.number === firstSlideNumber || slide.number === lastSlideNumber;
@@ -165,6 +177,6 @@ export function EditSlidesForm({
                     {isSaving ? 'Saving...' : 'Save Presentation'}
                 </Button>
             </DialogFooter>
-        </>
+        </div>
     );
 }
