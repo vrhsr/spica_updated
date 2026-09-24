@@ -40,8 +40,30 @@ export function useRequireRole(
   const router = useRouter();
   const { user, role, isUserLoading } = useUser();
   const [isTimedOut, setIsTimedOut] = useState(false);
+  // uid whose "no role" we've confirmed against a freshly minted token.
+  const [confirmedRolelessUid, setConfirmedRolelessUid] = useState<string | null>(null);
 
   const allowed = !enabled || (!!user && !!role && allowedRoles.includes(role));
+
+  // A signed-in user with no role yet may just have been granted one (Google
+  // Sign-In's invite linking sets claims right after sign-in), with the
+  // cached token not caught up. Force one refresh before treating them as
+  // roleless; if it carries a role, the provider picks it up on its own.
+  useEffect(() => {
+    if (!enabled || isUserLoading || !user || role || confirmedRolelessUid === user.uid) return;
+    let cancelled = false;
+    user
+      .getIdTokenResult(true)
+      .then((r) => {
+        if (!cancelled && !r.claims.role) setConfirmedRolelessUid(user.uid);
+      })
+      .catch(() => {
+        if (!cancelled) setConfirmedRolelessUid(user.uid);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, isUserLoading, user, role, confirmedRolelessUid]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -52,17 +74,25 @@ export function useRequireRole(
       }
     }, timeoutMs);
 
-    if (!isUserLoading) {
+    // Only a real user cancels the timeout. "Resolved, nobody signed in"
+    // used to cancel it too, leaving a signed-out visitor (or a failed admin
+    // handoff) on the loading spinner forever instead of the "Login Again"
+    // screen. Not redirecting on !user right away is deliberate: right
+    // after sign-in, the page can mount a beat before the provider has
+    // caught up with the new user.
+    if (!isUserLoading && user) {
       clearTimeout(timer);
       setIsTimedOut(false);
-      if (user && !(role && allowedRoles.includes(role))) {
+      const hasWrongRole = !!role && !allowedRoles.includes(role);
+      const isConfirmedRoleless = !role && !!user && confirmedRolelessUid === user.uid;
+      if (user && (hasWrongRole || isConfirmedRoleless)) {
         router.push(redirectTo);
       }
     }
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, user, role, isUserLoading, router, redirectTo, timeoutMs, allowedRoles.join(',')]);
+  }, [enabled, user, role, isUserLoading, confirmedRolelessUid, router, redirectTo, timeoutMs, allowedRoles.join(',')]);
 
   return {
     allowed,

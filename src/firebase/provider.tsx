@@ -3,7 +3,7 @@
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, IdTokenResult } from 'firebase/auth';
+import { Auth, User, onIdTokenChanged, IdTokenResult } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
 interface UserAuthState {
@@ -64,14 +64,26 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     setUserAuthState({ user: null, role: null, isUserLoading: true, userError: null }); 
 
-    const unsubscribe = onAuthStateChanged(
+    // onIdTokenChanged, not onAuthStateChanged: the latter only fires on
+    // sign-in/sign-out, so a role granted AFTER sign-in (Google Sign-In's
+    // invite linking sets claims server-side, then force-refreshes the
+    // token) never reached this context — the rep layout saw "signed in, no
+    // role" and bounced straight back to /login. This also fires on every
+    // token refresh, which is what picks those new claims up.
+    const unsubscribe = onIdTokenChanged(
       auth,
-      async (firebaseUser) => { 
+      async (firebaseUser) => {
         if (firebaseUser) {
           try {
             const idTokenResult: IdTokenResult = await firebaseUser.getIdTokenResult();
             const userRole = (idTokenResult.claims.role as 'admin' | 'manager' | 'rep') || null;
-            setUserAuthState({ user: firebaseUser, role: userRole, isUserLoading: false, userError: null });
+            // Routine hourly refreshes change nothing — keep the same state
+            // object so the whole tree doesn't re-render for them.
+            setUserAuthState((prev) =>
+              prev.user === firebaseUser && prev.role === userRole && !prev.isUserLoading && !prev.userError
+                ? prev
+                : { user: firebaseUser, role: userRole, isUserLoading: false, userError: null }
+            );
           } catch (error) {
             console.error("Error getting user role from token:", error);
             setUserAuthState({ user: firebaseUser, role: null, isUserLoading: false, userError: error as Error });

@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
   SidebarProvider,
@@ -53,6 +53,7 @@ import { collection } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { Badge } from '@/components/ui/badge';
 import { useRequireRole } from '@/hooks/useRequireRole';
+import { isLiveSiteInsideApp, APP_SHELL_LOGIN_URL } from '@/lib/capacitor-utils';
 
 const navItems = [
   { href: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -118,7 +119,6 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
   const auth = useAuth();
   const { user, role } = useUser();
   const roleLabel = role === 'admin' ? 'Administrator' : role === 'manager' ? 'Project Manager' : '';
@@ -134,30 +134,47 @@ export default function AdminLayout({
   // Reads window.location.search directly (not useSearchParams()) so this
   // doesn't need a Suspense boundary. Stripped from the URL immediately —
   // single-use, shouldn't linger in history.
+  const [handoffToken] = useState(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('handoff')
+  );
+  const [handoffUid, setHandoffUid] = useState<string | null>(null);
+  const [handoffFailed, setHandoffFailed] = useState(false);
+
   useEffect(() => {
-    if (!auth) return;
-    const params = new URLSearchParams(window.location.search);
-    const handoffToken = params.get('handoff');
-    if (!handoffToken) return;
+    if (!auth || !handoffToken) return;
 
     window.history.replaceState({}, '', window.location.pathname);
-    signInWithCustomToken(auth, handoffToken).catch((err) => {
-      console.error('[AdminLayout] Handoff sign-in failed:', err);
-    });
-  }, [auth]);
+    signInWithCustomToken(auth, handoffToken)
+      .then((cred) => setHandoffUid(cred.user.uid))
+      .catch((err) => {
+        console.error('[AdminLayout] Handoff sign-in failed:', err);
+        setHandoffFailed(true);
+      });
+  }, [auth, handoffToken]);
+
+  // This origin may still hold an older persisted session (e.g. the admin's,
+  // on a phone a manager is now signing in on). Until the handoff sign-in
+  // has actually replaced it, don't gate on — or render — whoever that is:
+  // that's how a manager could briefly land on the admin's dashboard, or a
+  // stale rep session could bounce the handoff out of the portal entirely.
+  const isAwaitingHandoff = !!handoffToken && !handoffFailed && (!handoffUid || user?.uid !== handoffUid);
 
   // Gate on admin/manager access. `isChecking` stays true until role is
   // actually confirmed, so `children` (and every Firestore query inside
   // them) never mounts for a role that doesn't have access — that race was
   // what caused permission-denied crashes here before.
-  const { isChecking, isTimedOut } = useRequireRole(['admin', 'manager']);
+  const { isChecking, isTimedOut } = useRequireRole(['admin', 'manager'], {
+    enabled: !isAwaitingHandoff,
+    redirectTo: isLiveSiteInsideApp() ? APP_SHELL_LOGIN_URL : '/',
+  });
+  const isGateOpen = !isAwaitingHandoff && !isChecking;
 
   // Fetch pending requests count for badge — only once access is confirmed;
   // rules only allow admin/manager to list this collection.
   const firestore = useFirestore();
   const requestsCollection = useMemoFirebase(
-    () => (firestore && user?.uid && !isChecking ? collection(firestore, 'requests') : null),
-    [firestore, user?.uid, isChecking]
+    () => (firestore && user?.uid && isGateOpen ? collection(firestore, 'requests') : null),
+    [firestore, user?.uid, isGateOpen]
   );
   const { data: requests } = useCollection<Request>(requestsCollection);
   const pendingCount = requests?.filter((r) => r.status === 'pending').length || 0;
@@ -168,9 +185,9 @@ export default function AdminLayout({
         <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
         <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
         <p className="text-muted-foreground mb-6">It's taking longer than expected to load your profile. Please try logging in again.</p>
-        <Button onClick={() => {
-          auth?.signOut();
-          window.location.href = '/login';
+        <Button onClick={async () => {
+          await auth?.signOut();
+          window.location.href = isLiveSiteInsideApp() ? APP_SHELL_LOGIN_URL : '/login';
         }}>
           Login Again
         </Button>
@@ -178,7 +195,7 @@ export default function AdminLayout({
     );
   }
 
-  if (isChecking || !user) {
+  if (!isGateOpen || !user) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -189,11 +206,17 @@ export default function AdminLayout({
     );
   }
 
-  const handleLogout = () => {
-    if (auth) {
-      auth.signOut();
-    }
-    router.push('/');
+  const handleLogout = async () => {
+    // Awaited before navigating: a sign-out still in flight when the page
+    // unloads can leave this session persisted, and the next person to sign
+    // in on this device would briefly get it.
+    await auth?.signOut();
+    // Inside the app this page is the live site (post-handoff), so go back to
+    // the app's own login screen — the live one can't do native Google
+    // Sign-In (it failed there with "UNIMPLEMENTED"). A full page load also
+    // drops this session's cached data (e.g. the admin's user list) instead
+    // of carrying it over to whoever signs in next.
+    window.location.href = isLiveSiteInsideApp() ? APP_SHELL_LOGIN_URL : '/';
   };
 
   return (
@@ -265,8 +288,17 @@ export default function AdminLayout({
       </Sidebar>
       <SidebarInset className="bg-secondary/50">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'max(env(safe-area-inset-top), var(--android-inset-top, 0px))', minHeight: 'calc(3.5rem + max(env(safe-area-inset-top), var(--android-inset-top, 0px)))' }}>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger className="lg:hidden" />
+            <Link href="/admin/dashboard" className="flex min-w-0 items-center gap-2 lg:hidden">
+              <img src="/icon-192.png" alt="" className="h-7 w-7 shrink-0 object-contain" />
+              <div className="flex min-w-0 flex-col leading-none">
+                <span className="truncate font-headline text-sm font-bold">SG Health Pharma</span>
+                <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {roleLabel || 'Admin Portal'}
+                </span>
+              </div>
+            </Link>
           </div>
 
           {/* Mobile Logout Button */}

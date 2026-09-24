@@ -23,7 +23,7 @@ import {
 } from 'firebase/auth';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import { listOfflinePresentations } from '@/lib/offline-storage';
-import { isCapacitorApp } from '@/lib/capacitor-utils';
+import { isCapacitorApp, isLiveSiteInsideApp, APP_SHELL_LOGIN_URL } from '@/lib/capacitor-utils';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 /** Where a signed-in user lands, based on their custom-claim role. */
@@ -75,6 +75,16 @@ export default function LoginPage() {
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Signing in has to happen on the app's own bundled login page, never on
+  // the live site's copy of it loaded inside the app: native plugins
+  // (Google Sign-In) don't work there, and a rep would end up on the online
+  // website portal instead of the offline-capable one.
+  useEffect(() => {
+    if (isLiveSiteInsideApp()) {
+      window.location.replace(APP_SHELL_LOGIN_URL);
+    }
+  }, []);
+
   const handleAuthError = (err: any) => {
     console.error(err);
     switch (err.code) {
@@ -125,23 +135,32 @@ export default function LoginPage() {
     // the user straight in on that origin instead of asking for the
     // password again. The rep flow below is completely unaffected.
     if ((role === 'admin' || role === 'manager') && isCapacitorApp()) {
-      let handoffUrl = 'https://spicasg.in/login';
-      try {
-        const idToken = await user.getIdToken();
-        const resp = await fetch('https://spicasg.in/api/mint-handoff-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-        });
-        const data = await resp.json();
-        if (data.customToken) {
-          handoffUrl = `https://spicasg.in/admin/dashboard?handoff=${encodeURIComponent(data.customToken)}`;
+      // Retried once: this is a cold-startable serverless call over a phone
+      // connection. On failure, stay HERE with an error rather than falling
+      // back to the live site's /login — that's the website's login page
+      // loaded inside the app, which looks identical, can't do native Google
+      // Sign-In, and was the "it asks me to log in again" loop.
+      let customToken: string | null = null;
+      for (let attempt = 0; attempt < 2 && !customToken; attempt++) {
+        try {
+          const idToken = await user.getIdToken();
+          const resp = await fetch('https://spicasg.in/api/mint-handoff-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          });
+          const data = await resp.json();
+          if (data.customToken) customToken = data.customToken;
+        } catch (e) {
+          console.error(`[Login] Admin handoff token mint failed (attempt ${attempt + 1}):`, e);
         }
-      } catch (e) {
-        console.error('[Login] Admin handoff token mint failed, falling back to live login:', e);
       }
       await auth?.signOut();
-      window.location.href = handoffUrl;
+      if (!customToken) {
+        setError("Couldn't open the admin portal. Please check your internet connection and sign in again.");
+        return;
+      }
+      window.location.href = `https://spicasg.in/admin/dashboard?handoff=${encodeURIComponent(customToken)}`;
       return;
     }
 

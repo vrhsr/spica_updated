@@ -502,28 +502,6 @@ export default function DoctorsPage() {
       // was regenerated more than once can have duplicates, and leaving one
       // behind orphans a PDF that reps can still open.
       snapshot.docs.forEach(d => batch.delete(d.ref));
-
-      // Drop the rep-facing proposal records for this doctor too, so a deleted
-      // doctor stops appearing in the rep's "My Proposals" history. Requests
-      // are linked by doctorId; approvals from before that link existed carry
-      // only the denormalized name, so match those on name + district.
-      const requestsRef = collection(firestore, 'requests');
-      const [byId, byName] = await Promise.all([
-        getDocs(query(requestsRef, where('doctorId', '==', doctorToDelete.id))),
-        getDocs(query(requestsRef, where('doctorName', '==', doctorToDelete.name))),
-      ]);
-      const doctorDistrict = (doctorToDelete.city || '').trim().toUpperCase();
-      const requestIdsToDelete = new Set<string>();
-      byId.docs.forEach(d => requestIdsToDelete.add(d.id));
-      byName.docs.forEach(d => {
-        const reqDistrict = ((d.data().doctorDistrict as string) || '').trim().toUpperCase();
-        // Same name in another district is a different doctor — leave it alone.
-        if (!reqDistrict || !doctorDistrict || reqDistrict === doctorDistrict) {
-          requestIdsToDelete.add(d.id);
-        }
-      });
-      requestIdsToDelete.forEach(id => batch.delete(doc(firestore, 'requests', id)));
-
       batch.delete(doctorRef);
 
       await batch.commit().catch(err => {
@@ -534,6 +512,40 @@ export default function DoctorsPage() {
         errorEmitter.emit('permission-error', contextualError);
         throw err;
       });
+
+      // Proposal-history cleanup is a separate step, not part of the batch
+      // above: rules only let the admin delete `requests`, and one denied
+      // delete inside a batch fails the whole batch — which made a manager's
+      // doctor delete fail whenever that doctor had any rep proposals. Reps
+      // don't need this to stop seeing them (rep/requests hides proposals
+      // for doctors that no longer exist), so it's admin-only and
+      // best-effort.
+      if (adminRole === 'admin') {
+        try {
+          const requestsRef = collection(firestore, 'requests');
+          const [byId, byName] = await Promise.all([
+            getDocs(query(requestsRef, where('doctorId', '==', doctorToDelete.id))),
+            getDocs(query(requestsRef, where('doctorName', '==', doctorToDelete.name))),
+          ]);
+          const doctorDistrict = (doctorToDelete.city || '').trim().toUpperCase();
+          const requestIdsToDelete = new Set<string>();
+          byId.docs.forEach(d => requestIdsToDelete.add(d.id));
+          byName.docs.forEach(d => {
+            const reqDistrict = ((d.data().doctorDistrict as string) || '').trim().toUpperCase();
+            // Same name in another district is a different doctor — leave it alone.
+            if (!reqDistrict || !doctorDistrict || reqDistrict === doctorDistrict) {
+              requestIdsToDelete.add(d.id);
+            }
+          });
+          if (requestIdsToDelete.size > 0) {
+            const cleanup = writeBatch(firestore);
+            requestIdsToDelete.forEach(id => cleanup.delete(doc(firestore, 'requests', id)));
+            await cleanup.commit();
+          }
+        } catch (cleanupErr) {
+          console.warn('Doctor deleted, but proposal-history cleanup failed:', cleanupErr);
+        }
+      }
 
       toast({
         title: 'Doctor Deleted',

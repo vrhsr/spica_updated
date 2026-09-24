@@ -107,8 +107,13 @@ export default function LandingPage() {
   // want their downloaded presentations, not a marketing site — skip
   // straight there.
   useEffect(() => {
-    if (isCapApp && !navigator.onLine) {
+    if (!isCapApp) return;
+    if (!navigator.onLine) {
       router.replace('/rep/offline');
+    } else if (new URLSearchParams(window.location.search).get('next') === 'login') {
+      // Sent back here from the live site (admin-portal logout, or the live
+      // /login loaded inside the app) — see APP_SHELL_LOGIN_URL.
+      router.replace('/login');
     }
   }, [isCapApp, router]);
 
