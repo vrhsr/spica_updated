@@ -217,7 +217,7 @@ function PresentationsComponent() {
           doctorName: presentation.doctorName!,
           city: presentation.city,
           selectedSlides: presentation.doctorSlides || [],
-          adminUid: adminUser.uid,
+          idToken: await adminUser.getIdToken(),
         });
 
         if ('error' in result) {
@@ -313,7 +313,7 @@ function PresentationsComponent() {
         doctorName: normalizedDoctor.name,
         city: normalizedDoctor.city,
         selectedSlides: normalizedDoctor.selectedSlides || [],
-        adminUid: adminUser.uid,
+        idToken: await adminUser.getIdToken(),
       }).then((result) => {
         if ('error' in result) {
           toast({ variant: 'destructive', title: 'Generation Failed', description: result.error });

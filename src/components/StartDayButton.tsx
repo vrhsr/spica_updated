@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Play, RefreshCw, AlertCircle } from 'lucide-react';
 import { syncManager, SyncItem, SyncState } from '@/lib/sync-manager';
 import { SyncProgressModal } from './SyncProgressModal';
-import { Timestamp } from 'firebase/firestore';
 
 interface StartDayButtonProps {
     presentations: any[];
@@ -34,7 +33,9 @@ export function StartDayButton({ presentations, doctors }: StartDayButtonProps) 
                 doctorId: p.doctorId,
                 doctorName: doctorsMap.get(p.doctorId) || 'Unknown Doctor',
                 pdfUrl: p.pdfUrl,
-                updatedAt: p.updatedAt instanceof Timestamp ? p.updatedAt.toMillis() : Date.now()
+                // Duck-typed: an `instanceof Timestamp` miss used to fall back to
+                // Date.now(), which marks the cached copy stale on every sync.
+                updatedAt: typeof p.updatedAt?.toMillis === 'function' ? p.updatedAt.toMillis() : 0
             }));
 
         if (syncItems.length === 0) {

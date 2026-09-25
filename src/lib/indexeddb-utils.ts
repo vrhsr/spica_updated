@@ -118,6 +118,10 @@ export async function getDB(): Promise<IDBPDatabase<SpicasgDB>> {
                     store.createIndex('by-synced', 'synced');
                 }
             },
+        }).catch((err) => {
+            // Don't cache a failed open forever — let the next call retry.
+            dbPromise = null;
+            throw err;
         });
     }
     return dbPromise;

@@ -4,7 +4,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
+import { confirmPasswordReset, verifyPasswordResetCode, signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { markInviteAccepted } from '@/app/admin/users/actions';
 import { Button } from '@/components/ui/button';
@@ -92,7 +92,15 @@ function AcceptInviteContent() {
       await confirmPasswordReset(auth, oobCode, password);
       if (email) {
         // Best-effort bookkeeping — the password is already set either way.
-        markInviteAccepted(email).catch(() => {});
+        // Signs in just long enough to prove who this is to the server.
+        try {
+          const cred = await signInWithEmailAndPassword(auth, email, password);
+          await markInviteAccepted(await cred.user.getIdToken());
+        } catch {
+          /* non-fatal */
+        } finally {
+          await auth.signOut().catch(() => {});
+        }
       }
       setStatus('success');
     } catch (err: any) {

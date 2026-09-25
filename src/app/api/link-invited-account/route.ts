@@ -90,19 +90,36 @@ export async function POST(request: NextRequest) {
     const invite = inviteDoc.data();
     const oldUid = inviteDoc.id;
 
-    if (invite.active === false) {
+    // Trust the invited account's Auth record, not its Firestore doc, for
+    // everything that decides access: the doc is a denormalized copy, while
+    // the Auth record's email, disabled flag and custom claims are what an
+    // admin actually set (and what suspension actually changes).
+    let oldUser;
+    try {
+      oldUser = await adminAuth.getUser(oldUid);
+    } catch {
+      return NextResponse.json({ linked: false, reason: 'not_invited' }, { headers: CORS_HEADERS });
+    }
+    const inviteRole = oldUser.customClaims?.role;
+    if (
+      (oldUser.email ?? '').toLowerCase() !== email.toLowerCase() ||
+      (inviteRole !== 'admin' && inviteRole !== 'manager' && inviteRole !== 'rep')
+    ) {
+      return NextResponse.json({ linked: false, reason: 'not_invited' }, { headers: CORS_HEADERS });
+    }
+    if (oldUser.disabled || invite.active === false) {
       return NextResponse.json({ linked: false, reason: 'inactive' }, { headers: CORS_HEADERS });
     }
 
-    const claims = { role: invite.role, city: invite.city ?? null };
+    const claims = { role: inviteRole, city: oldUser.customClaims?.city ?? null };
     await adminAuth.setCustomUserClaims(newUid, claims);
 
     await adminFirestore.collection('users').doc(newUid).set({
       name: invite.name,
       email: invite.email,
       phone: invite.phone ?? null,
-      role: invite.role,
-      city: invite.city ?? null,
+      role: claims.role,
+      city: claims.city,
       active: true,
       createdBy: invite.createdBy,
       inviteAccepted: true,

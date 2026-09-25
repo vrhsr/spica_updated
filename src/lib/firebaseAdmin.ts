@@ -4,7 +4,6 @@ config();
 import admin from 'firebase-admin';
 
 // This is the critical diagnostic step.
-console.log("ENV CHECK - Service Account Length:", process.env.FIREBASE_SERVICE_ACCOUNT?.length);
 
 if (!admin.apps.length) {
   const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;

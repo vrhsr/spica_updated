@@ -252,7 +252,7 @@ export default function DoctorsPage() {
         doctorName,
         city,
         selectedSlides,
-        adminUid: adminUser.uid,
+        idToken: await adminUser.getIdToken(),
       });
 
       if ('error' in result) {
@@ -356,6 +356,7 @@ export default function DoctorsPage() {
           title: "Duplicate Doctor",
           description: `A doctor named "${newDoctor.name}" already exists in the system.`,
         });
+        setIsSubmitting(null);
         return;
       }
 
@@ -422,6 +423,8 @@ export default function DoctorsPage() {
 
       const doctorRef = doc(firestore, 'doctors', doctorId);
 
+      const before = doctorToEditDetails;
+
       // Update Doctor record
       await updateDoc(doctorRef, normalizedDetails);
 
@@ -429,6 +432,16 @@ export default function DoctorsPage() {
         title: "Doctor Updated",
         description: `Details for ${details.name} have been updated in the database.`,
       });
+
+      // The presentation carries its own copy of the district (it decides
+      // which reps can see it) and prints the name on the last slide, so a
+      // change to either needs a regenerate — otherwise the old district's
+      // reps keep it and the new district's never get it.
+      const districtChanged = !!before && (before.city || '').trim().toUpperCase() !== normalizedDetails.city;
+      const nameChanged = !!before && before.name !== normalizedDetails.name;
+      if ((districtChanged || nameChanged) && selectedSlides.length > 0) {
+        handleGeneration(doctorId, normalizedDetails.name, normalizedDetails.city, selectedSlides).catch(console.error);
+      }
 
       setDoctorToEditDetails(null);
       refetchDoctors();

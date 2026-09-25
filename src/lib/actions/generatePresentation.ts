@@ -3,7 +3,7 @@
 // BUILD_ID: FORCE_REFRESH_002
 
 import { z } from 'zod';
-import { adminFirestore } from '@/lib/firebaseAdmin';
+import { adminAuth, adminFirestore } from '@/lib/firebaseAdmin';
 import { allSlides } from '@/lib/slides';
 import { Timestamp } from 'firebase-admin/firestore';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
@@ -15,7 +15,11 @@ const PdfGenerationInputSchema = z.object({
     doctorName: z.string(),
     city: z.string(),
     selectedSlides: z.array(z.number()),
-    adminUid: z.string(),
+    // The caller's Firebase ID token. Server actions are plain public POST
+    // endpoints — anyone who reads the page's JS can call this one — so the
+    // caller's identity and role must be verified here, never taken from a
+    // client-supplied uid.
+    idToken: z.string().min(1),
 });
 
 type PdfGenerationInput = z.infer<typeof PdfGenerationInputSchema>;
@@ -55,7 +59,18 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
         return { error: `Invalid input: ${errorMessages}` };
     }
 
-    const { doctorId, doctorName, city, selectedSlides, adminUid } = validation.data;
+    const { doctorId, doctorName, city, selectedSlides, idToken } = validation.data;
+
+    let adminUid: string;
+    try {
+        const decoded = await adminAuth.verifyIdToken(idToken);
+        if (decoded.role !== 'admin' && decoded.role !== 'manager') {
+            return { error: 'You are not allowed to generate presentations.' };
+        }
+        adminUid = decoded.uid;
+    } catch {
+        return { error: 'Your session has expired. Please sign in again.' };
+    }
 
     // Initialize S3 client only after validation
     const s3 = new S3Client({

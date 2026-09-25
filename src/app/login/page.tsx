@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Stethoscope, ArrowLeft, Chrome, Loader, Monitor } from 'lucide-react';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import {
   signInWithPopup,
   signInWithCredential,
@@ -141,7 +141,8 @@ export default function LoginPage() {
       // loaded inside the app, which looks identical, can't do native Google
       // Sign-In, and was the "it asks me to log in again" loop.
       let customToken: string | null = null;
-      for (let attempt = 0; attempt < 2 && !customToken; attempt++) {
+      let forbidden = false;
+      for (let attempt = 0; attempt < 2 && !customToken && !forbidden; attempt++) {
         try {
           const idToken = await user.getIdToken();
           const resp = await fetch('https://spicasg.in/api/mint-handoff-token', {
@@ -149,6 +150,10 @@ export default function LoginPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ idToken }),
           });
+          if (resp.status === 403) {
+            forbidden = true;
+            break;
+          }
           const data = await resp.json();
           if (data.customToken) customToken = data.customToken;
         } catch (e) {
@@ -157,10 +162,17 @@ export default function LoginPage() {
       }
       await auth?.signOut();
       if (!customToken) {
-        setError("Couldn't open the admin portal. Please check your internet connection and sign in again.");
+        setError(
+          forbidden
+            ? "This account doesn't have admin portal access. Please contact your administrator."
+            : "Couldn't open the admin portal. Please check your internet connection and sign in again."
+        );
         return;
       }
-      window.location.href = `https://spicasg.in/admin/dashboard?handoff=${encodeURIComponent(customToken)}`;
+      // In the fragment, not the query string: a fragment is never sent to the
+      // server, so this (reusable-for-an-hour) sign-in token stays out of
+      // Vercel's request logs.
+      window.location.href = `https://spicasg.in/admin/dashboard#handoff=${encodeURIComponent(customToken)}`;
       return;
     }
 
@@ -217,6 +229,19 @@ export default function LoginPage() {
     }
     await routeToDestination(user);
   };
+
+  // Already signed in (sessions persist across app restarts): go straight to
+  // the portal instead of asking for the password again. Skipped while a
+  // sign-in on this page is in progress — those route themselves.
+  const { user: signedInUser, role: signedInRole, isUserLoading } = useUser();
+  const hasAutoRouted = useRef(false);
+  useEffect(() => {
+    if (hasAutoRouted.current || isUserLoading || isLoadingGoogle || isLoadingPassword) return;
+    if (!signedInUser || !signedInRole || isLiveSiteInsideApp()) return;
+    hasAutoRouted.current = true;
+    routeToDestination(signedInUser);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedInUser, signedInRole, isUserLoading, isLoadingGoogle, isLoadingPassword]);
 
   const handleGoogleLogin = async () => {
     setError(null);

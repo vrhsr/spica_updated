@@ -28,8 +28,10 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   setDoc,
   updateDoc,
+  where,
   type Firestore,
 } from 'firebase/firestore';
 
@@ -107,8 +109,13 @@ describe('slides (master library)', () => {
 });
 
 describe('doctors', () => {
-  it('any authenticated user can list', async () => {
-    await assertSucceeds(getDocs(collection(repIn('NORTH'), 'doctors')));
+  it('admin/manager can list all; a rep only their own district', async () => {
+    await seed((db) => setDoc(doc(db, 'doctors/d1'), { name: 'Dr A', city: 'NORTH' }));
+    await assertSucceeds(getDocs(collection(admin(), 'doctors')));
+    await assertSucceeds(getDocs(collection(manager(), 'doctors')));
+    await assertSucceeds(getDocs(query(collection(repIn('NORTH'), 'doctors'), where('city', '==', 'NORTH'))));
+    await assertFails(getDocs(collection(repIn('NORTH'), 'doctors')));
+    await assertFails(getDocs(query(collection(repIn('NORTH'), 'doctors'), where('city', '==', 'SOUTH'))));
   });
   it('admin and manager can write; rep cannot', async () => {
     await assertSucceeds(setDoc(doc(admin(), 'doctors/d1'), { name: 'Dr A', city: 'NORTH' }));
@@ -182,6 +189,15 @@ describe('users', () => {
     await assertSucceeds(getDoc(doc(self, 'users/rep-uid')));
     await assertSucceeds(updateDoc(doc(self, 'users/rep-uid'), { name: 'Rep One Updated' }));
     await assertFails(updateDoc(doc(self, 'users/rep-uid'), { role: 'admin' }));
+  });
+  it('an owner may only edit name/phone — not email, active, district or invite state', async () => {
+    await seed((db) => setDoc(doc(db, 'users/rep-uid'), { name: 'Rep One', role: 'rep', city: 'NORTH', email: 'a@x.com', active: false }));
+    const self = repIn('NORTH', 'rep-uid');
+    await assertSucceeds(updateDoc(doc(self, 'users/rep-uid'), { phone: '999' }));
+    await assertFails(updateDoc(doc(self, 'users/rep-uid'), { email: 'attacker@gmail.com' }));
+    await assertFails(updateDoc(doc(self, 'users/rep-uid'), { active: true }));
+    await assertFails(updateDoc(doc(self, 'users/rep-uid'), { city: 'SOUTH' }));
+    await assertFails(updateDoc(doc(self, 'users/rep-uid'), { inviteAccepted: true }));
   });
   it('a roleless (never-invited) account cannot read anyone else\'s user doc', async () => {
     await seed((db) => setDoc(doc(db, 'users/rep-uid'), { name: 'Rep One', role: 'rep' }));

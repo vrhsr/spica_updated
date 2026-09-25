@@ -4,7 +4,7 @@
  * Rehydrates all state from storage, not memory
  */
 
-import { getDB, resetDB, isRecoverableError, STORES } from './indexeddb-utils';
+import { getDB, isRecoverableError, STORES } from './indexeddb-utils';
 import { verifyAllOfflinePDFs, rebuildLocalStorageFlags } from './offline-pdf-store';
 import { syncManager } from './sync-manager';
 
@@ -109,16 +109,25 @@ export async function checkIndexedDBHealth(): Promise<HealthCheckResult> {
         console.error('[Startup] ❌ Health check failed:', error);
         result.error = error?.message || 'Unknown error';
 
-        // Attempt recovery if error is recoverable
+        // Recovery = retry opening, NEVER delete. This used to call resetDB()
+        // (deleteDatabase) on errors like InvalidStateError/UnknownError,
+        // which are often transient — one hiccup wiped every downloaded
+        // presentation off a rep's phone. A real, persistent failure is
+        // reported as unhealthy instead of silently erasing the library.
         if (isRecoverableError(error)) {
-            console.log('[Startup] 🔄 Attempting recovery...');
+            console.log('[Startup] 🔄 Retrying database open...');
             result.recoveryAttempted = true;
 
             try {
-                await resetDB();
-                // Verify recovery worked
+                await new Promise((resolve) => setTimeout(resolve, 500));
                 const db = await getDB();
+                const tx = db.transaction([STORES.PDFS], 'readonly');
+                result.pdfCount = (await tx.objectStore(STORES.PDFS).getAll()).length;
+                await tx.done;
+                await rebuildLocalStorageFlags();
+                await syncManager.init();
                 result.dbAccessible = true;
+                result.storesAccessible = true;
                 result.recoverySuccessful = true;
                 result.healthy = true;
                 console.log('[Startup] ✅ Recovery successful');

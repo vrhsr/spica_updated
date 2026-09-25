@@ -46,6 +46,13 @@ const baseConfig = {
                         key: "Cross-Origin-Opener-Policy",
                         value: "same-origin-allow-popups",
                     },
+                    // No framing by other sites (clickjacking on the admin
+                    // portal). 'self', not 'none': the admin "View PDF"
+                    // dialog iframes same-origin content.
+                    { key: "X-Frame-Options", value: "SAMEORIGIN" },
+                    { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+                    { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+                    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
                 ],
             },
         ];
@@ -78,25 +85,47 @@ export default isProd && !isCapacitor
             document: "/offline.html",
         },
 
+        // Function matchers, not regexes: Workbox tests a RegExp against the
+        // FULL url (https://spicasg.in/...), so the old /^\/_next/ pattern
+        // never matched and everything fell through to an unbounded
+        // catch-all cache — including PDFs, /api responses and cross-origin
+        // Firebase traffic.
         runtimeCaching: [
             {
-                urlPattern: /^\/(_next|static|favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.js)/,
-                handler: "StaleWhileRevalidate",
+                // Content-hashed build assets: safe to cache forever, and keeping
+                // them means a cached older page can still load its own chunks.
+                urlPattern: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith("/_next/static/"),
+                handler: "CacheFirst",
                 options: {
-                    cacheName: "app-shell",
+                    cacheName: "next-static",
+                    expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 60 * 60 },
                 },
             },
-            // NOTE: PDFs are NOT cached by Service Worker
-            // They are stored in IndexedDB by offline-pdf-store.ts
-            // This is intentional for WhatsApp-style offline reliability
+            {
+                urlPattern: ({ url }) =>
+                    url.origin === self.location.origin &&
+                    /^\/(favicon\.ico|manifest\.json|logo\.png|icon-.*\.png|pdf\.worker\.min\.m?js)$/.test(url.pathname),
+                handler: "StaleWhileRevalidate",
+                options: { cacheName: "app-shell" },
+            },
+            // Never cache: API routes, and anything cross-origin (Firestore,
+            // Auth, R2 PDFs). Offline PDFs live in IndexedDB via
+            // offline-pdf-store.ts, not in the Service Worker cache.
+            {
+                urlPattern: ({ url }) => url.origin !== self.location.origin || url.pathname.startsWith("/api/"),
+                handler: "NetworkOnly",
+                // next-pwa's fallback wiring reads `options` on every entry.
+                options: {},
+            },
             {
                 urlPattern: /.*/,
                 handler: "NetworkFirst",
                 options: {
                     cacheName: "default-cache",
-                    networkTimeoutSeconds: 3,
-                }
-            }
+                    networkTimeoutSeconds: 5,
+                    expiration: { maxEntries: 80, maxAgeSeconds: 7 * 24 * 60 * 60 },
+                },
+            },
         ]
     })(baseConfig)
     : baseConfig;

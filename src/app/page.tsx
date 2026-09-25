@@ -80,11 +80,28 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isCapApp, setIsCapApp] = useState(false);
+  const [isForwarding, setIsForwarding] = useState(false);
 
   // Check if running in Capacitor
   useEffect(() => {
     setIsCapApp(isCapacitorApp());
   }, []);
+
+  // This page loaded at some address other than "/": only happens inside the
+  // Android app, where Capacitor's local server answers ANY extensionless
+  // path (/login/, /rep/doctors/, ...) with this root page's HTML. Every hard
+  // navigation or reload in the app (Login Again, error-screen reload,
+  // update-reload, back-button fallback) used to strand the user on this
+  // marketing page. Re-fetch the real route's data for this same address
+  // (router.replace to the same URL is a no-op: Next thinks it's already
+  // there, with this page's content cached for it).
+  useEffect(() => {
+    const { pathname } = window.location;
+    if (pathname !== '/' && pathname !== '') {
+      setIsForwarding(true);
+      router.refresh();
+    }
+  }, [router]);
 
   // Detect online/offline status
   useEffect(() => {
@@ -107,7 +124,7 @@ export default function LandingPage() {
   // want their downloaded presentations, not a marketing site — skip
   // straight there.
   useEffect(() => {
-    if (!isCapApp) return;
+    if (!isCapApp || window.location.pathname !== '/') return;
     if (!navigator.onLine) {
       router.replace('/rep/offline');
     } else if (new URLSearchParams(window.location.search).get('next') === 'login') {
@@ -131,6 +148,14 @@ export default function LandingPage() {
 
   const loginHref = isOnline ? '/login' : '/rep/offline';
   const loginLabel = isOnline ? 'Login' : 'Offline Presentations';
+
+  if (isForwarding) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">

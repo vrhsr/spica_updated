@@ -21,7 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Loader, Check, X, FileQuestion, MessageSquareQuote, Eye, Edit } from 'lucide-react';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
-import { collection, doc, updateDoc, Timestamp, writeBatch, addDoc, getDocs, query as fsQuery, where } from 'firebase/firestore';
+import { collection, doc, updateDoc, Timestamp, writeBatch, addDoc, getDoc, getDocs, query as fsQuery, where } from 'firebase/firestore';
 import { useFirestore, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -140,6 +140,18 @@ export default function AdminRequestsPage() {
           const districtName = rawDistrict.trim().toUpperCase();
           const cityName = request.doctorCity.trim().toUpperCase();
 
+          // Guard against duplicate doctors: the request may already have
+          // been handled (an admin and a manager approving at once, or a
+          // retry), and two reps can propose the same doctor.
+          const latest = await getDoc(requestRef);
+          if (latest.exists() && latest.data().status !== 'pending') {
+            throw new Error('This request has already been handled. Refresh to see its current status.');
+          }
+          const existing = await getDocs(fsQuery(doctorsCollection, where('name', '==', request.doctorName)));
+          if (!existing.empty) {
+            throw new Error(`A doctor named "${request.doctorName}" already exists. Reject this request, or ask the rep to propose a slide change for that doctor instead.`);
+          }
+
           // 2. Create the new doctor doc
           const newDoctorData = {
             name: request.doctorName,
@@ -148,6 +160,12 @@ export default function AdminRequestsPage() {
             selectedSlides: request.selectedSlides,
           };
           const newDoctorRef = await addDoc(doctorsCollection, newDoctorData);
+
+          // Mark approved (and linked) right away, not after PDF generation:
+          // if generation fails the doctor still exists, and a request left
+          // "pending" invites a second approval that would duplicate it.
+          // Generation failures show on the Presentations page instead.
+          await updateDoc(requestRef, { status: 'approved', selectedSlides: request.selectedSlides, doctorId: newDoctorRef.id });
 
           // 3. Auto-create the city in districts_cities if it doesn't already exist
           const citiesRef = collection(firestore, 'districts_cities');
@@ -159,19 +177,13 @@ export default function AdminRequestsPage() {
             console.log(`Auto-created city "${cityName}" under district "${districtName}"`);
           }
 
-          // 4. Mark the request as 'approved', persist final slide selection, and
-          // link back to the doctor it created — without this, there's no way to
-          // tell later (e.g. if the doctor gets deleted) that this request's
-          // denormalized name/city refers to a doctor that no longer exists.
-          await updateDoc(requestRef, { status: 'approved', selectedSlides: request.selectedSlides, doctorId: newDoctorRef.id });
-
           // 5. Trigger presentation generation
           const result = await generateAndUpsertPresentation({
             doctorId: newDoctorRef.id,
             doctorName: request.doctorName,
             city: districtName, // ALWAYS use District for filtering compatibility
             selectedSlides: request.selectedSlides,
-            adminUid: adminUser.uid,
+            idToken: await adminUser.getIdToken(),
           });
 
           if ('error' in result) {
@@ -207,7 +219,7 @@ export default function AdminRequestsPage() {
             doctorName: request.doctorNameDisplay,
             city: normalizedDistrict, // District name is required for Rep portal visibility
             selectedSlides: request.selectedSlides,
-            adminUid: adminUser.uid,
+            idToken: await adminUser.getIdToken(),
           });
 
           if ('error' in result) {

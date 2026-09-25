@@ -183,14 +183,11 @@ export const resendInvite = async (uid: string, idToken: string) => {
  * Called by the /accept-invite page once a user has successfully set their
  * password, so the admin's user list stops showing them as pending.
  */
-export const markInviteAccepted = async (email: string) => {
-  const validation = z.string().email().safeParse(email);
-  if (!validation.success) {
-    throw new Error('A valid email is required.');
-  }
-
-  const userRecord = await adminAuth.getUserByEmail(email);
-  await adminFirestore.collection('users').doc(userRecord.uid).update({ inviteAccepted: true });
+// Takes the invitee's own ID token (not an email): anyone can call a server
+// action, so an email parameter let anyone flip any invite to "accepted".
+export const markInviteAccepted = async (idToken: string) => {
+  const decoded = await adminAuth.verifyIdToken(idToken);
+  await adminFirestore.collection('users').doc(decoded.uid).update({ inviteAccepted: true });
   return { success: true };
 }
 

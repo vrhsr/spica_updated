@@ -103,9 +103,21 @@ export async function savePDFOffline(
 
         return true;
     } catch (error: any) {
-        // Clean up localStorage if operation failed
-        localStorage.removeItem(`offline-${doctorId}`);
-        localStorage.removeItem(`offline-name-${doctorId}`);
+        // Only clear the "saved offline" flags if there's genuinely no saved
+        // copy. A failed RE-download (stale refresh, flaky network, full
+        // storage) leaves the previous valid copy in IndexedDB — clearing
+        // the flags anyway made it show as "Not Saved Offline".
+        let hasExistingCopy = false;
+        try {
+            const db = await getDB();
+            hasExistingCopy = !!(await db.get(STORES.PDFS, doctorId));
+        } catch {
+            /* treat as no copy */
+        }
+        if (!hasExistingCopy) {
+            localStorage.removeItem(`offline-${doctorId}`);
+            localStorage.removeItem(`offline-name-${doctorId}`);
+        }
 
         throw new Error(`Failed to save PDF offline: ${error.message}`);
     }

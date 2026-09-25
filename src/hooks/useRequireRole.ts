@@ -9,6 +9,8 @@ type Role = 'admin' | 'manager' | 'rep';
 interface UseRequireRoleOptions {
   /** Where to send a signed-in user whose role isn't in the allowed list. Default '/'. */
   redirectTo?: string;
+  /** Where to send a visitor who isn't signed in at all. Default '/login'. */
+  signedOutRedirectTo?: string;
   /** How long to wait for auth to resolve before showing a timeout state. Default 10000ms. */
   timeoutMs?: number;
   /** Set false to skip the check entirely (e.g. an offline-bypass route). Default true. */
@@ -35,13 +37,14 @@ interface UseRequireRoleResult {
  */
 export function useRequireRole(
   allowedRoles: Role[],
-  { redirectTo = '/', timeoutMs = 10000, enabled = true }: UseRequireRoleOptions = {}
+  { redirectTo = '/', signedOutRedirectTo = '/login', timeoutMs = 10000, enabled = true }: UseRequireRoleOptions = {}
 ): UseRequireRoleResult {
   const router = useRouter();
   const { user, role, isUserLoading } = useUser();
   const [isTimedOut, setIsTimedOut] = useState(false);
   // uid whose "no role" we've confirmed against a freshly minted token.
   const [confirmedRolelessUid, setConfirmedRolelessUid] = useState<string | null>(null);
+  const [roleRetryTick, setRoleRetryTick] = useState(0);
 
   const allowed = !enabled || (!!user && !!role && allowedRoles.includes(role));
 
@@ -52,18 +55,22 @@ export function useRequireRole(
   useEffect(() => {
     if (!enabled || isUserLoading || !user || role || confirmedRolelessUid === user.uid) return;
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     user
       .getIdTokenResult(true)
       .then((r) => {
         if (!cancelled && !r.claims.role) setConfirmedRolelessUid(user.uid);
       })
       .catch(() => {
-        if (!cancelled) setConfirmedRolelessUid(user.uid);
+        // A failed refresh (flaky network) proves nothing about the role —
+        // retry rather than bounce a real rep/admin out as "roleless".
+        if (!cancelled) retryTimer = setTimeout(() => setRoleRetryTick((t) => t + 1), 4000);
       });
     return () => {
       cancelled = true;
+      clearTimeout(retryTimer);
     };
-  }, [enabled, isUserLoading, user, role, confirmedRolelessUid]);
+  }, [enabled, isUserLoading, user, role, confirmedRolelessUid, roleRetryTick]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -74,12 +81,15 @@ export function useRequireRole(
       }
     }, timeoutMs);
 
-    // Only a real user cancels the timeout. "Resolved, nobody signed in"
-    // used to cancel it too, leaving a signed-out visitor (or a failed admin
-    // handoff) on the loading spinner forever instead of the "Login Again"
-    // screen. Not redirecting on !user right away is deliberate: right
-    // after sign-in, the page can mount a beat before the provider has
-    // caught up with the new user.
+    // Signed out: send to the login page after a short grace period — not
+    // instantly, because right after sign-in the page can mount a beat
+    // before the provider has caught up with the new user. (The timeout
+    // above stays as the fallback "Login Again" screen.)
+    let signedOutTimer: ReturnType<typeof setTimeout> | undefined;
+    if (!isUserLoading && !user) {
+      signedOutTimer = setTimeout(() => router.replace(signedOutRedirectTo), 2500);
+    }
+
     if (!isUserLoading && user) {
       clearTimeout(timer);
       setIsTimedOut(false);
@@ -90,9 +100,12 @@ export function useRequireRole(
       }
     }
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(signedOutTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, user, role, isUserLoading, confirmedRolelessUid, router, redirectTo, timeoutMs, allowedRoles.join(',')]);
+  }, [enabled, user, role, isUserLoading, confirmedRolelessUid, router, redirectTo, signedOutRedirectTo, timeoutMs, allowedRoles.join(',')]);
 
   return {
     allowed,

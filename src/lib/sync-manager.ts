@@ -97,7 +97,12 @@ class SyncManager {
                         total: intent.allDoctorIds.length,
                         completed: intent.completedDoctorIds.length,
                         failed: intent.failedDoctorIds.length,
-                        status: navigator.onLine ? 'PAUSED' : 'PAUSED'
+                        // IDLE, not PAUSED: nothing is running yet. PAUSED means
+                        // a live sync waiting for network, and the Start Day
+                        // button disables itself for it — so reporting PAUSED
+                        // here left "Resume" and "Start Fresh" both disabled
+                        // forever after any interrupted sync.
+                        status: 'IDLE'
                     });
                 } else {
                     // All done, mark as completed

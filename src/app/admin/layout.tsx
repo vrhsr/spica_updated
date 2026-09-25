@@ -134,11 +134,16 @@ export default function AdminLayout({
   // Reads window.location.search directly (not useSearchParams()) so this
   // doesn't need a Suspense boundary. Stripped from the URL immediately —
   // single-use, shouldn't linger in history.
+  // Current app builds put the token in the fragment (#handoff=, never sent
+  // to the server); older installed builds still use ?handoff=.
   const [handoffToken] = useState(() =>
-    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('handoff')
+    typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.hash.slice(1)).get('handoff') ||
+        new URLSearchParams(window.location.search).get('handoff')
   );
   const [handoffUid, setHandoffUid] = useState<string | null>(null);
-  const [handoffFailed, setHandoffFailed] = useState(false);
+  const [handoffSettled, setHandoffSettled] = useState(false);
 
   useEffect(() => {
     if (!auth || !handoffToken) return;
@@ -146,26 +151,39 @@ export default function AdminLayout({
     window.history.replaceState({}, '', window.location.pathname);
     signInWithCustomToken(auth, handoffToken)
       .then((cred) => setHandoffUid(cred.user.uid))
-      .catch((err) => {
+      .catch(async (err) => {
         console.error('[AdminLayout] Handoff sign-in failed:', err);
-        setHandoffFailed(true);
+        // Don't fall back to whatever older session this origin still holds
+        // (it may be a different account) — sign out; the gate then sends
+        // the user to log in.
+        await auth.signOut().catch(() => {});
+        setHandoffSettled(true);
       });
   }, [auth, handoffToken]);
+
+  // Once the provider shows the handed-off user, the handoff is done for
+  // good — later sign-outs (suspension, revoked session) must go through the
+  // normal gate, not back into "awaiting handoff" with no timeout.
+  useEffect(() => {
+    if (handoffUid && user?.uid === handoffUid) setHandoffSettled(true);
+  }, [handoffUid, user?.uid]);
 
   // This origin may still hold an older persisted session (e.g. the admin's,
   // on a phone a manager is now signing in on). Until the handoff sign-in
   // has actually replaced it, don't gate on — or render — whoever that is:
   // that's how a manager could briefly land on the admin's dashboard, or a
   // stale rep session could bounce the handoff out of the portal entirely.
-  const isAwaitingHandoff = !!handoffToken && !handoffFailed && (!handoffUid || user?.uid !== handoffUid);
+  const isAwaitingHandoff = !!handoffToken && !handoffSettled && (!handoffUid || user?.uid !== handoffUid);
 
   // Gate on admin/manager access. `isChecking` stays true until role is
   // actually confirmed, so `children` (and every Firestore query inside
   // them) never mounts for a role that doesn't have access — that race was
   // what caused permission-denied crashes here before.
+  const inApp = isLiveSiteInsideApp();
   const { isChecking, isTimedOut } = useRequireRole(['admin', 'manager'], {
     enabled: !isAwaitingHandoff,
-    redirectTo: isLiveSiteInsideApp() ? APP_SHELL_LOGIN_URL : '/',
+    redirectTo: inApp ? APP_SHELL_LOGIN_URL : '/',
+    signedOutRedirectTo: inApp ? APP_SHELL_LOGIN_URL : '/login',
   });
   const isGateOpen = !isAwaitingHandoff && !isChecking;
 

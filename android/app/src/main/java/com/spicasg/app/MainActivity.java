@@ -34,6 +34,7 @@ public class MainActivity extends BridgeActivity {
     private static final String LOCAL_OFFLINE_URL = "https://localhost/rep/offline/";
     private boolean hasRetriedAfterLoadError = false;
     private volatile boolean isShowingLoadError = false;
+    private boolean currentLoadFailed = false;
     private ConnectivityManager.NetworkCallback networkCallback;
 
     @Override
@@ -154,7 +155,10 @@ public class MainActivity extends BridgeActivity {
                 // normal handling.
                 Uri uri = request.getUrl();
                 String host = uri.getHost();
-                if (host != null && host.contains("spicasg.in")) {
+                // Exact match, not contains(): "spicasg.in.evil.com" must go
+                // to the external browser, never load in this WebView where
+                // the native bridge is reachable.
+                if (host != null && (host.equals("spicasg.in") || host.equals("www.spicasg.in"))) {
                     view.loadUrl(uri.toString());
                     return true;
                 }
@@ -162,9 +166,16 @@ public class MainActivity extends BridgeActivity {
             }
 
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                currentLoadFailed = false;
+            }
+
+            @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
                 if (request.isForMainFrame()) {
+                    currentLoadFailed = true;
                     isShowingLoadError = true;
                     if (!hasRetriedAfterLoadError) {
                         // First failure: might be transient (DNS still
@@ -194,9 +205,13 @@ public class MainActivity extends BridgeActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // A successful load (including one that lands on the app's
-                // own offline.html/offline-dashboard fallback) clears the
-                // error flag and resets the one-shot retry for next time.
+                // Only a load that actually SUCCEEDED (including landing on
+                // the app's own offline screen) resets the retry. WebView also
+                // calls onPageFinished for its own error page; resetting there
+                // re-armed the "first failure" retry every time, so an
+                // unreachable page reloaded every 400ms forever and the
+                // offline fallback below never ran.
+                if (currentLoadFailed) return;
                 isShowingLoadError = false;
                 hasRetriedAfterLoadError = false;
             }

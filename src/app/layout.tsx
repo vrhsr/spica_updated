@@ -64,6 +64,10 @@ export default function RootLayout({
       style={{ colorScheme: 'light' }}
     >
       <head>
+        {/* Set here rather than via `export const metadata`: this layout is a
+            client component, which can't export metadata. */}
+        <title>SG Health Pharma</title>
+        <meta name="description" content="SG Health Pharma — field sales and doctor presentation portal." />
         <link rel="icon" href="/spicasg-logo.png" type="image/png" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />

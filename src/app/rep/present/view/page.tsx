@@ -50,6 +50,8 @@ function PresentationViewerContent() {
     const renderTaskRef = useRef<ReturnType<pdfjsLib.PDFPageProxy['render']> | null>(null);
 
     const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+    const isPresentationShownRef = useRef(false);
+    isPresentationShownRef.current = !!pdfDoc;
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -321,23 +323,26 @@ function PresentationViewerContent() {
     }, [totalPages]);
 
     const handleClose = () => {
-        // For online presentations, show confirmation dialog
-        if (navigator.onLine) {
-            setShowExitDialog(true);
-        } else {
-            // Offline: redirect without asking. window.location.replace()
-            // is a hard navigation — it tears down this page's JS context
-            // before React gets a reliable chance to run this component's
-            // own unmount cleanup (which is what calls
-            // ScreenOrientation.unlock()/StatusBar.show() below normally).
-            // That's exactly why the screen was staying stuck in
-            // landscape after exiting a presentation offline: the unlock
-            // call was being skipped, not failing. Call it explicitly
-            // here, before navigating away, so it actually runs.
+        // Nothing was shown (failed/missing PDF): leave directly. The "did you
+        // present?" dialog only exists in the main render, so asking here
+        // left the Go Back button — and the hardware back button — doing
+        // nothing, stuck in landscape. Read via a ref because the back-button
+        // listener keeps the first render's copy of this function.
+        if (!isPresentationShownRef.current) {
             ScreenOrientation.unlock().catch(() => {});
             StatusBar.show().catch(() => {});
-            window.location.replace('/rep/offline');
+            if (navigator.onLine) {
+                router.replace('/rep');
+            } else {
+                window.location.replace('/rep/offline');
+            }
+            return;
         }
+        // Ask "did you present?" online AND offline — presenting offline is
+        // the app's main use case, and visit logs are stored locally first
+        // (visit-logs-store.ts) and uploaded once back online. Only asking
+        // online meant offline visits were never recorded at all.
+        setShowExitDialog(true);
     };
 
     const handlePresentationConfirm = async (didPresent: boolean) => {
@@ -354,8 +359,15 @@ function PresentationViewerContent() {
         ScreenOrientation.unlock().catch(() => {});
         StatusBar.show().catch(() => {});
 
-        // Use router to navigate without hard reloading the app
-        router.replace('/rep');
+        if (navigator.onLine) {
+            router.replace('/rep');
+        } else {
+            // Offline, back to the downloaded library. window.location.replace
+            // is a hard navigation that can skip this component's unmount
+            // cleanup — which is why unlock()/show() are called explicitly
+            // just above rather than relied on from the cleanup.
+            window.location.replace('/rep/offline');
+        }
     };
 
     const handleTouchStart = (e: React.TouchEvent) => {

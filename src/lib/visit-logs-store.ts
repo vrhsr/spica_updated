@@ -6,7 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDB, STORES } from './indexeddb-utils';
 import { Geolocation } from '@capacitor/geolocation';
-import { collection, addDoc, Timestamp, doc, getFirestore } from 'firebase/firestore';
+import { collection, setDoc, Timestamp, doc, getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 // Helper to get firestore instance (avoiding circular deps if any)
@@ -102,10 +102,22 @@ export async function isVisitedToday(doctorId: string): Promise<boolean> {
     }
 }
 
+let syncInFlight: Promise<void> | null = null;
+
 /**
- * Syncs unsynced logs from IndexedDB to Firestore
+ * Syncs unsynced logs from IndexedDB to Firestore. Concurrent callers share
+ * one run (init, save and resume can all trigger it at once).
  */
-export async function syncVisitLogs() {
+export function syncVisitLogs(): Promise<void> {
+    if (!syncInFlight) {
+        syncInFlight = runVisitLogSync().finally(() => {
+            syncInFlight = null;
+        });
+    }
+    return syncInFlight;
+}
+
+async function runVisitLogSync() {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
     try {
@@ -128,21 +140,31 @@ export async function syncVisitLogs() {
                     doctorId: log.doctorId,
                     doctorName: log.doctorName || 'Unknown Doctor',
                     status: log.status,
-                    latitude: log.latitude,
-                    longitude: log.longitude,
+                    // null, not undefined: Firestore rejects the whole write
+                    // for an undefined field, so a visit where GPS timed out
+                    // (common indoors) never uploaded and retried forever.
+                    latitude: log.latitude ?? null,
+                    longitude: log.longitude ?? null,
                     repId: auth.currentUser.uid,
                     repName: auth.currentUser.displayName || 'Unknown Rep',
                     createdAt: Timestamp.now(),
                     timestamp: Timestamp.fromMillis(log.timestamp)
                 };
 
-                // Add to firestore
-                await addDoc(visitLogsCol, docData);
+                // Keyed by the local log id, so a retry can never duplicate it.
+                await setDoc(doc(visitLogsCol, log.id), docData);
 
                 // Mark as synced locally
                 await markLogAsSynced(log.id);
-            } catch (err) {
-                console.error(`[Visit Log] Failed to sync log ${log.id}:`, err);
+            } catch (err: any) {
+                // Reps may create but not update visit logs, so re-writing an
+                // id that already uploaded (e.g. the app closed before it was
+                // marked synced) is denied — it's already on the server.
+                if (err?.code === 'permission-denied') {
+                    await markLogAsSynced(log.id).catch(() => {});
+                } else {
+                    console.error(`[Visit Log] Failed to sync log ${log.id}:`, err);
+                }
             }
         }
         console.log('[Visit Log] Sync completed');
