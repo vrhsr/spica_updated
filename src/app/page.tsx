@@ -96,11 +96,41 @@ export default function LandingPage() {
   // (router.replace to the same URL is a no-op: Next thinks it's already
   // there, with this page's content cached for it).
   useEffect(() => {
-    const { pathname } = window.location;
-    if (pathname !== '/' && pathname !== '') {
-      setIsForwarding(true);
-      router.refresh();
+    const { pathname, search, hash } = window.location;
+    if (pathname === '/' || pathname === '') return;
+    setIsForwarding(true);
+
+    // The app's bundle only has /<route>/index.txt. Without the trailing
+    // slash Next asks for /<route>.txt, gets a 404, and falls back to a full
+    // reload of the same address — which lands right back here: an endless
+    // reload loop (the "flickering home page" after exiting a presentation
+    // offline). Add the slash first.
+    if (!pathname.endsWith('/')) {
+      window.location.replace(pathname + '/' + search + hash);
+      return;
     }
+
+    // Belt and braces: if forwarding this address keeps failing (full
+    // reloads don't run the cleanup below), stop after two tries and restart
+    // from the root — the same thing force-closing the app does.
+    const key = `deeplink-forward:${pathname}`;
+    let tries = 0;
+    try {
+      tries = Number(sessionStorage.getItem(key) || '0');
+      sessionStorage.setItem(key, String(tries + 1));
+    } catch {
+      /* storage unavailable — forward without the guard */
+    }
+    if (tries >= 2) {
+      try { sessionStorage.removeItem(key); } catch { /* ignore */ }
+      window.location.replace('/');
+      return;
+    }
+    router.refresh();
+    return () => {
+      // Unmounting means the real page rendered — forwarding worked.
+      try { sessionStorage.removeItem(key); } catch { /* ignore */ }
+    };
   }, [router]);
 
   // Detect online/offline status

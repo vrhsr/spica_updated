@@ -68,7 +68,7 @@ export function initializeBackButtonHandler(
 
         if (!isExitDialogOpenRef.current) {
             // Failsafe for non-root routes when history cannot go back
-            window.location.replace('/rep');
+            window.location.replace('/rep/');
         }
     }).then(() => {
         console.log('[BackButton] Listener registered permanently');

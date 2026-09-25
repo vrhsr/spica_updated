@@ -334,7 +334,7 @@ function PresentationViewerContent() {
             if (navigator.onLine) {
                 router.replace('/rep');
             } else {
-                window.location.replace('/rep/offline');
+                window.location.replace('/rep/offline/');
             }
             return;
         }
@@ -366,7 +366,7 @@ function PresentationViewerContent() {
             // is a hard navigation that can skip this component's unmount
             // cleanup — which is why unlock()/show() are called explicitly
             // just above rather than relied on from the cleanup.
-            window.location.replace('/rep/offline');
+            window.location.replace('/rep/offline/');
         }
     };
 

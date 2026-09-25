@@ -76,7 +76,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
             // redirect IMMEDIATELY to prevent loading screen hang
             if (!online && !pathname.includes('/offline') && !pathname.includes('/present/')) {
                 console.log('[Rep Layout] Offline detected - immediate redirect to /rep/offline');
-                window.location.replace('/rep/offline');
+                window.location.replace('/rep/offline/');
             }
         };
 
@@ -169,7 +169,7 @@ function RepLayoutInner({ children }: { children: React.ReactNode }) {
                 <p className="text-muted-foreground mb-6">It's taking longer than expected to load your profile. Please try logging in again.</p>
                 <Button onClick={() => {
                     auth?.signOut();
-                    window.location.href = '/login';
+                    window.location.href = '/login/';
                 }}>
                     Login Again
                 </Button>

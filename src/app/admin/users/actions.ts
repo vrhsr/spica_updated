@@ -17,6 +17,37 @@ const INVITE_APP_NAME = 'invite-mailer';
 
 type Role = 'admin' | 'manager' | 'rep';
 
+/**
+ * Firebase Auth requires phone numbers in strict E.164 (a leading '+' then
+ * digits only) — the Add/Edit User form's input field allows spaces (and
+ * even prefills "+91 " with a trailing one), so anything typed after it went
+ * to Firebase un-normalized. A space in there makes the whole call throw
+ * `auth/invalid-phone-number`, which — being an unanticipated error rather
+ * than an explicit `throw new Error(...)` — Next.js redacts to a generic
+ * "omitted in production" message client-side, with no hint of the real
+ * cause. Stripping whitespace here fixes it for every caller, not just one
+ * dialog's input handler.
+ */
+function normalizePhone(phone: string): string {
+  return phone.replace(/\s+/g, '');
+}
+
+/** Turns a raw Firebase Admin Auth error into a message worth showing a user. */
+function friendlyAuthError(error: any): Error {
+  switch (error?.code) {
+    case 'auth/email-already-exists':
+      return new Error('An account with this email already exists — it may have been created by someone signing in with Google before being invited.');
+    case 'auth/invalid-phone-number':
+      return new Error('That phone number is not valid. Enter it as +<country code><number>, digits only (e.g. +919876543210).');
+    case 'auth/phone-number-already-exists':
+      return new Error('Another account already uses this phone number.');
+    case 'auth/invalid-email':
+      return new Error('That email address is not valid.');
+    default:
+      return error instanceof Error ? error : new Error('An unexpected error occurred. Please try again.');
+  }
+}
+
 interface Caller {
   uid: string;
   email: string;
@@ -110,14 +141,19 @@ export const createUser = async (input: z.infer<typeof CreateUserInputSchema>) =
   }
 
   // 1. Create the user in Firebase Auth with a throwaway password nobody ever sees.
-  const userRecord = await adminAuth.createUser({
-    email,
-    emailVerified: true,
-    password: generateThrowawayPassword(),
-    displayName: name,
-    phoneNumber: phone,
-    disabled: false,
-  });
+  let userRecord;
+  try {
+    userRecord = await adminAuth.createUser({
+      email,
+      emailVerified: true,
+      password: generateThrowawayPassword(),
+      displayName: name,
+      phoneNumber: normalizePhone(phone),
+      disabled: false,
+    });
+  } catch (error: any) {
+    throw friendlyAuthError(error);
+  }
 
   // 2. Set custom claims for the user (role and city)
   const claims = {
@@ -315,11 +351,15 @@ export const updateUserDetails = async (input: z.infer<typeof UpdateUserDetailsS
   }
 
   // Update Firebase Auth
-  await adminAuth.updateUser(uid, {
-    displayName: name,
-    email: email,
-    phoneNumber: phone || null,
-  });
+  try {
+    await adminAuth.updateUser(uid, {
+      displayName: name,
+      email: email,
+      phoneNumber: phone ? normalizePhone(phone) : null,
+    });
+  } catch (error: any) {
+    throw friendlyAuthError(error);
+  }
 
   // Update Firestore
   await adminFirestore.collection('users').doc(uid).update({
