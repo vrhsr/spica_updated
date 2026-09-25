@@ -49,7 +49,14 @@ export function ForgotPasswordDialog({ open, onOpenChange }: ForgotPasswordDialo
     
     setIsSubmitting(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      // Lands the emailed link on our own branded /auth/action page instead
+      // of Firebase's bare default UI, once the Firebase Console's
+      // "Customize action URL" is pointed there — see CLAUDE.md's "User
+      // management" section.
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: true,
+      });
       toast({
         title: 'Password Reset Email Sent',
         description: `If an account exists for ${email}, an email has been sent with instructions to reset your password.`,

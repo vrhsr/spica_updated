@@ -90,9 +90,15 @@ function generateThrowawayPassword(): string {
 /**
  * Sends a "set your password" email to a newly-created (or re-invited) user,
  * via Firebase Auth's own hosted email delivery — no separate email service
- * needed. The link lands on our own /accept-invite page (handleCodeInApp),
- * where the user sets their password directly instead of an admin ever
- * seeing or relaying it.
+ * needed. `url`/`handleCodeInApp` here don't make a browser skip Firebase's
+ * own hosted action page by themselves (that flag is a mobile-app deep-link
+ * mechanism) — but this `url` is what shows up as `continueUrl` on
+ * whichever page the click *does* land on, which `/auth/action` reads to
+ * show invite-specific copy and run `markInviteAccepted`. The click only
+ * lands directly on our own page once the Firebase Console's "Customize
+ * action URL" is set — see CLAUDE.md's "User management" section — after
+ * which the user sets their password there instead of an admin ever seeing
+ * or relaying it.
  */
 async function sendInviteEmail(email: string): Promise<boolean> {
   try {

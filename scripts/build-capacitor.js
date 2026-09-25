@@ -48,6 +48,11 @@ const FOLDERS_TO_MOVE = [
     // tap on that link opens fine in any regular browser, and this app
     // isn't registered as the default handler for it.
     { src: path.join(PROJECT_ROOT, 'src', 'app', 'accept-invite'), backup: path.join(BACKUP_ROOT, 'app-accept-invite') },
+    // Same reasoning as accept-invite above: also imports markInviteAccepted
+    // (Admin SDK). This is the unified Firebase email-action landing page
+    // (password reset / invite) — always reached via an emailed link, so
+    // being absent from the offline bundle is fine.
+    { src: path.join(PROJECT_ROOT, 'src', 'app', 'auth'), backup: path.join(BACKUP_ROOT, 'app-auth') },
     // Server actions (Firebase Admin - server-side only)
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'actions'), backup: path.join(BACKUP_ROOT, 'lib-actions') },
     { src: path.join(PROJECT_ROOT, 'src', 'lib', 'firebaseAdmin.ts'), backup: path.join(BACKUP_ROOT, 'lib-firebaseAdmin.ts') },

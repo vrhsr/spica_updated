@@ -97,7 +97,7 @@ it just needed `server.url` gone to ever actually run.
 
 - **`npm run build:capacitor`** (`scripts/build-capacitor.js`) produces this
   bundle: it temporarily **moves** everything server-only out of `src/`
-  (`app/admin`, `app/admin-login`, `app/api`, `app/accept-invite`,
+  (`app/admin`, `app/admin-login`, `app/api`, `app/accept-invite`, `app/auth`,
   `lib/actions`, `lib/firebaseAdmin.ts`, `lib/supabase.ts` — none of these
   can exist in a static export; the admin section needs the Admin SDK,
   which can never ship inside a client APK), runs `next build` with
@@ -123,11 +123,13 @@ it just needed `server.url` gone to ever actually run.
   automatically before the Gradle build, specifically so this local bundle
   can't silently go stale on a release (same class of drift risk as the
   Firestore-rules-deploy gotcha further down).
-- **`accept-invite`** (first-time password setup) is also excluded from the
-  bundle — it imports `markInviteAccepted` from `admin/users/actions.ts`
-  (Admin SDK). Inherently one-time/online-only anyway (reached via an
-  emailed link); opening that link in a regular browser still works fine,
-  it just won't resolve from inside the app specifically.
+- **`accept-invite` and `auth/action`** (first-time password setup / the
+  unified Firebase email-action landing page — see "User management" below)
+  are also excluded from the bundle — both import `markInviteAccepted` from
+  `admin/users/actions.ts` (Admin SDK). Inherently one-time/online-only
+  anyway (reached via an emailed link); opening that link in a regular
+  browser still works fine, it just won't resolve from inside the app
+  specifically.
 
 ### Admin/manager: native login, then a token handoff to the live site
 The rep flow above is fully local and self-contained. Admin/manager can't
@@ -300,6 +302,34 @@ see the Gotchas section.
   `/accept-invite` (`src/app/accept-invite/page.tsx`), where they set their
   own password. No temp password is ever generated, stored, or shown to an
   admin.
+- **Every `sendPasswordResetEmail` call site is on-brand, not Firebase's bare
+  default UI** — `sendInviteEmail` (`admin/users/actions.ts`),
+  `PasswordResetDialog.tsx` (self-service "change my password"), and
+  `ForgotPasswordDialog.tsx` (`/login`'s "forgot password") all pass
+  `actionCodeSettings`. **Important nuance**: `handleCodeInApp: true` does
+  **not** make a plain web browser skip Firebase's own hosted
+  `.firebaseapp.com/__/auth/action` page — that flag is a mobile-app
+  deep-link mechanism; in a browser the emailed link always opens Firebase's
+  own page first, with `continueUrl` just carried along as a query param.
+  The only way to make the *initial* click land on our own branded page is
+  the Firebase Console's per-template **"Customize action URL"** setting
+  (Authentication → Templates → pencil icon → Password reset → set to
+  `https://spicasg.in/auth/action`) — a manual, one-time Console step, not
+  something settable from code/Admin SDK. `src/app/auth/action/page.tsx` is
+  the unified landing page all of those links should resolve to once that's
+  set: same premium visual system as `/accept-invite`
+  (`bg-brand-gradient`/`shadow-2xl` card/`font-headline`), and it reads the
+  passed-through `continueUrl` to tell an invite apart from a generic reset
+  (`continueUrl` containing `/accept-invite` ⇒ invite copy + calls
+  `markInviteAccepted`; anything else ⇒ plain "Reset your password"). Since
+  Firebase only allows **one** action URL per template — not one per
+  `continueUrl` — this single route has to serve every flow;
+  `/accept-invite` itself is left in place unchanged as a working fallback
+  (e.g. for an invite link sent before the Console setting existed). The
+  actual **email body/subject design** is Console-only too (Authentication →
+  Templates → edit template) — there's no Admin SDK/API for it on a
+  non-Identity-Platform project, so any visual polish there has to be pasted
+  into that editor by hand.
 - **Roles**: `'admin' | 'manager' | 'rep'`.
   - `admin` — exactly **one** account, forever:
     `mvrhsr@gmail.com` (`KING_ADMIN_EMAIL` in
