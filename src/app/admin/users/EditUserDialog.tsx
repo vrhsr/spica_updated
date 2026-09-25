@@ -87,13 +87,14 @@ export function EditUserDialog({
       try {
         const idToken = await viewer.getIdToken();
 
-        await updateUserDetails({
+        const detailsResult = await updateUserDetails({
           uid: user.uid,
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim() || undefined,
           idToken,
         });
+        if ('error' in detailsResult) throw new Error(detailsResult.error);
 
         if (role !== user.role) {
           await setUserRole(user.uid, role, idToken);

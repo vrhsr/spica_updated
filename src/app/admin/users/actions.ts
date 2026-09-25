@@ -119,7 +119,24 @@ const CreateUserInputSchema = z.object({
   idToken: z.string().min(1, 'Not authenticated'),
 });
 
-export const createUser = async (input: z.infer<typeof CreateUserInputSchema>) => {
+/**
+ * Errors are RETURNED, not thrown: in production Next.js replaces the message
+ * of anything a server action throws with a generic "omitted in production
+ * builds" text, so the admin never saw why an invite failed (bad phone
+ * number, email already registered...). A returned value passes through
+ * untouched.
+ */
+export const createUser = async (
+  input: z.infer<typeof CreateUserInputSchema>
+): Promise<{ uid: string; inviteEmailSent: boolean } | { error: string }> => {
+  try {
+    return await createUserImpl(input);
+  } catch (error: any) {
+    return { error: error?.message || 'Could not create the user. Please try again.' };
+  }
+};
+
+const createUserImpl = async (input: z.infer<typeof CreateUserInputSchema>) => {
   const validation = CreateUserInputSchema.safeParse(input);
   if (!validation.success) {
     throw new Error(`Invalid input: ${JSON.stringify(validation.error.flatten().fieldErrors)}`);
@@ -329,7 +346,18 @@ const UpdateUserDetailsSchema = z.object({
   idToken: z.string().min(1, 'Not authenticated'),
 });
 
-export const updateUserDetails = async (input: z.infer<typeof UpdateUserDetailsSchema>) => {
+// Returns errors instead of throwing — see createUser for why.
+export const updateUserDetails = async (
+  input: z.infer<typeof UpdateUserDetailsSchema>
+): Promise<{ success: true } | { error: string }> => {
+  try {
+    return await updateUserDetailsImpl(input);
+  } catch (error: any) {
+    return { error: error?.message || 'Could not update the user. Please try again.' };
+  }
+};
+
+const updateUserDetailsImpl = async (input: z.infer<typeof UpdateUserDetailsSchema>): Promise<{ success: true }> => {
   const validation = UpdateUserDetailsSchema.safeParse(input);
   if (!validation.success) {
     throw new Error(`Invalid input: ${JSON.stringify(validation.error.flatten().fieldErrors)}`);

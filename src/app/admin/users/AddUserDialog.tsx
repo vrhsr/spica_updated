@@ -94,6 +94,16 @@ export function AddUserDialog({ cities, isLoadingCities, defaultCity, onUserAdde
         })
         return;
     }
+    const phoneDigits = phone.replace(/\s+/g, '');
+    const phoneProblem = !/^\+[1-9]\d{7,14}$/.test(phoneDigits)
+      ? 'Enter the number with its country code, e.g. +91 98765 43210.'
+      : phoneDigits.startsWith('+91') && phoneDigits.length !== 13
+        ? `Indian mobile numbers have 10 digits after +91 — this one has ${phoneDigits.length - 3}.`
+        : null;
+    if (phoneProblem) {
+      toast({ variant: 'destructive', title: 'Check the phone number', description: phoneProblem });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const idToken = await adminUser.getIdToken();
@@ -105,6 +115,7 @@ export function AddUserDialog({ cities, isLoadingCities, defaultCity, onUserAdde
         role,
         idToken,
       });
+      if ('error' in result) throw new Error(result.error);
 
       const roleName = role === 'manager' ? 'Project Manager' : 'Representative';
 
