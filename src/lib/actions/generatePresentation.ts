@@ -4,7 +4,7 @@
 
 import { z } from 'zod';
 import { adminAuth, adminFirestore } from '@/lib/firebaseAdmin';
-import { allSlides } from '@/lib/slides';
+import { mergeSlides, sortSlides, FIRST_SLIDE_NUMBER, THANK_YOU_SLIDE_NUMBER, type Slide } from '@/lib/slides';
 import { Timestamp } from 'firebase-admin/firestore';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -122,6 +122,18 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
             throw new Error('No slides were selected for the presentation.');
         }
 
+        // The first and Thank You slides are mandatory in every presentation, even if a
+        // request/record somehow omitted them; de-dupe in case a number was repeated.
+        const wantedNumbers = new Set<number>([FIRST_SLIDE_NUMBER, ...selectedSlides, THANK_YOU_SLIDE_NUMBER]);
+
+        // Built-in slides + any added later from the Slides Library (Firestore 'slides').
+        const customSnap = await adminFirestore.collection('slides').get();
+        const customSlides: Slide[] = customSnap.docs.map((d) => {
+            const data = d.data();
+            return { id: d.id, number: Number(data.number), url: String(data.url ?? ''), medicineName: String(data.medicineName ?? '') };
+        });
+        const librarySlides = mergeSlides(customSlides);
+
         // 0. Look up any existing presentation for this doctor, to know which file (if any) gets replaced
         const presentationsRef = adminFirestore.collection('presentations');
         const existingQuery = presentationsRef.where('doctorId', '==', doctorId);
@@ -134,7 +146,19 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
         const titleFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
 
         // 2. Add selected slides to the presentation
-        const slidesToAdd = allSlides.filter(slide => selectedSlides.includes(slide.number)).sort((a, b) => a.number - b.number);
+        // Thank You always last, even though library additions have bigger numbers.
+        const slidesToAdd = sortSlides(librarySlides.filter(slide => wantedNumbers.has(slide.number)));
+
+        // A slide deleted from the library after being selected is skipped rather than failing
+        // the whole presentation — but a presentation with nothing left to show is an error.
+        const foundNumbers = new Set(slidesToAdd.map(s => s.number));
+        const missing = [...wantedNumbers].filter(n => !foundNumbers.has(n));
+        if (missing.length > 0) {
+            console.warn(`[generateAndUpsertPresentation] Skipping slide(s) no longer in the library: ${missing.join(', ')}`);
+        }
+        if (slidesToAdd.length === 0) {
+            throw new Error('None of the selected slides exist in the slide library any more.');
+        }
 
         for (const slide of slidesToAdd) {
             let imgBytes;
@@ -170,16 +194,16 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
                 imgBytes = await response.arrayBuffer();
             } catch (finalError: any) {
                 console.error(`Failed to fetch image for slide ${slide.number} from ${slide.url}`, finalError);
-                throw new Error(`Could not download image for slide number ${slide.number}. URL may be invalid or blocked. Original error: ${finalError.message}`);
+                throw new Error(`Could not download image for slide number ${slide.number} (${slide.medicineName}). URL may be invalid or blocked. Original error: ${finalError.message}`);
             }
 
             let img;
             try {
-                if (slide.url.toLowerCase().endsWith('.png')) {
-                    img = await pdfDoc.embedPng(imgBytes);
-                } else {
-                    img = await pdfDoc.embedJpg(imgBytes);
-                }
+                // Decide by the file's real signature, not its extension — an image saved
+                // under the wrong extension would otherwise fail to embed.
+                const head = new Uint8Array(imgBytes.slice(0, 4));
+                const isPng = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+                img = isPng ? await pdfDoc.embedPng(imgBytes) : await pdfDoc.embedJpg(imgBytes);
             } catch (embedError: any) {
                 console.error(`Failed to embed image for slide ${slide.number}. It might be corrupted or in an unsupported format.`, embedError);
                 throw new Error(`Could not process image for slide number ${slide.number}. Check if the file is a valid JPG/PNG. Original error: ${embedError.message}`);
@@ -198,7 +222,7 @@ export const generateAndUpsertPresentation = async (input: PdfGenerationInput): 
             // blue branding bar under the SPICA SG logo, matching the title's serif/dark
             // styling. Bar coordinates measured directly from the artwork (spans roughly
             // y 45-120 in PDF space, full width) so this tracks the actual image, not a guess.
-            if (slide.number === 34) {
+            if (slide.number === THANK_YOU_SLIDE_NUMBER) {
                 const NAME_BOX_LEFT = 70;
                 const NAME_BOX_RIGHT = 1150;
                 const NAME_BOX_WIDTH = NAME_BOX_RIGHT - NAME_BOX_LEFT;

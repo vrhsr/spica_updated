@@ -8,7 +8,8 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
-import { allSlides } from '@/lib/slides';
+import { sortSlides } from '@/lib/slides';
+import { useAllSlides } from '@/hooks/useAllSlides';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +27,9 @@ export function SlidePreviewDialog({
     slideNumbers,
     doctorName
 }: SlidePreviewDialogProps) {
-    // Filter and sort slides numerically (ascending) so Thank You slide always appears last
-    const selectedSlides = allSlides
-        .filter(slide => slideNumbers.includes(slide.number))
-        .sort((a, b) => a.number - b.number);
+    const { slides: librarySlides } = useAllSlides();
+    // Thank You slide always appears last, even though library additions have bigger numbers.
+    const selectedSlides = sortSlides(librarySlides.filter(slide => slideNumbers.includes(slide.number)));
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,6 +54,8 @@ export function SlidePreviewDialog({
                                         fill
                                         className="object-contain"
                                         sizes="(max-width: 768px) 100vw, 50vw"
+                                        // Slides added from the library live on R2, not a host next/image is configured for.
+                                        unoptimized={!slide.url.includes('res.cloudinary.com')}
                                     />
                                 </div>
                                 <div className="p-3 flex items-center justify-between">

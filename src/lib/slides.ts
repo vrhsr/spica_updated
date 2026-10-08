@@ -45,3 +45,27 @@ export const allSlides: Slide[] = [
   { id: 'slide-33', number: 33, url: 'https://res.cloudinary.com/daxtfjb3u/image/upload/v1719586111/35_VITAGLAD_eyeixy.jpg', medicineName: 'VITAGLAD' },
   { id: 'slide-34', number: 34, url: 'https://res.cloudinary.com/daxtfjb3u/image/upload/v1788438146/thank_you_slide_zkkokj.png', medicineName: 'Thank You' },
 ];
+
+/** Slide 1 and the Thank You slide are mandatory in every presentation. */
+export const FIRST_SLIDE_NUMBER = 1;
+export const THANK_YOU_SLIDE_NUMBER = 34;
+/** Slides added later from the Slides Library are numbered from here, so they never collide with the fixed 1-34 set. */
+export const CUSTOM_SLIDE_START = 100;
+
+/**
+ * Presentation order: ascending by number, except the Thank You slide which is
+ * always last — even though newly added slides have bigger numbers than it.
+ */
+export function sortSlides<T extends { number: number }>(slides: T[]): T[] {
+  const rank = (n: number) => (n === THANK_YOU_SLIDE_NUMBER ? Number.POSITIVE_INFINITY : n);
+  return [...slides].sort((a, b) => rank(a.number) - rank(b.number));
+}
+
+/** Built-in slides plus library additions; a custom entry can never shadow a built-in number. */
+export function mergeSlides(custom: Slide[]): Slide[] {
+  const taken = new Set(allSlides.map((s) => s.number));
+  const extra = custom.filter(
+    (s) => Number.isFinite(s.number) && !taken.has(s.number) && typeof s.url === 'string' && s.url && s.medicineName
+  );
+  return sortSlides([...allSlides, ...extra]);
+}

@@ -11,7 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { allSlides } from '@/lib/slides';
+import { FIRST_SLIDE_NUMBER, THANK_YOU_SLIDE_NUMBER } from '@/lib/slides';
+import { useAllSlides } from '@/hooks/useAllSlides';
 import { Loader } from 'lucide-react';
 
 // Common Doctor type for slide editing
@@ -33,13 +34,16 @@ export function EditSlidesForm({
     isSaving?: boolean;
     showCityEdit?: boolean;
 }) {
-    const firstSlideNumber = 1;
-    const lastSlideNumber = 34;
+    const firstSlideNumber = FIRST_SLIDE_NUMBER;
+    const lastSlideNumber = THANK_YOU_SLIDE_NUMBER;
+    // Built-in slides + ones added in Admin -> Slides Library (live).
+    const { slides: allSlides, isLoaded: isLibraryLoaded } = useAllSlides();
 
     const getDefaultSlides = () => {
         // If we are editing a doctor that already has slides, use those.
         if (doctor.selectedSlides && doctor.selectedSlides.length > 0) {
-            return doctor.selectedSlides;
+            // Always keep the mandatory first/last slides, even on older records that lack one.
+            return Array.from(new Set([firstSlideNumber, ...doctor.selectedSlides, lastSlideNumber]));
         }
         // Otherwise, for a new doctor, default to the first and last slides.
         return [firstSlideNumber, lastSlideNumber];
@@ -169,7 +173,13 @@ export function EditSlidesForm({
                     <Button variant="outline" disabled={isSaving} className="h-12 flex-1 text-sm font-semibold sm:flex-none">Cancel</Button>
                 </DialogClose>
                 <Button
-                    onClick={() => onSave(selectedSlides, showCityEdit ? editedCity : undefined)}
+                    onClick={() => {
+                        // Drop slides that were deleted from the library — but only once the library has
+                        // actually loaded, or a library slide would look "missing" and be lost.
+                        const known = new Set(allSlides.map((s) => s.number));
+                        const toSave = isLibraryLoaded ? selectedSlides.filter((n) => known.has(n)) : selectedSlides;
+                        onSave(toSave, showCityEdit ? editedCity : undefined);
+                    }}
                     disabled={selectedSlides.length === 0 || isSaving || (showCityEdit && !editedCity.trim())}
                     className="h-12 flex-1 text-sm font-semibold sm:flex-none"
                 >
