@@ -118,13 +118,13 @@ export function DoctorForm({
 
   const handleSave = () => {
     if (name && district) {
-      const trimmed = name.trim().replace(/^Dr\.\s*/, '');
-      const finalName = isDoctor ? `Dr. ${trimmed}` : trimmed;
+      const trimmed = name.trim().replace(/\s+/g, ' ');
+      const finalName = isDoctor ? `Dr. ${trimmed.replace(/^Dr\.\s*/i, '')}` : trimmed;
       onSave({ name: finalName, city: district, subCity });
     }
   };
 
-  const canProceed = !!name && !!district;
+  const canProceed = !!name.trim().replace(/^Dr\.\s*/i, '') && !!district;
 
   return (
     <>

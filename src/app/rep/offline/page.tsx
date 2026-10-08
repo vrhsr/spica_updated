@@ -1,5 +1,6 @@
 'use client';
 
+import { compareByName } from '@/lib/utils';
 import React, { useEffect, useState } from 'react';
 import { listOfflinePresentations, formatBytes } from '@/lib/offline-storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -47,9 +48,9 @@ export default function OfflineDashboardPage() {
         load();
     }, [isReady]);
 
-    const filtered = presentations.filter(p =>
-        p.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = presentations
+        .filter(p => p.doctorName.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => compareByName(a.doctorName, b.doctorName));
 
     return (
         <div className="space-y-6">

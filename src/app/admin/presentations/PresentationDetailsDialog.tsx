@@ -48,7 +48,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function PresentationDetailsDialog({ presentation, request, userNames, onClose }: Props) {
-  const nameOf = (uid?: string) => (uid ? userNames.get(uid) || 'Unknown user' : '—');
+  // A manager's user list only contains reps, so admin/manager names can be missing; a removed rep is missing too.
+  const nameOf = (uid?: string) => (uid ? userNames.get(uid) || 'Not available (account removed or not visible to you)' : '—');
   const slides = presentation?.doctorSlides ?? [];
 
   return (

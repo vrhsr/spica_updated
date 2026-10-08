@@ -160,7 +160,7 @@ export async function DELETE(request: NextRequest) {
   if (adminUid instanceof NextResponse) return adminUid;
 
   const id = request.nextUrl.searchParams.get('id') ?? '';
-  if (!/^slide-\d+$/.test(id)) return json({ error: 'Invalid slide.' }, 400);
+  if (!/^slide-\d{3,}$/.test(id)) return json({ error: 'Invalid slide.' }, 400);
 
   const ref = adminFirestore.collection('slides').doc(id);
   const snap = await ref.get();
