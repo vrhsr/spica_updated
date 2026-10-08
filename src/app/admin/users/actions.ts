@@ -484,6 +484,18 @@ export const listAllUsers = async (idToken: string): Promise<AdminUserSummary[]>
       const firestoreDoc = firestoreSnapshots[index];
       const firestoreData = firestoreDoc.exists ? firestoreDoc.data() : {};
 
+      // The flag is only flipped by best-effort client bookkeeping on the
+      // set-password page, which can silently fail (or never run, if the
+      // invitee reset their password another way). A real sign-in is proof
+      // the invite was used, so trust that too and self-heal the flag.
+      // Undefined flag = account predates invite tracking — treat as accepted.
+      const { creationTime, lastSignInTime } = userRecord.metadata;
+      const hasSignedIn = !!lastSignInTime && lastSignInTime !== creationTime;
+      const inviteAccepted = firestoreData?.inviteAccepted !== false || hasSignedIn;
+      if (firestoreDoc.exists && firestoreData?.inviteAccepted === false && hasSignedIn) {
+        firestoreDoc.ref.update({ inviteAccepted: true }).catch(() => {});
+      }
+
       users.push({
         uid: userRecord.uid,
         email: userRecord.email,
@@ -494,8 +506,7 @@ export const listAllUsers = async (idToken: string): Promise<AdminUserSummary[]>
         creationTime: userRecord.metadata.creationTime,
         createdBy: firestoreData?.createdBy, // Include createdBy from Firestore
         disabled: userRecord.disabled, // Returns true if the user is suspended
-        // Undefined means this account predates invite tracking — treat as accepted.
-        inviteAccepted: firestoreData?.inviteAccepted !== false,
+        inviteAccepted,
       });
     });
 

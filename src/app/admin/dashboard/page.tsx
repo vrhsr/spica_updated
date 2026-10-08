@@ -103,15 +103,19 @@ function SectionCard({
   title,
   subtitle,
   action,
+  className,
+  bodyClassName,
   children,
 }: {
   title: string;
   subtitle?: string;
   action?: { label: string; href: string };
+  className?: string;
+  bodyClassName?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Card className="overflow-hidden rounded-2xl shadow-sm">
+    <Card className={cn('overflow-hidden rounded-2xl shadow-sm', className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b bg-muted/30 px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <CardTitle className="text-base">{title}</CardTitle>
@@ -126,7 +130,7 @@ function SectionCard({
           </Link>
         )}
       </CardHeader>
-      <CardContent className="p-0">{children}</CardContent>
+      <CardContent className={cn('p-0', bodyClassName)}>{children}</CardContent>
     </Card>
   );
 }
@@ -220,7 +224,7 @@ export default function AdminDashboardPage() {
 
     return [...presentationActivities, ...requestActivities, ...userActivities]
       .sort((a, b) => b.time.getTime() - a.time.getTime())
-      .slice(0, 6);
+      .slice(0, 30);
   }, [presentations, requests, allUsers, userMap, doctorMap, isManager]);
 
   const pendingRequestsList = useMemo(
@@ -528,8 +532,13 @@ export default function AdminDashboardPage() {
           </SectionCard>
         </div>
 
-        <div className="lg:col-span-2">
-          <SectionCard title="Recent activity">
+        {/* On desktop the card is pinned to the height of the district card beside it (absolute fill), and its list scrolls. */}
+        <div className="lg:relative lg:col-span-2 lg:min-h-[24rem]">
+          <SectionCard
+            title="Recent activity"
+            className="flex max-h-[28rem] flex-col lg:absolute lg:inset-0 lg:max-h-none"
+            bodyClassName="min-h-0 flex-1 overflow-y-auto"
+          >
             {recentActivity.length > 0 ? (
               <ol className="relative px-4 py-4 sm:px-5">
                 {recentActivity.map((a, i) => {

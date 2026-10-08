@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { compareByName } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -111,7 +112,7 @@ export default function RepDoctorsPage() {
         doctorName: doctorsMap.get(p.doctorId)?.name || 'Unknown Doctor',
         doctorSubCity: doctorsMap.get(p.doctorId)?.subCity,
       }))
-      .sort((a, b) => b.updatedAt.toDate().getTime() - a.updatedAt.toDate().getTime());
+      .sort((a, b) => compareByName(a.doctorName, b.doctorName));
 
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();

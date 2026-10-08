@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Doctor, CreateDoctorInput } from '@/types';
 import { collection, query, where, addDoc } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase } from '@/firebase';
@@ -51,6 +52,8 @@ export function DoctorForm({
   // `city` here = district name (for backwards compat with Firestore queries)
   const [district, setDistrict] = React.useState(doctor?.city || defaultCity || '');
   const [subCity, setSubCity] = React.useState(doctor?.subCity || '');
+  // New entries default to a doctor ("Dr." prefix); untick for a free-named presentation.
+  const [isDoctor, setIsDoctor] = React.useState(doctor?.name ? /^Dr\.\s*/.test(doctor.name) : true);
 
   // Inline city adding state
   const [showInlineCityAdd, setShowInlineCityAdd] = React.useState(false);
@@ -115,7 +118,8 @@ export function DoctorForm({
 
   const handleSave = () => {
     if (name && district) {
-      const finalName = name.trim().startsWith('Dr.') ? name.trim() : `Dr. ${name.trim()}`;
+      const trimmed = name.trim().replace(/^Dr\.\s*/, '');
+      const finalName = isDoctor ? `Dr. ${trimmed}` : trimmed;
       onSave({ name: finalName, city: district, subCity });
     }
   };
@@ -144,6 +148,17 @@ export function DoctorForm({
             onChange={(e) => setName(e.target.value)}
             disabled={isSaving}
           />
+          <div className="mt-2 flex items-center gap-2">
+            <Checkbox
+              id="is-doctor"
+              checked={isDoctor}
+              onCheckedChange={(v) => setIsDoctor(v === true)}
+              disabled={isSaving}
+            />
+            <Label htmlFor="is-doctor" className="text-xs font-normal text-muted-foreground">
+              This is a doctor (adds the &quot;Dr.&quot; prefix). Untick to use the name exactly as typed.
+            </Label>
+          </div>
         </div>
 
         {/* District */}

@@ -44,6 +44,10 @@ type Request = {
   selectedSlides: number[];
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
+  // Stamped when an admin/manager approves or rejects the request.
+  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedAt?: Timestamp;
 };
 
 type Doctor = { name: string; city: string; selectedSlides: number[] };
@@ -127,6 +131,11 @@ export default function AdminRequestsPage() {
     startTransition(async () => {
       try {
         const requestRef = doc(firestore, 'requests', request.id);
+        const reviewStamp = {
+          reviewedBy: adminUser.uid,
+          reviewedByName: adminUser.displayName || adminUser.email || 'Admin',
+          reviewedAt: Timestamp.now(),
+        };
 
         if (request.requestType === 'New Doctor') {
           // Logic for approving a NEW doctor
@@ -165,7 +174,7 @@ export default function AdminRequestsPage() {
           // if generation fails the doctor still exists, and a request left
           // "pending" invites a second approval that would duplicate it.
           // Generation failures show on the Presentations page instead.
-          await updateDoc(requestRef, { status: 'approved', selectedSlides: request.selectedSlides, doctorId: newDoctorRef.id });
+          await updateDoc(requestRef, { status: 'approved', selectedSlides: request.selectedSlides, doctorId: newDoctorRef.id, ...reviewStamp });
 
           // 3. Auto-create the city in districts_cities if it doesn't already exist
           const citiesRef = collection(firestore, 'districts_cities');
@@ -204,7 +213,7 @@ export default function AdminRequestsPage() {
           batch.update(doctorRef, { selectedSlides: request.selectedSlides });
 
           // 2. Mark the request as 'approved' and persist final slide selection
-          batch.update(requestRef, { status: 'approved', selectedSlides: request.selectedSlides });
+          batch.update(requestRef, { status: 'approved', selectedSlides: request.selectedSlides, ...reviewStamp });
 
           // Commit the batch write
           await batch.commit();
@@ -249,12 +258,17 @@ export default function AdminRequestsPage() {
   }
 
   const handleRejectRequest = (requestId: string) => {
-    if (!firestore) return;
+    if (!firestore || !adminUser) return;
     setSubmittingId(requestId);
     startTransition(async () => {
       try {
         const requestRef = doc(firestore, 'requests', requestId);
-        await updateDoc(requestRef, { status: 'rejected' });
+        await updateDoc(requestRef, {
+          status: 'rejected',
+          reviewedBy: adminUser.uid,
+          reviewedByName: adminUser.displayName || adminUser.email || 'Admin',
+          reviewedAt: Timestamp.now(),
+        });
 
         toast({
           title: "Request Rejected",
@@ -350,7 +364,7 @@ export default function AdminRequestsPage() {
           ) : (
             <>
               {/* Desktop Table View */}
-                <div className="hidden lg:block overflow-x-auto bg-card rounded-xl border shadow-sm max-w-[calc(100vw-3rem)] md:max-w-full">
+                <div className="hidden lg:block w-full min-w-0 overflow-x-auto bg-card rounded-xl border shadow-sm">
                   <Table>
                     <TableHeader>
                       <TableRow>

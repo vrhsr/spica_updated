@@ -304,7 +304,7 @@ export default function AdminLayout({
           </DropdownMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="bg-secondary/50">
+      <SidebarInset className="bg-secondary/50 min-w-0">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm lg:px-6" style={{ paddingTop: 'max(env(safe-area-inset-top), var(--android-inset-top, 0px))', minHeight: 'calc(3.5rem + max(env(safe-area-inset-top), var(--android-inset-top, 0px)))' }}>
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger className="lg:hidden" />

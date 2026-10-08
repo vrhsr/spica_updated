@@ -19,12 +19,13 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit, PlusCircle, Trash2, Clock, Check, Copy } from 'lucide-react';
+import { Download, Search, Loader, FileQuestion, RefreshCcw, MoreHorizontal, Eye, ChevronsUpDown, X, ShieldQuestion, Edit, PlusCircle, Trash2, Clock, Check, Copy, Info } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useCollection, WithId } from '@/firebase/firestore/use-collection';
 import { useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, doc, updateDoc, Timestamp, getDocs, where, addDoc, deleteDoc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
+import { compareByName } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -33,6 +34,9 @@ import { generateAndUpsertPresentation } from '@/lib/actions/generatePresentatio
 import { Doctor, CreateDoctorInput, Presentation, EnrichedPresentation } from '@/types';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import useSWR from 'swr';
+import { listAllUsers } from '../users/actions';
+import { PresentationDetailsDialog, type PresentationSourceRequest } from './PresentationDetailsDialog';
 import { AdminPdfViewer } from '@/components/AdminPdfViewer';
 import { AddDoctorDialog, EditSlidesForm } from '../doctors/AddDoctorDialog';
 import {
@@ -63,6 +67,7 @@ function PresentationsComponent() {
   const [presentationToDelete, setPresentationToDelete] = useState<EnrichedPresentation | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewPresentation, setViewPresentation] = useState<EnrichedPresentation | null>(null);
+  const [detailsPresentation, setDetailsPresentation] = useState<EnrichedPresentation | null>(null);
 
   const handleCopyLink = async (url: string | undefined) => {
     if (!url) return;
@@ -101,6 +106,30 @@ function PresentationsComponent() {
 
   const { data: presentations, isLoading: isLoadingPresentations, error: presentationsError, forceRefetch } = useCollection<Presentation>(presentationsQuery);
   const { data: doctors, isLoading: isLoadingDoctors, forceRefetch: refetchDoctors } = useCollection<Doctor>(doctorsQuery);
+
+  // For the Details dialog: who requested/approved a presentation.
+  const requestsQuery = useMemoFirebase(() =>
+    (firestore && isAdmin) ? collection(firestore, 'requests') : null,
+    [firestore, isAdmin]
+  );
+  const { data: requests } = useCollection<Omit<PresentationSourceRequest, 'id' | 'requestType'> & { doctorId?: string; doctorName?: string; status: string }>(requestsQuery);
+  const { data: allUsers } = useSWR(
+    adminUser && isAdmin ? 'allUsers' : null,
+    async () => listAllUsers(await adminUser!.getIdToken())
+  );
+  const userNames = useMemo(
+    () => new Map((allUsers ?? []).map(u => [u.uid, u.displayName || u.email || 'Unknown user'])),
+    [allUsers]
+  );
+  // Latest approved request per doctor.
+  const approvedRequestByDoctor = useMemo(() => {
+    const map = new Map<string, PresentationSourceRequest>();
+    (requests ?? [])
+      .filter(r => r.status === 'approved' && r.doctorId)
+      .sort((a, b) => (a.reviewedAt ?? a.createdAt).toMillis() - (b.reviewedAt ?? b.createdAt).toMillis())
+      .forEach(r => map.set(r.doctorId!, { ...r, requestType: r.doctorName ? 'New Doctor' : 'Slide Change' }));
+    return map;
+  }, [requests]);
 
   const isLoading = isUserLoading || isLoadingPresentations || isLoadingDoctors;
   const isAnyFilterActive = !!searchTerm || !!cityFilter || !!statusFilter;
@@ -184,7 +213,7 @@ function PresentationsComponent() {
         (p.doctorDistrict && p.doctorDistrict.toLowerCase().includes(lowerSearch))
       );
     }
-    return enriched.sort((a, b) => b.updatedAt.toDate().getTime() - a.updatedAt.toDate().getTime());
+    return enriched.sort((a, b) => compareByName(a.doctorName, b.doctorName));
 
   }, [presentations, doctorsMap, searchTerm, statusFilter, cityFilter, generatingId]);
 
@@ -613,6 +642,9 @@ function PresentationsComponent() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => setDetailsPresentation(presentation)}>
+                                  <Info className="mr-2 h-4 w-4" /> Details
+                                </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => {
                                     if (presentation.pdfUrl) {
@@ -752,6 +784,10 @@ function PresentationsComponent() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => setDetailsPresentation(presentation)}>
+                                  <Info className="mr-2 h-4 w-4" />
+                                  Details
+                                </DropdownMenuItem>
                                 {presentation.status === 'ready' && (
                                   <DropdownMenuItem onClick={() => handleRegenerate(presentation)}>
                                     <RefreshCcw className="mr-2 h-4 w-4" />
@@ -800,6 +836,13 @@ function PresentationsComponent() {
           )}
         </CardContent>
       </Card>
+
+      <PresentationDetailsDialog
+        presentation={detailsPresentation}
+        request={detailsPresentation ? approvedRequestByDoctor.get(detailsPresentation.doctorId) ?? null : null}
+        userNames={userNames}
+        onClose={() => setDetailsPresentation(null)}
+      />
 
       {/* View PDF Dialog */}
       <Dialog open={!!viewPresentation} onOpenChange={(open) => !open && setViewPresentation(null)}>
