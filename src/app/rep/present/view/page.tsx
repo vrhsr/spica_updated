@@ -90,6 +90,24 @@ function PresentationViewerContent() {
         }
     }, []);
 
+    // Top bar + bottom controls float over the slide (they used to reserve
+    // their own padding, shrinking the slide to a small box inside black
+    // borders). They show briefly on entry and whenever the middle of the
+    // screen is tapped, then hide again so the slide gets the whole screen.
+    const [showControls, setShowControls] = useState(true);
+    const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const revealControls = useCallback(() => {
+        setShowControls(true);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = setTimeout(() => setShowControls(false), 3500);
+    }, []);
+    useEffect(() => {
+        revealControls();
+        return () => {
+            if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        };
+    }, [revealControls]);
+
     // Touch gesture handling
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
@@ -254,12 +272,20 @@ function PresentationViewerContent() {
             const viewport = page.getViewport({ scale: 1 });
             const scaleX = containerWidth / viewport.width;
             const scaleY = containerHeight / viewport.height;
-            const scale = Math.min(scaleX, scaleY) * 0.95;
+            // Largest size that fits the screen with the slide's own proportions kept
+            // (no stretching, nothing cropped). The bars/controls are overlays, so
+            // the whole screen is available to the slide.
+            const fitScale = Math.min(scaleX, scaleY);
 
-            const scaledViewport = page.getViewport({ scale });
+            // Backing store at device resolution so the slide stays sharp on high-DPI
+            // phone screens; CSS size stays the fitted size. Capped to bound memory.
+            const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+            const scaledViewport = page.getViewport({ scale: fitScale * dpr });
 
-            canvas.height = scaledViewport.height;
-            canvas.width = scaledViewport.width;
+            canvas.width = Math.floor(scaledViewport.width);
+            canvas.height = Math.floor(scaledViewport.height);
+            canvas.style.width = `${Math.floor(viewport.width * fitScale)}px`;
+            canvas.style.height = `${Math.floor(viewport.height * fitScale)}px`;
 
             const renderTask = page.render({
                 canvasContext: context,
@@ -403,6 +429,10 @@ function PresentationViewerContent() {
             goToPrevPage();
         } else if (clickX > (canvasWidth * 2) / 3) {
             goToNextPage();
+        } else if (showControls) {
+            setShowControls(false);
+        } else {
+            revealControls();
         }
     };
 
@@ -502,7 +532,9 @@ function PresentationViewerContent() {
             onTouchEnd={handleTouchEnd}
         >
             {/* Top Bar */}
-            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between bg-black/90 p-3">
+            <div
+                className={`absolute top-0 left-0 right-0 z-10 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-3 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+            >
                 <Button
                     variant="ghost"
                     size="sm"
@@ -528,20 +560,23 @@ function PresentationViewerContent() {
             </div>
 
             {/* PDF Canvas */}
-            <div className="flex-grow flex h-full w-full items-center justify-center px-2 pb-24 pt-20">
+            <div className="flex h-full w-full items-center justify-center">
                 <canvas
                     ref={canvasRef}
-                    className="max-w-full max-h-full object-contain cursor-pointer"
+                    className="block cursor-pointer"
                     onClick={handleCanvasClick}
                 />
             </div>
 
             {/* Bottom Control Bar */}
             <div
-                className="absolute left-0 right-0 z-10 flex items-center justify-center"
+                className={`absolute left-0 right-0 z-10 flex items-center justify-center transition-opacity duration-300 ${showControls ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
                 style={{ bottom: 'calc(max(env(safe-area-inset-bottom), var(--android-inset-bottom, 0px)) + 0.75rem)' }}
             >
-                <div className="flex items-center gap-3 rounded-full bg-black/50 p-2 shadow-lg backdrop-blur-sm border border-white/20 text-white">
+                <div
+                    className="flex items-center gap-3 rounded-full bg-black/50 p-2 shadow-lg backdrop-blur-sm border border-white/20 text-white"
+                    onClick={revealControls}
+                >
                     <Button
                         variant="ghost"
                         size="icon"
@@ -580,7 +615,7 @@ function PresentationViewerContent() {
             {currentPage === 1 && showNavTip && (
                 <div
                     onClick={() => setShowNavTip(false)}
-                    className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-black/70 rounded-lg px-6 py-3 text-white text-sm text-center max-w-md cursor-pointer"
+                    className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-black/70 rounded-lg px-6 py-3 text-white text-sm text-center max-w-md cursor-pointer"
                 >
                     <p className="font-semibold mb-1">Navigation Tips:</p>
                     <p className="text-xs">• Swipe left/right to change slides</p>
